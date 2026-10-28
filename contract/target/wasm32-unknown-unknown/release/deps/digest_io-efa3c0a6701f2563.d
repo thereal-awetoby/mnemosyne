@@ -1,0 +1,11 @@
+C:\Users\TOBY\Documents\mnemosyne\contract\target\wasm32-unknown-unknown\release\deps\digest_io-efa3c0a6701f2563.d: C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\lib.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\io_wrapper.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\reader.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\writer.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\../README.md
+
+C:\Users\TOBY\Documents\mnemosyne\contract\target\wasm32-unknown-unknown\release\deps\libdigest_io-efa3c0a6701f2563.rlib: C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\lib.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\io_wrapper.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\reader.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\writer.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\../README.md
+
+C:\Users\TOBY\Documents\mnemosyne\contract\target\wasm32-unknown-unknown\release\deps\libdigest_io-efa3c0a6701f2563.rmeta: C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\lib.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\io_wrapper.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\reader.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\writer.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\../README.md
+
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\lib.rs:
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\io_wrapper.rs:
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\reader.rs:
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\writer.rs:
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-io-0.1.0\src\../README.md:
