@@ -5,6 +5,53 @@ on top.
 
 ---
 
+## 2026-10-28 — Phase 2 (in progress): NEAR testnet accounts + memory contract
+
+**What was done:**
+
+- Created 4 NEAR testnet accounts via `near-cli-rs` (sponsor-by-faucet,
+  ed25519 keys saved to the Windows OS keychain, all currently
+  FullAccess — sub-agent keys get restricted to function-call keys
+  once the contract is live, per Phase 3):
+  - `mnemosyne-gov.testnet` — governor
+  - `mnemosyne-sub-a.testnet` — Sub-A (mean-reversion)
+  - `mnemosyne-sub-b.testnet` — Sub-B (inventory/liquidity)
+  - `mnemosyne-sub-c.testnet` — Sub-C (defensive reduce-only)
+- Wrote the on-chain memory contract: `contract/src/lib.rs`, one
+  `commit(hash, prev_hash)` call method (governor-only, chained against
+  the on-chain `latest_hash`, fails if `prev_hash` doesn't match) and
+  one `get_latest()` view method. Stores only the hash + prev hash +
+  count — no private reasoning ever touches the chain, per the plan's
+  confidential-execution rule.
+- **Toolchain note:** first attempt used `near-sdk-js` (TypeScript,
+  matching the rest of the repo), but its build step requires
+  compiling a QuickJS→Wasm binary that has no native Windows target —
+  `npm install` fails with "Platform win32 is not supported." Rather
+  than route the whole dev environment through WSL, switched the
+  contract (only the contract — `src/*.ts` cycle runner stays
+  TypeScript/Node as-is) to Rust via `near-sdk-rs` + `cargo-near`,
+  which ships a native Windows installer and builds without WSL.
+
+**What's intentionally fake / not done yet:**
+
+- Contract not yet deployed to `mnemosyne-gov.testnet` — `cargo-near`
+  install was still in progress as of this entry.
+- `src/memory.ts` still writes to the local `memory-log.json` file; it
+  has not yet been pointed at the real on-chain `commit` call. That's
+  the rest of Phase 2.
+- Sub-agent keys are still FullAccess, not function-call-restricted
+  (Phase 3, blocked on the contract being deployed first).
+- No sub-agent REFUSE logic yet (Phase 4) and no x402 API yet
+  (Phase 5).
+
+**Next step (not started):** finish the `cargo-near` deploy, then
+update `src/memory.ts` to call `commit` on `mnemosyne-gov.testnet` via
+`near-api-js`, keeping the same function signature so `cycle.ts`
+doesn't change. Cycle must still fail-closed if the on-chain commit
+transaction fails.
+
+---
+
 ## 2026-10-28 — Phase 1: skeleton cycle runner
 
 **What was done:**
