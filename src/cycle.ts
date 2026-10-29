@@ -75,7 +75,7 @@ export async function runCycle(): Promise<CycleResult> {
 
   const recordWithoutHash: Omit<MemoryRecord, "decision_hash"> = {
     cycle_id: cycleId,
-    governor: "mnemosyne.testnet", // placeholder account id — real in Phase 2
+    governor: process.env.GOVERNOR_ACCOUNT_ID ?? "mnemosyne-gov.testnet",
     prev_memory_hash: prevHash,
     decisions,
     swarm_risk: {
@@ -98,6 +98,7 @@ export async function runCycle(): Promise<CycleResult> {
     return { memoryRecord, privateDecision, committed: false };
   }
   console.log("      committed.");
+  if (commitResult.txHash) console.log(`      tx: https://testnet.nearblocks.io/txns/${commitResult.txHash}`);
 
   // 4. CAPITAL / AUTHORITY ACTION — only after memory is confirmed.
   console.log("[4/6] ALLOCATE: applying decisions (print-only — no real transfers yet)...");

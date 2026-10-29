@@ -69,7 +69,7 @@ export async function getLatestMemoryRecord(): Promise<MemoryRecord | null> {
  */
 export async function writeMemoryRecord(
   record: MemoryRecord
-): Promise<{ committed: boolean; error?: string }> {
+): Promise<{ committed: boolean; txHash?: string; error?: string }> {
   try {
     if (!GOVERNOR_ACCOUNT_ID || !GOVERNOR_PRIVATE_KEY) {
       throw new Error("Missing GOVERNOR_ACCOUNT_ID / GOVERNOR_PRIVATE_KEY -- check .env");
@@ -77,7 +77,7 @@ export async function writeMemoryRecord(
     const signer = KeyPairSigner.fromSecretKey(GOVERNOR_PRIVATE_KEY as any);
     const account = new Account(GOVERNOR_ACCOUNT_ID, provider, signer);
 
-    await account.signAndSendTransaction({
+    const res: any = await account.signAndSendTransaction({
       receiverId: GOVERNOR_ACCOUNT_ID,
       actions: [
         actions.functionCall(
@@ -89,7 +89,8 @@ export async function writeMemoryRecord(
       ],
       waitUntil: "FINAL",
     });
-    return { committed: true };
+    const txHash: string | undefined = res?.transaction?.hash ?? res?.transaction_outcome?.id;
+    return { committed: true, txHash };
   } catch (err) {
     return { committed: false, error: (err as Error).message };
   }

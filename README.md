@@ -6,12 +6,9 @@ commitments, capability-limited sub-agents, and x402-paid memory queries.
 Full build plan: [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
 Build progress / what's been done in each step: [`HANDOFF.md`](HANDOFF.md).
 
-## Current status: Phase 1 — skeleton cycle runner
+## Current status: Phase 2 — on-chain memory gate
 
-One cycle (read -> decide -> memory commit -> allocate -> log) runs
-locally. The memory commit is simulated (written to a local
-gitignored `memory-log.json`) instead of going to NEAR — that's next.
-No real funds, keys, or chain calls yet.
+One cycle (read -> decide -> memory commit -> allocate -> log) runs locally. The memory commit is a real NEAR testnet transaction to `mnemosyne-gov.testnet`, and the cycle fails closed if it doesn't go through. Allocation is still print-only, and sub-agent keys are not restricted yet (Phase 3). No real funds move.
 
 ## Run it
 
