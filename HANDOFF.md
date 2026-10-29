@@ -48,6 +48,35 @@ Running record of what was actually built, patch by patch. Newest entry on top.
 
 ---
 
+## 2026-10-29 — Phase 3 (in progress): sub-agent audit method + key lockdown runbook
+
+**What was done:**
+
+- Added `report(sub, action, reason)` to the contract (`contract/src/lib.rs`). Only `mnemosyne-sub-a/b/c.testnet` can call it, `sub` must equal the caller, `action` must be `ACT` or `REFUSE`, `reason` is capped at 200 bytes. It writes a `MNEMOSYNE_REPORT:` log line and no state, so the already-deployed state layout stays compatible (redeploy over the existing contract is safe; do not add struct fields without a migration).
+- Added `docs/PHASE3_KEYS.md`, a step-by-step runbook for giving each sub a function-call key limited to `report` on `mnemosyne-gov.testnet`, then removing its FullAccess key.
+
+**Not done yet:**
+
+- Contract with `report` is not redeployed.
+- No sub key has been restricted; all three subs are still FullAccess.
+- Nothing in `src/` calls `report` yet (Phase 4: REFUSE checks will).
+
+**Next step:** redeploy, run the runbook for sub-a first and verify, then sub-b and sub-c.
+
+---
+
+## 2026-10-29 — Phase 2 complete: on-chain memory gate live
+
+**What was done:**
+
+- Deployed the Rust memory contract to `mnemosyne-gov.testnet` with `cargo near build non-reproducible-wasm --no-abi` / `cargo near deploy build-non-reproducible-wasm --no-abi mnemosyne-gov.testnet without-init-call ...`. `--no-abi` is needed on Windows (GNU toolchain): the ABI-generation step fails to link NEAR host functions, and the ABI is not required to deploy. No init call: the governor check is `predecessor == current_account`.
+- `src/memory.ts` now calls `commit` on-chain. `npm run cycle` reads `prev_memory_hash` from the chain head, commits, and only then runs ALLOCATE. A failed commit still stops the cycle.
+- Verified: a cycle produced a real testnet tx and the new head chains to the previous one.
+
+**Not done yet:** sub keys still FullAccess (Phase 3), no REFUSE logic (Phase 4), no x402 API (Phase 5), `decide()` still a stub (Phase 6).
+
+---
+
 ## 2026-10-28 — Phase 2 (in progress): NEAR testnet accounts + memory contract
 
 **What was done:**
