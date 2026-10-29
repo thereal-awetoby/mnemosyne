@@ -1,0 +1,28 @@
+--- a/HANDOFF.md
++++ b/HANDOFF.md
+@@ -3,6 +3,40 @@ Running record of what was actually built, patch by patch. Newest entry on top
+ 
+ ---
+ 
++## 2026-10-29 — Phase 3 (in progress): function-call-restricted keys for sub-agents
++
++**What was done:**
++
++- Added a new function-call-restricted access key to each sub-agent testnet account (`mnemosyne-sub-a/b/c.testnet`), scoped to the governor's memory contract (`mnemosyne-gov.testnet`), method `commit` only, 0.25 NEAR allowance:
++  - `near account add-key <sub>.testnet grant-function-call-access --allowance '0.25 NEAR' --contract-account-id mnemosyne-gov.testnet --function-names 'commit' autogenerate-new-keypair save-to-keychain network-config testnet sign-with-keychain send`
++- Honest note on scope: `commit` is currently the only non-view method on the only deployed contract, and the contract itself enforces a governor-only (self-call) check (`predecessor_account_id() == current_account_id()`), so a sub-agent key could never actually succeed calling it even with this permission. This demonstrates the key-restriction mechanism (two layers: key-level scope + contract-level rejection) ahead of sub-agents having a real contract/mandate to call -- revisit the method/contract scope once sub-agents have real on-chain actions (ties into Phase 4's REFUSE logic and whatever execution surface subs actually get).
++- Each sub-account still also holds its original FullAccess key from account creation (Phase 2 entry) -- **not yet removed**. Removing it is the next step, done only after confirming the new restricted key works and after capturing the old key's public key via `list-keys` (needed to target the delete).
++
++**What's intentionally fake / not done yet:**
++
++- FullAccess keys not yet removed from sub-a/b/c -- subs are not yet *actually* restricted, only additionally granted a restricted key. Plan item "Subs restricted by FC keys" is not complete until the FullAccess key is gone.
++- `commit` as the scoped method is a placeholder, per the note above -- no real sub-agent contract/mandate execution surface exists yet.
++- "Capital or allowance moves only after memory" (the other Phase 3 bullet) was already true structurally as of Phase 1/2's fail-closed check in `cycle.ts` -- nothing new needed there.
++
++**Next step (not started):** run `list-keys` on all three sub accounts to capture the old FullAccess public keys, confirm the new restricted keys list correctly, then remove the FullAccess keys one at a time (verify each sub-account is still reachable via the restricted key before deleting its FullAccess key, to avoid lockout).
++
++---
++
+ ## 2026-10-29 — Phase 2 (complete): contract deployed + on-chain memory commit wired up
+ 
+ **What was done:**
