@@ -1,0 +1,14 @@
+C:\Users\TOBY\Documents\mnemosyne\contract\target\cargo-near-abi\debug\deps\serde-f9a9531aa0508c13.d: C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\TOBY\Documents\mnemosyne\contract\target\cargo-near-abi\debug\build\serde-e80eacca511e82d0\out/private.rs
+
+C:\Users\TOBY\Documents\mnemosyne\contract\target\cargo-near-abi\debug\deps\libserde-f9a9531aa0508c13.rlib: C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\TOBY\Documents\mnemosyne\contract\target\cargo-near-abi\debug\build\serde-e80eacca511e82d0\out/private.rs
+
+C:\Users\TOBY\Documents\mnemosyne\contract\target\cargo-near-abi\debug\deps\libserde-f9a9531aa0508c13.rmeta: C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\TOBY\Documents\mnemosyne\contract\target\cargo-near-abi\debug\build\serde-e80eacca511e82d0\out/private.rs
+
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs:
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs:
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs:
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs:
+C:\Users\TOBY\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs:
+C:\Users\TOBY\Documents\mnemosyne\contract\target\cargo-near-abi\debug\build\serde-e80eacca511e82d0\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\TOBY\\Documents\\mnemosyne\\contract\\target\\cargo-near-abi\\debug\\build\\serde-e80eacca511e82d0\\out

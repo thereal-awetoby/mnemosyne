@@ -89,7 +89,7 @@ export async function runCycle(): Promise<CycleResult> {
   console.log(`      decision_hash: ${decisionHash}`);
 
   // 3. MEMORY COMMIT (mandatory gate)
-  console.log("[3/6] MEMORY COMMIT: writing memory record (local log — simulated on-chain)...");
+  console.log("[3/6] MEMORY COMMIT: writing memory record (on-chain, mnemosyne-gov.testnet)...");
   const commitResult = await writeMemoryRecord(memoryRecord);
 
   if (!commitResult.committed) {
