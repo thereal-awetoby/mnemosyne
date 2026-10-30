@@ -2,6 +2,16 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (evening) — sub:check false-PASS bug fixed
+
+First real run of `npm run sub:check -- A` on testnet: report() FAILED with "Access key ed25519:4SQJ... does not exist" (the key in .env had not been registered with add-key yet), but the commit and transfer negatives showed PASS. Those PASSes were **false**: the transactions were rejected because the key didn't exist, and the error-matching pattern counted any "access key" error as a scope rejection.
+
+Fix (`src/tools/subKeyCheck.ts`): a pre-check asks NEAR directly (`view_access_key` RPC) whether the key exists and what it may do. Missing key, FullAccess key, or a key not scoped to exactly `report` on `mnemosyne-gov.testnet` -> FAIL and stop before any other test. The negative checks now also refuse to count "does not exist" errors as passes, and the pattern only matches real scope rejections (MethodNameMismatch, RequiresFullAccess, etc.). Tested against missing / FullAccess / wrong-method / correct keys.
+
+Also confirmed on testnet today: **governor gate proven** -- sub-a signing `commit` got `Smart contract panicked: only the governor account may write a memory commit`; commit_count stayed 6.
+
+---
+
 ## 2026-10-30 (current) — Phases 3 + 4 code complete; on-chain steps waiting to be run on the Windows machine
 
 **Correction to the entry below:** it says `src/refuse.ts` "has never been wired into `cycle.ts`". That was wrong: it was wired into step 5 (see the Phase 4 entry). What was missing was the *on-chain* `report()` call. That is now done.
