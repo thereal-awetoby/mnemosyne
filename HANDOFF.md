@@ -2,6 +2,14 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (night) — sub-a report-only key proven on testnet
+
+- Added `ed25519:4SQJuARCtf8Xr7721JJHmw8NgrGmmXFyvSgxsRYVEnfA` to `mnemosyne-sub-a.testnet`: function-call, receiver `mnemosyne-gov.testnet`, methods `["report"]`, allowance 1 NEAR (add-key tx `BCSJPYJk9E2T2w4V6G5Bx2X1ZBFA9awZTqidskMUQsPz`). Secret only in local `.env`.
+- `npm run sub:check -- A` on testnet: pre-check PASS (scope read back from chain), report() PASS (`MNEMOSYNE_REPORT:mnemosyne-sub-a.testnet:ACT:...`, tx `8QQSN5efvKX8LNJUFU1membfHvaFGdMACnutQLTXkbim`), transfer rejected PASS ("Access key requires full access"). The commit check printed FAIL but the error was **"Access key does not allow method commit"** -- a correct key-level rejection; the pattern just didn't know near-api-js 7.4's wording. Pattern widened; no code behavior changed.
+- Next: delete the dead `commit`-scoped key `ed25519:84KEX8xbEZDpEQVBHi29cWmkVwFRE1Vt9rvKGjGm4T6i`; keep FullAccess `ed25519:AiN6FTJaCPVJuHouLQnzf7GD4LDJRYZ5Kq8m5uB21hXU` as the cold key. Then sub-b, then sub-c2.
+
+---
+
 ## 2026-10-30 (evening) — sub:check false-PASS bug fixed
 
 First real run of `npm run sub:check -- A` on testnet: report() FAILED with "Access key ed25519:4SQJ... does not exist" (the key in .env had not been registered with add-key yet), but the commit and transfer negatives showed PASS. Those PASSes were **false**: the transactions were rejected because the key didn't exist, and the error-matching pattern counted any "access key" error as a scope rejection.
