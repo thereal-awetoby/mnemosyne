@@ -2,6 +2,28 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (latest) — Phase 2 redeploy: `--no-abi` path proven end to end
+
+**What was done:**
+
+- First successful `cargo near deploy build-non-reproducible-wasm --no-abi ...` on Windows. No ABI step attempted, no MinGW link error. New `code_hash`: `4MuK2kWdogdYM4L1A3vzcGhFyipLnU1e9L6viZ2xocu9`; `npm run verify:contract` 6/6.
+- The **previous** on-chain `code_hash` was `DAPxfwyssXxfAZpSju3u24FAg2KVZNY6J53mTVLocUfC` -- byte-identical to the `.wasm` committed in git at `contract/target/near/`. So the earlier verifier FAIL was not a bad deploy: it was a non-reproducible local rebuild compared against an older committed artifact. Rust->wasm is not bit-reproducible across toolchains; that is what `cargo near build reproducible-wasm` exists for.
+- Deleted `contract/target/near/*.wasm` and redeployed. This time `wasm-opt` actually ran (previously "Skipped running wasm-opt as final target exists and is newer than wasm produced by cargo") and produced an **identical** hash -- `4MuK2...`. So the skip was harmless only because the stale artifact was a correct build of unchanged source. `lib.rs` has no content change since Phase 2 (merge commits only).
+- **State survives redeploy** (verified, not assumed): `commit_count` stayed 4 and `latest_hash`/`prev_hash` were unchanged across both deploys.
+- `npm run cycle` committed on top: read `prev_memory_hash: sha256:b645da0c...` from chain (the pre-redeploy `latest_hash`), committed successfully. `commit_count` now 5, `latest_hash` `sha256:07e59cb5...`.
+
+**Correction to the negative-test command in earlier notes/docs:** it must target the governor contract, with the sub account only as signer --
+`near contract call-function as-transaction mnemosyne-gov.testnet commit json-args "{\"hash\":\"sha256:deadbeef\",\"prev_hash\":\"\"}" prepaid-gas "30 TeraGas" attached-deposit "0 NEAR" sign-as mnemosyne-sub-a.testnet network-config testnet sign-with-keychain send`
+The variant with `mnemosyne-sub-a.testnet` in the contract slot fails with `CompilationError(CodeDoesNotExist)`: nearcore refuses before executing, so it proves nothing about the governor gate and writes nothing.
+
+**Not done / still open:**
+
+- **Governor gate still unproven** -- no run has yet produced `only the governor account may write a memory commit`. Run the corrected command, then `npm run verify:contract` to confirm `commit_count` stays 5.
+- `mnemosyne-sub-a.testnet` has no contract code (expected; only the governor hosts code). This says nothing about whether the leftover `commit`-scoped function-call key is still on sub-a/sub-b -- that was never checked. Phase 3 still inspects and removes it.
+- Phase 3 (function-call keys) unchanged.
+
+**Next step:** the corrected negative test, then Phase 3.
+
 ---
 
 ## 2026-10-30 (later) — `verify:contract` re-added; it was silently missing from `main`
