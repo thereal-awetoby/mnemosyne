@@ -2,6 +2,14 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (late) — Windows test fix
+
+- On Windows, `npm test` was 27/28: `failed disk write rolls back memory` simulated a disk failure with `chmod 0o500` on a folder. Windows ignores that (so does root on Linux), the write succeeded, and the test's `assert.throws` failed. Not a server bug.
+- The test now puts a directory where the state file must go, so the final rename fails on every OS and for every user. It still checks: memory not updated, no temp file left, retry succeeds, a throwing mutation leaves state intact. 28/28 pass here as root and as an unprivileged user.
+- Removed `patches/phase5-x402-memory-api.patch` (a copy of code already in the repo).
+
+---
+
 ## 2026-10-30 — Phase 5 patch applied and integration hardened
 
 - Applied the supplied Phase 5 patch on the PR branch; retained the original
