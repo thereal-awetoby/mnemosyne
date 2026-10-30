@@ -2,6 +2,36 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (final) — Phases 3 + 4 COMPLETE, proven end to end on testnet
+
+**Full cycle `2026-10-30T18:52:16.457Z-75d47`** (`npm run cycle`, exit 0):
+
+| Step | Result | Tx |
+|---|---|---|
+| Memory commit (#8, chained on `sha256:b8568327...`) | committed, `decision_hash sha256:301228ba...` | `Hzq66rcVooK9QXGo9fDsfmswQh9abfWQrh6P9aCg4dad` |
+| Sub A report | on-chain **ACT** as `mnemosyne-sub-a.testnet` | `eYERrXaETCBR1nnGbfsLtZY4TgMutSLTDYEhus6oG1N` |
+| Sub B report | on-chain **ACT** as `mnemosyne-sub-b.testnet` | `3PrgDpu1AtTJ7ENfCZ2ZG6DgBQh3VWknQmZnxrnTeFhA` |
+| Sub C report | on-chain **REFUSE** as `mnemosyne-sub-c2.testnet` (`max_position 200 exceeds mandate ceiling 150`) | `HbEFe9JT6c495gR8AtT92dfJNAsoL5FHxMtsthJW5cza` |
+
+Order is enforced: commit confirmed first, then the sub window. Each report is signed by that sub's own report-only key.
+
+**Key state per sub (all `npm run sub:check` = ALL PASS: scope read back from chain, report OK, commit rejected by NEAR "does not allow method commit", transfer rejected "requires full access"):**
+
+- `mnemosyne-sub-a.testnet`: report-only `ed25519:4SQJuARCtf8Xr7721JJHmw8NgrGmmXFyvSgxsRYVEnfA` (1 NEAR allowance) + FullAccess `AiN6FT...` (cold, keychain only). Dead `commit` key deleted.
+- `mnemosyne-sub-b.testnet`: report-only `ed25519:Bvgj4Whg8X948FBWedkq28yGUTrM3jVdiinT7x57TfWm` + FullAccess `AiPnAS...` (cold). **Dead `commit` key `DdixB6MEP88tLdAjgDZ8aMkp6h9Jsis64Rf7ufVSd1xh` still present**: the delete hit an RPC network error (`archival-rpc.testnet.fastnear.com`). Harmless -- it can only call `commit`, which the contract rejects for subs. Left in place by choice.
+- `mnemosyne-sub-c2.testnet`: report-only `ed25519:BLeAKJWe8VcBNNA6DPtw1A6M5Sd2PdegUAuyTnnUPJwX` (in .env) + the older keychain report key + FullAccess (cold).
+- Along the way two wrong keys were added to sub-b (a report key deleted by mistake, and one FullAccess key from picking `grant-full-access` in the prompts); both are gone. Lesson: use the one-line `add-key` command `sub:keygen` prints, not the interactive prompts.
+
+**Operator decision (2026-10-30):** this is a testnet build; keys exposed in logs/chat are accepted as-is, no more rotation or deletion for that reason. Revisit before any mainnet use.
+
+**Also proven today:** governor gate (sub-a signing `commit` -> `only the governor account may write a memory commit`, count unchanged).
+
+**Remaining honest gaps (not Phase 3/4):** swarm state is simulated, `decide()` is a stub (Phase 6), ALLOCATE is print-only, the chain stores only the hash (not the public limits from BUILD_PLAN section 8), no x402 API (Phase 5).
+
+**Next step:** Phase 5 -- x402 paid `/memory/check` with a mock facilitator.
+
+---
+
 ## 2026-10-30 (night) — sub-a report-only key proven on testnet
 
 - Added `ed25519:4SQJuARCtf8Xr7721JJHmw8NgrGmmXFyvSgxsRYVEnfA` to `mnemosyne-sub-a.testnet`: function-call, receiver `mnemosyne-gov.testnet`, methods `["report"]`, allowance 1 NEAR (add-key tx `BCSJPYJk9E2T2w4V6G5Bx2X1ZBFA9awZTqidskMUQsPz`). Secret only in local `.env`.
