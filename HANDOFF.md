@@ -4,6 +4,19 @@ Running record of what was actually built, patch by patch. Newest entry on top.
 
 ---
 
+## 2026-10-30 — "how do I know the deploy worked" -> `npm run verify:contract`
+
+**What was done:**
+
+- Added `scripts/verify-contract.mjs` (+ `npm run verify:contract`): read-only, no keys, no transactions. It (a) checks the account has code at all, (b) compares `sha256(local wasm)` base58-encoded against the account's on-chain `code_hash` -- byte-exact, so it distinguishes "*this* build is live" from "an earlier build of the same source is live", which `get_latest` alone cannot do, (c) calls `get_latest` and sanity-checks the tuple (`commit_count` is an int, `latest_hash` is `sha256:<64 hex>` once commits exist, `prev_hash` is populated only from `commit_count >= 2` -- after the first commit an empty `prev_hash` is correct, not a bug).
+- Base58 encoder written inline (no new dependency); validated against `bs58` on 44 vectors including empty input, single zero byte, and 32 zero bytes -> `11111111111111111111111111111111` (NEAR's "no contract" code hash).
+- Script smoke-tested end-to-end against a mock JSON-RPC for six scenarios: fresh contract, count 1, count 3, stale/mismatched wasm, account with no code, and nonexistent account. All six produce the intended output and exit codes (two real bugs found and fixed by that test: the `prev_hash` check fired at count 1, and the trailing "why did the deploy fail" note printed on unrelated failures).
+- `contract/README.md` gains a three-tier verification section: deploy output -> code-hash match -> behavioral checks. Includes the negative test that actually matters: `commit` called from `mnemosyne-sub-a.testnet` **must** fail with `only the governor account may write a memory commit`; if it succeeds, the governor check is not live and the contract must be redeployed.
+
+**Not done:** nothing in the contract or `src/` changed. Phase 3 unchanged.
+
+---
+
 ## 2026-10-30 — deploy-build fix: `--no-abi` is required on `cargo near deploy`
 
 **What was done:**
