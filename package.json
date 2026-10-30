@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "verify:contract": "node scripts/verify-contract.mjs",
     "sub:keygen": "node scripts/gen-sub-key.mjs",
-    "sub:check": "tsx src/tools/subKeyCheck.ts"
+    "sub:check": "tsx src/tools/subKeyCheck.ts",
+    "server": "tsx src/serve.ts",
+    "x402:demo": "tsx src/tools/x402Demo.ts",
+    "test": "tsx --test src/x402/x402.test.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.9",

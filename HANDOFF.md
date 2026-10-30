@@ -2,6 +2,27 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (night) — Phase 5: x402 paid memory API built (mock settlement)
+
+**Rules check:** HACKATHON.md (copy dated 21/10/2026) has no rule against work started before 1 Nov. It requires a public repo by 2026-11-14T23:59:00Z, a human-posted demo on X, and one submission sent between 2026-11-01 and 2026-11-14 (the API answers 403 outside that window).
+
+**What was built (all new, no new npm dependencies -- node:http + node:crypto only):**
+
+- `src/x402/server.ts`, `src/serve.ts` (`npm run server`, port 8402): every route from BUILD_PLAN section 11. `/memory/check` implements x402 v2: no `PAYMENT-SIGNATURE` -> 402 + `PAYMENT-REQUIRED`; valid payment -> verify -> answer -> settle -> 200 + `PAYMENT-RESPONSE` + `receipt_id`. The answer is released only after settlement. Bad input gets 400 before any price is quoted.
+- `src/x402/facilitator.ts`: `MockFacilitator` checks signature (ed25519, NEAR key format), payer owns the key (implicit accounts offline; named accounts via RPC if `X402_VERIFY_NAMED_PAYERS=1`), amount, recipient, asset, network, endpoint binding, time window, exact accepted terms, single-use nonce. It "settles" into `data/runtime/facilitator-ledger.json` with `mock_` ids. `HttpFacilitator` is the drop-in for a real facilitator (`X402_FACILITATOR_URL`).
+- `src/x402/memoryStore.ts` + `data/seed-memory.json`: private memory seeded with 6 real failures from this build (sub-c brick, unchecked tx failure, false-pass negative test, mandate ceiling, chain mismatch, interactive-prompt FullAccess mistake). Only id / category / public_summary / score leave; keywords and private_detail never do. Keyword-overlap matching, deterministic.
+- Receipts (`GET /memory/receipt/:id`) store payer, amount, settlement id, sha256(request), sha256(answer) -- not the query text. `/audit` lists paid checks. `/memory/confess` and `/cycle/run` need `ADMIN_TOKEN`; `/cycle/run` returns public fields only, never `privateDecision`.
+- `src/x402/client.ts` (`postWithPayment`, with max-price and allowed-recipient limits) and `src/tools/x402Demo.ts` (`npm run x402:demo`): an external agent with a fresh NEAR implicit account does 402 -> pay -> answer -> verify receipt hashes -> replay rejected.
+- `docs/X402.md`: protocol, message shapes, what's real vs mocked, refusal reasons, routes, settings. README: status + 6 "do X -> see Y" steps.
+
+**Tested (sandbox, no network):** `npm test` 16/16 -- includes 11 tampering cases each refused with its specific reason, replay, 8 concurrent uses of one payment (exactly 1 settles), failed attempts don't burn the nonce, restart persistence, admin auth, no `private_detail` in any response. Mutation check: removing the signature, payer-identity or amount check makes tests fail; removing both nonce checks fails 4 tests (each nonce check alone is backed up by the other). Ran `npm run server` + `npm run x402:demo` for real: `DEMO OK`.
+
+**Not done / honest limits:** settlement moves no NEAR (mock ledger). Matching is keyword overlap, not semantic. `/memory/latest` and `/cycle/run` were exercised only against a stub chain here; on the Windows machine they use real testnet. Not yet run on Windows.
+
+**Next step (Windows):** `git pull`, `npm install`, `npm test`, then `npm run server` in one terminal and `npm run x402:demo` in another; expect `DEMO OK`. Then Phase 6 (private decision path) or real settlement.
+
+---
+
 ## 2026-10-30 (final) — Phases 3 + 4 COMPLETE, proven end to end on testnet
 
 **Full cycle `2026-10-30T18:52:16.457Z-75d47`** (`npm run cycle`, exit 0):

@@ -1,0 +1,47 @@
+{
+  "_comment": "Demo seed for Mnemosyne's private memory: real failures from building this project (2026-10-28..30). Only `id`, `category` and `public_summary` ever leave the server; `keywords` and `private_detail` stay private. At runtime the server copies this into data/runtime/memory.json (gitignored) and appends confessions there.",
+  "entries": [
+    {
+      "id": "M-001",
+      "category": "key-management",
+      "keywords": ["delete", "full", "access", "key", "replacement", "lockout", "brick", "account", "rotate"],
+      "public_summary": "Never delete an account's last FullAccess key until a replacement key has been proven working on-chain; deletion is permanent and locks the account.",
+      "private_detail": "mnemosyne-sub-c.testnet was bricked on 2026-10-29: its FullAccess key was deleted while the only remaining key was a dead commit-scoped key. Replaced by mnemosyne-sub-c2.testnet; contract SUB_ACCOUNTS updated and redeployed."
+    },
+    {
+      "id": "M-002",
+      "category": "fail-closed",
+      "keywords": ["transaction", "failure", "status", "success", "panic", "executed", "unchecked", "commit", "result"],
+      "public_summary": "A NEAR transaction can execute and still fail (contract panic). Check the outcome status, not just whether the call threw, before treating a gate as passed.",
+      "private_detail": "memory.ts originally returned committed:true whenever signAndSendTransaction did not throw. Fixed 2026-10-30 by inspecting status.Failure and receipt failures (src/nearTx.ts txFailure)."
+    },
+    {
+      "id": "M-003",
+      "category": "testing",
+      "keywords": ["negative", "test", "key", "missing", "exist", "false", "pass", "rejected", "scope"],
+      "public_summary": "A negative test ('this key cannot do X') passes falsely if the key doesn't exist at all. Confirm the key exists and has the expected scope before trusting rejections.",
+      "private_detail": "First real sub:check run for sub-a showed commit/transfer 'PASS' because the key was never registered (AccessKeyNotFound). Fixed with a view_access_key pre-check."
+    },
+    {
+      "id": "M-004",
+      "category": "mandate",
+      "keywords": ["position", "exceeds", "ceiling", "mandate", "limit", "leverage", "size", "directive", "defensive"],
+      "public_summary": "A directive larger than the executing agent's mandate ceiling should be refused locally and the refusal recorded, even if the coordinator approved it.",
+      "private_detail": "Sub C (defensive_reduce_only, ceiling 150) refuses the governor's KEEP with max_position 200 every cycle; refusal is reported on-chain via report()."
+    },
+    {
+      "id": "M-005",
+      "category": "chain-integrity",
+      "keywords": ["prev", "hash", "chain", "mismatch", "concurrent", "commit", "broken", "head", "race"],
+      "public_summary": "Hash-chained commits break if two writers commit from the same head. Read the head, commit with prev_hash, and treat a mismatch as fail-closed rather than retrying blindly.",
+      "private_detail": "Contract commit() panics with 'prev_hash does not match on-chain latest_hash -- chain broken'. cycle.ts reads get_latest() then commits; only the governor writes."
+    },
+    {
+      "id": "M-006",
+      "category": "key-management",
+      "keywords": ["interactive", "prompt", "grant", "full", "access", "function", "call", "wrong", "permission", "add", "key"],
+      "public_summary": "When adding a restricted key, use a single scripted command instead of interactive prompts; one wrong menu choice grants full access instead of a function-call key.",
+      "private_detail": "2026-10-30: sub-b received a FullAccess key from picking grant-full-access in near-cli-rs prompts. Caught by sub:check pre-check; key deleted."
+    }
+  ]
+}
