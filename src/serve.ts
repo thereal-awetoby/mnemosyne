@@ -13,6 +13,13 @@
  *                             (e.g. agent.testnet) after checking the key on NEAR
  *   ADMIN_TOKEN               enables POST /memory/confess and POST /cycle/run
  *   DATA_DIR                  default data/runtime (gitignored)
+ *
+ * Real settlement (testnet only):
+ *   X402_RAIL=near-testnet    official x402 NEAR "exact" scheme, wNEAR, real txs
+ *   X402_ASSET                NEP-141 token, default wrap.testnet (wNEAR)
+ *   X402_PRICE                price in token units, default 1e21 (0.001 wNEAR)
+ *   X402_RELAYER_ACCOUNT_ID   pays gas for settlements; default GOVERNOR_ACCOUNT_ID
+ *   X402_RELAYER_PRIVATE_KEY  full-access key of that account; default GOVERNOR_PRIVATE_KEY
  */
 
 import "dotenv/config";
@@ -20,6 +27,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMnemosyneServer } from "./x402/server.js";
 import { HttpFacilitator, MockFacilitator, type Facilitator } from "./x402/facilitator.js";
+import { createNearExactRail, type PaymentRail } from "./x402/rails.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -51,6 +59,27 @@ async function keyBelongsToAccount(accountId: string, publicKey: string): Promis
   }
 }
 
+const RAIL = (process.env.X402_RAIL ?? "mock").trim();
+if (!["mock", "near-testnet"].includes(RAIL)) throw new Error(`X402_RAIL must be "mock" or "near-testnet" (got "${RAIL}")`);
+
+let rail: PaymentRail | undefined;
+if (RAIL === "near-testnet") {
+  const relayerId = process.env.X402_RELAYER_ACCOUNT_ID || process.env.GOVERNOR_ACCOUNT_ID || "";
+  const relayerKey = process.env.X402_RELAYER_PRIVATE_KEY || process.env.GOVERNOR_PRIVATE_KEY || "";
+  if (!relayerId || !relayerKey) {
+    throw new Error("X402_RAIL=near-testnet needs a relayer: set X402_RELAYER_ACCOUNT_ID/X402_RELAYER_PRIVATE_KEY (or GOVERNOR_ACCOUNT_ID/GOVERNOR_PRIVATE_KEY) in .env");
+  }
+  rail = await createNearExactRail({
+    network: "near:testnet",
+    asset: process.env.X402_ASSET || "wrap.testnet",
+    amount: process.env.X402_PRICE || "1000000000000000000000",
+    payTo: GOVERNOR,
+    maxTimeoutSeconds: 300,
+    relayer: { accountId: relayerId, secretKey: relayerKey },
+    rpcUrl: RPC_URL,
+  });
+}
+
 const realFacilitatorUrl = process.env.X402_FACILITATOR_URL;
 const facilitator: Facilitator = realFacilitatorUrl
   ? new HttpFacilitator(realFacilitatorUrl, process.env.X402_FACILITATOR_API_KEY)
@@ -68,6 +97,7 @@ const { server, memory } = createMnemosyneServer({
   priceAmount: process.env.X402_PRICE_YOCTO ?? "1000000000000000000000",
   maxTimeoutSeconds: 300,
   facilitator,
+  rail,
   mockSettlement: !realFacilitatorUrl,
   adminToken: process.env.ADMIN_TOKEN || undefined,
   readChainHead: async () => {
@@ -100,7 +130,7 @@ server.listen(PORT, HOST, () => {
   const actualPort = typeof address === "object" && address ? address.port : PORT;
   console.log(`Mnemosyne API listening on ${HOST}:${actualPort}; public URL: ${PUBLIC_URL ?? "derived from each request's Host"}`);
   console.log(`  memory entries: ${memory.size}   payTo: ${GOVERNOR}   data: ${DATA_DIR}`);
-  console.log(`  facilitator: ${realFacilitatorUrl ? realFacilitatorUrl : "MOCK (verifies everything, settles to a local ledger)"}`);
+  console.log(`  facilitator: ${rail ? `REAL near:testnet -- ${rail.requirements.amount} ${rail.requirements.asset} per check, relayer pays gas` : realFacilitatorUrl ? realFacilitatorUrl : "MOCK (verifies everything, settles to a local ledger)"}`);
   console.log(`  admin routes: ${process.env.ADMIN_TOKEN ? "enabled" : "disabled (set ADMIN_TOKEN)"}`);
 });
 

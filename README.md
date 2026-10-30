@@ -14,7 +14,9 @@ Proven on testnet 2026-10-30 (see HANDOFF.md): a full cycle committed memory, th
 
 **x402 memory API (Phase 5):** other agents pay per query to ask "does this situation match a failure Mnemosyne has already learned from?" -- no signup, no API key. They get back match / citation id / one-line public advice and a receipt; the private detail of each memory never leaves the server. Payments follow x402 v2 (HTTP 402 + `PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` / `PAYMENT-RESPONSE`). Each payment is an ed25519-signed authorization from the payer's NEAR key, bound to price, recipient, network, endpoint, a time window and a single-use nonce. **Settlement is mocked:** the facilitator performs every check but records the payment in a local ledger instead of moving NEAR (ids start with `mock_`, responses say `mock: true`). Details: [`docs/X402.md`](docs/X402.md).
 
-Still simulated, and labeled as such: swarm state, `decide()` (Phase 6), ALLOCATE (no real transfers), and x402 settlement (mock ledger).
+**Real settlement (testnet):** with `X402_RAIL=near-testnet` the same API takes real wNEAR on NEAR testnet through the official x402 NEAR scheme; see "Two payment rails" in [`docs/X402.md`](docs/X402.md). Mock remains the default.
+
+Still simulated, and labeled as such: swarm state, `decide()` (Phase 6), ALLOCATE (no real transfers), and x402 settlement in the default mock rail.
 
 Sub-agent key setup: [`docs/PHASE3_KEYS.md`](docs/PHASE3_KEYS.md). Copy `.env.example` to `.env`.
 
