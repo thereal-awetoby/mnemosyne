@@ -4,4 +4,7 @@ dist/
 .env
 .env.local
 memory-log.json
+
+# Rust / contract build artifacts
 contract/target/
+target/
