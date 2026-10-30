@@ -6,7 +6,7 @@ commitments, capability-limited sub-agents, and x402-paid memory queries.
 Full build plan: [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
 Build progress / what's been done in each step: [`HANDOFF.md`](HANDOFF.md).
 
-## Current status: Phases 1–4 proven on NEAR testnet; Phase 5 (x402 paid memory API) built, mock settlement
+## Current status: Phases 1–5 proven on NEAR testnet, including real x402 payments in wNEAR
 
 One cycle runs: read -> decide -> **on-chain memory commit** (mnemosyne-gov.testnet, hash-chained, fail-closed) -> allocate (print-only) -> **sub-agent window**: each sub checks the directive against its own mandate and writes ACT/REFUSE on-chain with its own report-only function-call key. Sub C (defensive, reduce-only) refuses directives above its tighter ceiling.
 
@@ -14,7 +14,9 @@ Proven on testnet 2026-10-30 (see HANDOFF.md): a full cycle committed memory, th
 
 **x402 memory API (Phase 5):** other agents pay per query to ask "does this situation match a failure Mnemosyne has already learned from?" -- no signup, no API key. They get back match / citation id / one-line public advice and a receipt; the private detail of each memory never leaves the server. Payments follow x402 v2 (HTTP 402 + `PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` / `PAYMENT-RESPONSE`). Each payment is an ed25519-signed authorization from the payer's NEAR key, bound to price, recipient, network, endpoint, a time window and a single-use nonce. **Settlement is mocked:** the facilitator performs every check but records the payment in a local ledger instead of moving NEAR (ids start with `mock_`, responses say `mock: true`). Details: [`docs/X402.md`](docs/X402.md).
 
-Still simulated, and labeled as such: swarm state, `decide()` (Phase 6), ALLOCATE (no real transfers), and x402 settlement (mock ledger).
+**Real settlement (testnet, proven):** with `X402_RAIL=near-testnet` the same API takes real wNEAR on NEAR testnet through the official x402 NEAR scheme, e.g. tx [`AAWMt68Q...`](https://testnet.nearblocks.io/txns/AAWMt68QRu8QEqcdeVf1VdeqnQMbyeDfpzMy6jd9tqzJ): an agent paid 0.001 wNEAR to `mnemosyne-gov.testnet` for a memory check; replaying the same payment was refused by NEAR's nonce. See "Two payment rails" in [`docs/X402.md`](docs/X402.md). Mock remains the default.
+
+Still simulated, and labeled as such: swarm state, `decide()` (Phase 6), ALLOCATE (no real transfers), and x402 settlement in the default mock rail.
 
 Sub-agent key setup: [`docs/PHASE3_KEYS.md`](docs/PHASE3_KEYS.md). Copy `.env.example` to `.env`.
 

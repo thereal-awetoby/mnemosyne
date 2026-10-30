@@ -16,9 +16,12 @@
     "sub:check": "tsx src/tools/subKeyCheck.ts",
     "server": "tsx src/serve.ts",
     "x402:demo": "tsx src/tools/x402Demo.ts",
-    "test": "tsx --test src/x402/*.test.ts"
+    "test": "tsx --test src/x402/*.test.ts",
+    "x402:setup": "tsx src/tools/x402Setup.ts",
+    "x402:demo:real": "tsx src/tools/x402RealDemo.ts"
   },
   "dependencies": {
+    "@fastnear/x402": "2.5.0",
     "dotenv": "^18.0.9",
     "near-api-js": "^7.4.0"
   },

@@ -23,13 +23,12 @@ import { join } from "node:path";
 import { JsonStore } from "./jsonStore.js";
 import { MemoryStore, MAX_QUERY_CHARS, type CheckResult } from "./memoryStore.js";
 import { b64json, canonicalJson, fromB64json, sha256Hex } from "./crypto.js";
-import { requirementsError, settlementError } from "./validation.js";
+import { requirementsError } from "./validation.js";
 import type { Facilitator } from "./facilitator.js";
+import { createMockRail, type PaymentRail, type WireRequirements } from "./rails.js";
 import {
   MOCK_TRANSFER_METHOD,
   X402_VERSION,
-  type PaymentPayload,
-  type PaymentRequired,
   type PaymentRequirements,
 } from "./types.js";
 
@@ -45,8 +44,12 @@ export interface ServerConfig {
   /** price per check in base units (yoctoNEAR) */
   priceAmount: string;
   maxTimeoutSeconds: number;
-  facilitator: Facilitator;
+  /** Mock rail (default): payTo/network/asset/priceAmount above + this facilitator. */
+  facilitator?: Facilitator;
   mockSettlement: boolean;
+  /** Real settlement: a prebuilt rail (e.g. createNearExactRail). When set,
+   *  it defines the payment terms; facilitator/asset/priceAmount are ignored. */
+  rail?: PaymentRail;
   adminToken?: string;
   /** Lazily loaded so the API runs (and tests run) without near-api-js. */
   readChainHead?: () => Promise<{ latest_hash: string; prev_hash: string | null } | null>;
@@ -62,6 +65,8 @@ export interface Receipt {
   asset: string;
   network: string;
   settlement: string;
+  /** public explorer link for a real on-chain settlement */
+  explorer: string | null;
   mock: boolean;
   /** sha256 of the canonical request body -- the query itself is NOT stored */
   request_sha256: string;
@@ -115,7 +120,7 @@ function tokenOk(given: string | undefined, expected: string | undefined): boole
   return timingSafeEqual(a, b);
 }
 
-export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memory: MemoryStore; requirements: PaymentRequirements } {
+export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memory: MemoryStore; requirements: PaymentRequirements; rail: PaymentRail } {
   const memory = new MemoryStore(cfg.dataDir, cfg.seedPath);
   const receipts = new JsonStore<{ receipts: Record<string, Receipt> }>(join(cfg.dataDir, "receipts.json"), () => ({ receipts: {} }));
   if (cfg.publicUrl !== undefined) cfg.publicUrl = normalizePublicUrl(cfg.publicUrl);
@@ -134,26 +139,34 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     return origin.origin + "/memory/check";
   }
 
-  const requirements: PaymentRequirements = {
-    scheme: "exact",
-    network: cfg.network,
-    amount: cfg.priceAmount,
-    asset: cfg.asset,
-    payTo: cfg.payTo,
-    maxTimeoutSeconds: cfg.maxTimeoutSeconds,
-    extra: {
-      assetTransferMethod: MOCK_TRANSFER_METHOD,
-      mock: cfg.mockSettlement,
-      note: cfg.mockSettlement
-        ? "Demo settlement: payments are fully verified (signature, payer key, amount, nonce) but recorded by a mock facilitator, not transferred on-chain."
-        : "Settled by the configured x402 facilitator.",
-    },
-  };
+  let rail: PaymentRail;
+  if (cfg.rail) {
+    rail = cfg.rail;
+  } else {
+    if (!cfg.facilitator) throw new Error("invalid server payment configuration: need a facilitator or a rail");
+    const mockRequirements: PaymentRequirements = {
+      scheme: "exact",
+      network: cfg.network,
+      amount: cfg.priceAmount,
+      asset: cfg.asset,
+      payTo: cfg.payTo,
+      maxTimeoutSeconds: cfg.maxTimeoutSeconds,
+      extra: {
+        assetTransferMethod: MOCK_TRANSFER_METHOD,
+        mock: cfg.mockSettlement,
+        note: cfg.mockSettlement
+          ? "Demo settlement: payments are fully verified (signature, payer key, amount, nonce) but recorded by a mock facilitator, not transferred on-chain."
+          : "Settled by the configured x402 facilitator.",
+      },
+    };
+    const requirementsIssue = requirementsError(mockRequirements);
+    if (requirementsIssue) throw new Error(`invalid server payment configuration: ${requirementsIssue}`);
+    rail = createMockRail(cfg.facilitator, mockRequirements, cfg.mockSettlement);
+  }
+  const requirements: WireRequirements = rail.requirements;
+  const isMock = rail.mock;
 
-  const requirementsIssue = requirementsError(requirements);
-  if (requirementsIssue) throw new Error(`invalid server payment configuration: ${requirementsIssue}`);
-
-  const paymentRequired = (error: string, checkUrl: string): PaymentRequired => ({
+  const paymentRequired = (error: string, checkUrl: string) => ({
     x402Version: X402_VERSION,
     error,
     resource: {
@@ -179,15 +192,16 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     const header = req.headers["payment-signature"];
     if (typeof header !== "string" || header.length === 0) return require402(res, "payment required", checkUrl);
 
-    let payment: PaymentPayload;
+    let payment: unknown;
     try {
-      payment = fromB64json<PaymentPayload>(header);
+      payment = rail.decode(header);
     } catch {
       return require402(res, "invalid_payment_header", checkUrl);
     }
-    if (payment?.payload?.authorization?.resource !== checkUrl) return require402(res, "payment not bound to this resource", checkUrl);
+    const bindingIssue = rail.bindingError(payment, checkUrl);
+    if (bindingIssue) return require402(res, bindingIssue, checkUrl);
 
-    const v = await cfg.facilitator.verify(payment, requirements);
+    const v = await rail.verify(payment);
     if (!v?.isValid) return require402(res, v?.invalidReason ?? "invalid_payment", checkUrl);
     if (typeof v.payer !== "string" || v.payer.length === 0) throw new HttpError(502, "invalid facilitator verification");
     const verifiedPayer = v.payer;
@@ -195,9 +209,9 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     // Compute, then settle, then release. If settlement fails, the payer
     // gets nothing and isn't charged.
     const result: CheckResult = memory.check(query);
-    const settlement = await cfg.facilitator.settle(payment, requirements);
+    const settlement = await rail.settle(payment);
     if (!settlement?.success) return require402(res, settlement?.errorReason ?? "settlement_failed", checkUrl);
-    const settlementIssue = settlementError(settlement, requirements, verifiedPayer);
+    const settlementIssue = rail.settlementIssue(settlement, verifiedPayer);
     // Do not ask for a second payment when settlement succeeded but its proof
     // is inconsistent. Surface an upstream error instead.
     if (settlementIssue) throw new HttpError(502, settlementIssue);
@@ -220,7 +234,8 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       asset: requirements.asset,
       network: settlement.network,
       settlement: transaction,
-      mock: cfg.mockSettlement,
+      explorer: rail.explorerUrl(transaction),
+      mock: isMock,
       request_sha256: sha256Hex(canonicalJson({ query })),
       answer_sha256: sha256Hex(canonicalJson(answer)),
       match: result.match,
@@ -229,7 +244,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     receipts.update((r) => {
       r.receipts[receipt.receipt_id] = receipt;
     });
-    send(res, 200, { ...answer, receipt_id: receipt.receipt_id }, { "PAYMENT-RESPONSE": b64json({ ...settlement, mock: cfg.mockSettlement }) });
+    send(res, 200, { ...answer, receipt_id: receipt.receipt_id }, { "PAYMENT-RESPONSE": rail.responseHeader(settlement) });
   }
 
   async function route(req: IncomingMessage, res: ServerResponse) {
@@ -249,7 +264,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
         routes: {
           "GET /health": "free",
           "GET /memory/latest": "free -- on-chain memory head",
-          "POST /memory/check": `x402 -- ${cfg.priceAmount} ${cfg.asset} base units per check${cfg.mockSettlement ? " (mock settlement)" : ""}`,
+          "POST /memory/check": `x402 -- ${requirements.amount} ${requirements.asset} base units per check${isMock ? " (mock settlement)" : ` (real ${requirements.network} settlement)`}`,
           "GET /memory/receipt/:id": "free",
           "GET /audit": "free",
           "POST /memory/confess": "admin",
@@ -258,7 +273,10 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       });
     }
     if (method === "GET" && path === "/health") {
-      return send(res, 200, { ok: true, memory_entries: memory.size, payTo: cfg.payTo, network: cfg.network, mock_settlement: cfg.mockSettlement });
+      return send(res, 200, {
+        ok: true, memory_entries: memory.size, payTo: requirements.payTo, network: requirements.network,
+        asset: requirements.asset, price: requirements.amount, payment_rail: rail.mode, mock_settlement: isMock,
+      });
     }
     if (method === "POST" && path === "/memory/check") return handleCheck(req, res);
 
@@ -287,7 +305,8 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       return send(res, 200, {
         governor_contract: `https://testnet.nearblocks.io/address/${cfg.payTo}`,
         paid_checks_total: all.length,
-        mock_settlement: cfg.mockSettlement,
+        mock_settlement: isMock,
+        payment_rail: rail.mode,
         recent: all.slice(0, 20).map((r) => ({
           receipt_id: r.receipt_id,
           at: r.created_at,
@@ -296,6 +315,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
           match: r.match,
           citation_id: r.citation_id,
           settlement: r.settlement,
+          explorer: r.explorer ?? null,
         })),
       });
     }
@@ -332,7 +352,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     });
   });
 
-  return { server, memory, requirements };
+  return { server, memory, requirements: requirements as unknown as PaymentRequirements, rail };
 }
 
 function normalizePublicUrl(value: string): string {

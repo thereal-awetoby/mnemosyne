@@ -2,6 +2,58 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (late night) — Real x402 settlement PROVEN on NEAR testnet
+
+**Live run (sandbox, 2026-10-30 ~21:10 UTC):** `X402_RAIL=near-testnet npm run server` + `npm run x402:demo:real`, payer = fresh implicit account `0a6ebca6dded7628d295bb705dab7e20e608a1e620e2f60a8b4187811b47bd47`, relayer = sandbox account `e220b3d5...6b77` (funded with 1 testnet NEAR by the governor), payTo = `mnemosyne-gov.testnet`. Result: `REAL DEMO OK`.
+
+| Check | Result |
+|---|---|
+| 402 quote | 0.001 wNEAR (`wrap.testnet`) to `mnemosyne-gov.testnet` on `near:testnet` |
+| Paid check (match, M-001) | settled in tx [`AAWMt68QRu8QEqcdeVf1VdeqnQMbyeDfpzMy6jd9tqzJ`](https://testnet.nearblocks.io/txns/AAWMt68QRu8QEqcdeVf1VdeqnQMbyeDfpzMy6jd9tqzJ) |
+| Paid check (no match) | settled in tx [`D7QrKnSzF8XFcsrXrAM2jScFYQ3dJoiM5fb2HYXNnT6K`](https://testnet.nearblocks.io/txns/D7QrKnSzF8XFcsrXrAM2jScFYQ3dJoiM5fb2HYXNnT6K) |
+| Independent RPC check (`EXPERIMENTAL_tx_status`) | `SuccessValue`; outer action `Delegate` signed by the relayer; wrap.testnet log `Transfer 1000000000000000000000 from 0a6ebca6... to mnemosyne-gov.testnet` |
+| Balances | payTo +0.001 wNEAR, payer -0.001 wNEAR per check |
+| Receipt | `mock=false`, settlement = tx hash, request/answer hashes match |
+| Replay of the same PAYMENT-SIGNATURE | 402 `invalid_exact_near_payload_delegate_action_nonce_already_used`, payer not charged again |
+| Relayer gas per settlement | 0.000288 NEAR |
+
+**Bugs found by the first real run on Windows, fixed in `src/tools/x402Setup.ts`:**
+1. `near_deposit` with 30 TGas failed "Not enough balance": NEAR reserves prepaid gas up front (~0.03 NEAR at current testnet gas price), which plus the 0.02 wrap exceeded a 0.05 NEAR payer. Now 10 TGas for storage/wrap calls and the payer is funded with 0.1 NEAR.
+2. The new payer's key was printed only at the end, so the failure stranded ~0.048 NEAR in `73bb555340b59e05c254e082b736b34ae4790e6599a61936aefbefcec4dd82a3` (key lost, testnet only). Now the key is written to `.env` (`X402_PAYER_*`) **before** any money moves, and plain `npm run x402:setup` resumes: registers the payer and tops up wNEAR only if below 0.005.
+3. Any RPC/network error was reported as "account does not exist". Now only `UNKNOWN_ACCOUNT` means missing; other errors surface as errors.
+
+**Already done on chain by the Windows run:** `mnemosyne-gov.testnet` is registered with `wrap.testnet` (tx `EU5iFxD6hdxDhT47nbMmLbDnE3WnutJkA3UnFobHYbfG`) and now holds 0.002 wNEAR from the two live checks above.
+
+**Sandbox-only note:** in the Claude workspace Node's `fetch` needs `NODE_USE_ENV_PROXY=1` to reach NEAR RPC through the proxy. Not needed on a normal machine.
+
+**Next step (Windows):** apply this patch, `npm run x402:setup -- --new-payer` (now saves the payer to .env automatically), then the two-terminal real demo; record your own tx links here.
+
+---
+
+## 2026-10-30 (night) — Real x402 settlement on NEAR testnet (wNEAR) — built, offline-tested, LIVE RUN PENDING
+
+**Operator decision:** wNEAR (`wrap.testnet`) on NEAR testnet, tiny amounts, no mainnet, no real USDC. Phases 1–5 unchanged; mock stays the default.
+
+**What was built:**
+- `src/x402/rails.ts`: a `PaymentRail` interface; the server's 402 -> verify -> answer -> settle -> receipt flow now runs through it. `mock` rail = previous behaviour, unchanged. `near-exact` rail = the official x402 NEAR "exact" scheme (`@x402/near` via `@fastnear/x402@2.5.0`): payer signs a NEP-366 delegate action for one `ft_transfer` of wNEAR to `payTo`; an in-process facilitator verifies it and a relayer (default: governor) submits it and pays gas. Settlement id = real tx hash; receipts and `/audit` carry nearblocks links. Mainnet refused in code.
+- `src/serve.ts`: `X402_RAIL=near-testnet` switches rails (`X402_ASSET`, `X402_PRICE`, `X402_RELAYER_*`, defaults to governor).
+- `src/tools/x402Setup.ts` (`npm run x402:setup [-- --new-payer]`): idempotent; registers `payTo` with `wrap.testnet`; optionally creates a demo payer (0.05 NEAR funded, 0.02 wrapped).
+- `src/tools/x402RealDemo.ts` (`npm run x402:demo:real`): external agent pays with the standard `createNearX402Client`, checks balances moved on chain, receipt hashes, replay refused + not charged. Ends `REAL DEMO OK`.
+- `src/x402/nearRail.test.ts`: 9 tests running the official NEAR verifier/settlement code against a simulated chain (real ed25519 NEP-366 delegates built with `@near-js/transactions`, payments built with the standard x402 client).
+- `docs/X402.md` "Two payment rails", `.env.example`.
+
+**Tested:** `npm test` 37/37 (28 existing + 9 new), real `near-api-js`/typecheck. Mutation check: removing resource binding, ignoring a failed settlement, or skipping verification each fails tests.
+
+**Read-only testnet facts (2026-10-30):** `wrap.testnet` = wNEAR, 24 decimals, storage 0.00125 NEAR. `mnemosyne-gov.testnet`: ~9.995 NEAR, NOT yet registered with `wrap.testnet`, 0 wNEAR.
+
+**NOT done:** no live testnet payment yet. Sandbox payer `e220b3d545e6efa96624066c367f129d44d765f1bea065d6b8ce1bb2cdce6b77` was never funded.
+
+**Sandbox note:** in the Claude workspace npm only works with `NO_PROXY=localhost no_proxy=localhost npm_config_noproxy=localhost` (its npmrc bypasses the proxy for registry.npmjs.org).
+
+**Next step (Windows):** `npm install`, `npm test` (37), `npm run x402:setup -- --new-payer`, paste the two `X402_PAYER_*` lines into `.env`, then terminal 1: `set X402_RAIL=near-testnet` + `npm run server`; terminal 2: `npm run x402:demo:real` -> `REAL DEMO OK` with a nearblocks tx link. Record the tx links here.
+
+---
+
 ## 2026-10-30 (late) — Windows test fix
 
 - On Windows, `npm test` was 27/28: `failed disk write rolls back memory` simulated a disk failure with `chmod 0o500` on a folder. Windows ignores that (so does root on Linux), the write succeeded, and the test's `assert.throws` failed. Not a server bug.
