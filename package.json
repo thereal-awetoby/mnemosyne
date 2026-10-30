@@ -4,13 +4,19 @@
   "private": true,
   "description": "Non-trading governor agent on NEAR: private decisions, on-chain memory commitments, capability-limited sub-agents, x402-paid memory queries.",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "cycle": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "verify:contract": "node scripts/verify-contract.mjs",
     "sub:keygen": "node scripts/gen-sub-key.mjs",
-    "sub:check": "tsx src/tools/subKeyCheck.ts"
+    "sub:check": "tsx src/tools/subKeyCheck.ts",
+    "server": "tsx src/serve.ts",
+    "x402:demo": "tsx src/tools/x402Demo.ts",
+    "test": "tsx --test src/x402/*.test.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.9",

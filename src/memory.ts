@@ -24,7 +24,7 @@ import "dotenv/config";
 import type { MemoryRecord } from "./types.js";
 import { txFailure, txHashOf } from "./nearTx.js";
 
-const NODE_URL = "https://rpc.testnet.near.org";
+const NODE_URL = process.env.NEAR_RPC_URL ?? "https://rpc.testnet.near.org";
 const GOVERNOR_ACCOUNT_ID = process.env.GOVERNOR_ACCOUNT_ID ?? "";
 const GOVERNOR_PRIVATE_KEY = process.env.GOVERNOR_PRIVATE_KEY ?? "";
 
@@ -35,11 +35,11 @@ export function hashDecision(record: Omit<MemoryRecord, "decision_hash">): strin
 
 const provider = new JsonRpcProvider({ url: NODE_URL });
 
-export async function getLatestMemoryRecord(): Promise<MemoryRecord | null> {
-  if (!GOVERNOR_ACCOUNT_ID) return null;
+export async function getLatestMemoryRecord(accountId = GOVERNOR_ACCOUNT_ID): Promise<MemoryRecord | null> {
+  if (!accountId) return null;
 
   const res: any = await provider.callFunction({
-    contractId: GOVERNOR_ACCOUNT_ID,
+    contractId: accountId,
     method: "get_latest",
     args: {},
   });
@@ -51,7 +51,7 @@ export async function getLatestMemoryRecord(): Promise<MemoryRecord | null> {
 
   return {
     cycle_id: "",
-    governor: GOVERNOR_ACCOUNT_ID,
+    governor: accountId,
     decision_hash: latest_hash,
     prev_memory_hash: prev_hash || null,
     decisions: [],

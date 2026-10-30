@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "arena/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Mock payment demo
+        run: |
+          DATA_DIR="$RUNNER_TEMP/mnemosyne-ci" npm run server > "$RUNNER_TEMP/mnemosyne-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          node --input-type=module <<'JS'
+          let ready = false;
+          for (let i = 0; i < 50; i++) {
+            try {
+              const r = await fetch("http://localhost:8402/health");
+              if (r.ok) { ready = true; break; }
+            } catch {}
+            await new Promise(r => setTimeout(r, 100));
+          }
+          if (!ready) throw new Error("API did not become ready");
+          JS
+          npm run x402:demo
