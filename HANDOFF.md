@@ -2,6 +2,31 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (newest) — Phase 3: sub-c bricked and replaced; report() mechanism proven working
+
+**What was done:**
+
+- Checked real on-chain state with `near account list-keys` for all three subs (ground truth, not commit-message claims -- an earlier session's commit titled "Phase 3: add function-call-restricted keys to sub-agent accounts" did not actually do this correctly):
+  - `mnemosyne-sub-a.testnet` -- FullAccess key still present, plus a leftover `["commit"]`-scoped key (dead; `commit` can never succeed for a sub, only the governor can call it).
+  - `mnemosyne-sub-b.testnet` -- same as sub-a: FullAccess still present + the same dead `commit`-scoped key.
+  - `mnemosyne-sub-c.testnet` -- **FullAccess key already deleted**, with only the dead `commit`-scoped key remaining. This account has zero working on-chain capability and **cannot be recovered**: adding or deleting keys both require signing with an existing FullAccess key, and none exists anywhere (checked both the OS keychain and the legacy `~/.near-credentials` file store -- neither has it). Whatever ran the lockdown deleted FullAccess before anything functional replaced it.
+- Retired `mnemosyne-sub-c.testnet` (abandoned, left on testnet, can't be deleted without its key). Created `mnemosyne-sub-c2.testnet` as its replacement with a fresh FullAccess key, properly saved to the keychain this time.
+- Found the contract's `report()` method checks the caller against a hardcoded `SUB_ACCOUNTS: [&str; 3]` list in `contract/src/lib.rs` (lines 5-8) containing the original three sub names. Updated line 8 from `"mnemosyne-sub-c.testnet"` to `"mnemosyne-sub-c2.testnet"`, rebuilt (`cargo near build non-reproducible-wasm --no-abi`), and redeployed (`cargo near deploy build-non-reproducible-wasm --no-abi mnemosyne-gov.testnet without-init-call ...` -- `--no-abi` is required on `deploy` too, not just `build`, confirmed again after a deploy without it failed with the same MinGW link error documented above).
+- Added a `report`-scoped function-call key to `mnemosyne-sub-c2.testnet` (`grant-function-call-access`, allowance 0.25 NEAR, contract `mnemosyne-gov.testnet`, method `report`).
+- **Verified end to end:** called `report` as `mnemosyne-sub-c2.testnet` with `{"sub":"mnemosyne-sub-c2.testnet","action":"ACT","reason":"phase3 key test"}`. Succeeded. On-chain log: `MNEMOSYNE_REPORT:mnemosyne-sub-c2.testnet:ACT:phase3 key test`. This is the first proof anywhere that the restricted-key -> report() path actually works.
+- sub-c2's FullAccess key was deliberately **not** deleted yet -- kept until the scoped key is proven across more than one call and something in `src/` actually depends on it, specifically to avoid repeating the mistake that bricked the original sub-c.
+
+**Not done / still open:**
+
+- `mnemosyne-sub-a.testnet` and `mnemosyne-sub-b.testnet`: still need the same treatment -- add a `report`-scoped key, verify it actually works with a real `report` call (not the broken self-call test pattern used earlier), and only then consider removing their FullAccess keys and the dead `commit`-scoped keys. Do sub-a and sub-b one at a time, verify-before-delete each time.
+- `mnemosyne-sub-c2.testnet`'s FullAccess key is still live (intentional, see above) -- revisit once sub-a/b are done and the `report` pattern is fully trusted.
+- Nothing in `src/` calls `report` yet. `src/refuse.ts` (local REFUSE/ACT evaluation logic, Phase 4) exists as a standalone file but has never been wired into `cycle.ts`, and does not yet call `report` on-chain for any sub.
+- `docs/PHASE3_KEYS.md` and any related runbook content should be corrected to use the verify-before-delete ordering and the corrected `report`-targeting test command, so this mistake isn't repeated for sub-a/b.
+
+**Next step:** sub-a, then sub-b -- same four steps as sub-c2 (add scoped key, verify with a real `report` call, confirm it logs correctly, only then touch FullAccess). After that, wire `evaluateSubDecision()` from `src/refuse.ts` into `cycle.ts`'s step 5 so REFUSE/ACT decisions actually get reported on-chain.
+
+---
+
 ## 2026-10-30 (latest) — Phase 2 redeploy: `--no-abi` path proven end to end
 
 **What was done:**
@@ -35,7 +60,7 @@ The variant with `mnemosyne-sub-a.testnet` in the contract slot fails with `Comp
 - Re-created `scripts/verify-contract.mjs` and the `verify:contract` npm script.
 - **Changed path resolution:** the wasm path is now anchored to the repo root (derived from `import.meta.url`), not `process.cwd()`. Previously, running from `contract/` made the script hunt for `contract/contract/target/...` and report a bogus `FAIL local wasm found at ...`. `CONTRACT_WASM` still overrides; a relative override resolves against the cwd as you'd expect. Verified from both the repo root and `contract/`.
 - Re-ran the six mock-RPC scenarios (fresh, count 1, count 3, stale wasm, no code, no account) -- all produce the intended verdict and exit code. Cross-checked the inline base58 encoder against the `bs58` package on the **real** 89,806-byte artifact: identical (`DAPxfwyssXxfAZpSju3u24FAg2KVZNY6J53mTVLocUfC`).
-- `contract/README.md`: three-tier verification section (deploy output -> code-hash match -> behavioral checks incl. the negative governor test), plus a **Shell notes (Windows)** section. The earlier docs used PowerShell backticks and `#` comments; the user is in `cmd.exe`, where `#` is not a comment (`npm run  # ...` -> `Missing script: "#"`) and continuation is `^`. Identical commands, no shell assumptions now.
+- `contract/README.md`: three-tier verification section (deploy output -> code-hash match -> behavioral checks incl. the negative governor test), plus a **Shell notes (Windows)** section. The earlier docs used PowerShell backticks and `#` comments; the user is in `cmd.exe`, where `#` is not a comment (`npm run # ...` -> `Missing script: "#"`) and continuation is `^`. Identical commands, no shell assumptions now.
 - Rule of thumb documented: `npm run ...` from the repo root, `cargo near ...` from `contract/`.
 
 **Not verified:** the live path against `rpc.testnet.near.org` -- this sandbox has no egress there (only GitHub/npm/PyPI). Mock RPC only.
