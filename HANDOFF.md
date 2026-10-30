@@ -4,6 +4,23 @@ Running record of what was actually built, patch by patch. Newest entry on top.
 
 ---
 
+## 2026-10-30 (later) — `verify:contract` re-added; it was silently missing from `main`
+
+**What happened:** `npm run verify:contract` failed with `Missing script: "verify:contract"` on a clean checkout of `main`. Cause was not the user's environment: the verification work (`scripts/verify-contract.mjs` + the npm script) **never landed in the merge**. `main` at `445cade` contains the earlier `--no-abi` commit's files (`contract/README.md`, `contract/deploy.ps1`, the `.gitignore` additions) but has no `scripts/` directory and no `verify:contract` in `package.json`. A previous session's summary claimed both commits were merged; only the first one was.
+
+**What was done:**
+
+- Re-created `scripts/verify-contract.mjs` and the `verify:contract` npm script.
+- **Changed path resolution:** the wasm path is now anchored to the repo root (derived from `import.meta.url`), not `process.cwd()`. Previously, running from `contract/` made the script hunt for `contract/contract/target/...` and report a bogus `FAIL local wasm found at ...`. `CONTRACT_WASM` still overrides; a relative override resolves against the cwd as you'd expect. Verified from both the repo root and `contract/`.
+- Re-ran the six mock-RPC scenarios (fresh, count 1, count 3, stale wasm, no code, no account) -- all produce the intended verdict and exit code. Cross-checked the inline base58 encoder against the `bs58` package on the **real** 89,806-byte artifact: identical (`DAPxfwyssXxfAZpSju3u24FAg2KVZNY6J53mTVLocUfC`).
+- `contract/README.md`: three-tier verification section (deploy output -> code-hash match -> behavioral checks incl. the negative governor test), plus a **Shell notes (Windows)** section. The earlier docs used PowerShell backticks and `#` comments; the user is in `cmd.exe`, where `#` is not a comment (`npm run  # ...` -> `Missing script: "#"`) and continuation is `^`. Identical commands, no shell assumptions now.
+- Rule of thumb documented: `npm run ...` from the repo root, `cargo near ...` from `contract/`.
+
+**Not verified:** the live path against `rpc.testnet.near.org` -- this sandbox has no egress there (only GitHub/npm/PyPI). Mock RPC only.
+
+---
+
+
 ## 2026-10-30 — deploy-build fix: `--no-abi` is required on `cargo near deploy`
 
 **What was done:**
