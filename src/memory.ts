@@ -22,6 +22,7 @@ import { createHash } from "node:crypto";
 import { Account, JsonRpcProvider, KeyPairSigner, actions, teraToGas } from "near-api-js";
 import "dotenv/config";
 import type { MemoryRecord } from "./types.js";
+import { txFailure, txHashOf } from "./nearTx.js";
 
 const NODE_URL = "https://rpc.testnet.near.org";
 const GOVERNOR_ACCOUNT_ID = process.env.GOVERNOR_ACCOUNT_ID ?? "";
@@ -89,8 +90,11 @@ export async function writeMemoryRecord(
       ],
       waitUntil: "FINAL",
     });
-    const txHash: string | undefined = res?.transaction?.hash ?? res?.transaction_outcome?.id;
-    return { committed: true, txHash };
+    // Fail-closed: an executed-but-failed tx (e.g. contract panic "chain
+    // broken") must never be treated as committed, even if nothing threw.
+    const failure = txFailure(res);
+    if (failure) throw new Error(failure);
+    return { committed: true, txHash: txHashOf(res) };
   } catch (err) {
     return { committed: false, error: (err as Error).message };
   }

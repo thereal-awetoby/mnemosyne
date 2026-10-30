@@ -6,15 +6,22 @@ commitments, capability-limited sub-agents, and x402-paid memory queries.
 Full build plan: [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
 Build progress / what's been done in each step: [`HANDOFF.md`](HANDOFF.md).
 
-## Current status: Phase 2 complete, Phase 3 in progress
+## Current status: Phase 2 complete; Phases 3 + 4 code complete, key rollout in progress
 
-One cycle (read -> decide -> memory commit -> allocate -> log) runs, and the memory commit is a real on-chain call to mnemosyne-gov.testnet (hash chained against the on-chain head, fail-closed). ALLOCATE is still print-only and the sub-agent keys are not restricted yet (Phase 3). No real funds move.
+One cycle runs: read -> decide -> **on-chain memory commit** (mnemosyne-gov.testnet, hash-chained, fail-closed) -> allocate (print-only) -> **sub-agent window**: each sub checks the directive against its own mandate and writes ACT/REFUSE on-chain with its own report-only function-call key. Sub C (defensive, reduce-only) refuses directives above its tighter ceiling.
+
+Still simulated, and labeled as such: swarm state, `decide()` (Phase 6), and ALLOCATE (no real transfers). No x402 API yet (Phase 5).
+
+Sub-agent key setup: [`docs/PHASE3_KEYS.md`](docs/PHASE3_KEYS.md). Copy `.env.example` to `.env`.
 
 ## Run it
 
 ```
 npm install
-npm run cycle
+npm run cycle                 (one governor cycle)
+npm run sub:keygen -- A       (new report-only key for a sub)
+npm run sub:check -- A        (prove a sub key is scoped: report ok, commit/transfer rejected)
+npm run verify:contract       (deployed wasm == local build, read-only)
 ```
 
 This runs one cycle and prints each step. Run it again and you'll see

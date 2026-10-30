@@ -1,21 +1,24 @@
 /**
  * One governor cycle (docs/BUILD_PLAN.md section 7).
  *
- * Phase 1 skeleton: every step below is real code with the real shape
- * of the pipeline (read -> decide -> commit -> act -> log), but the
- * "decide" step is a stub and the "act" step only prints what it would
- * have done. Nothing here moves real funds or calls NEAR. That's
- * intentional per the plan: skeleton first, no real fund movement yet.
+ * read -> decide (stub, private) -> MEMORY COMMIT on NEAR (fail-closed gate)
+ * -> allocate (print-only) -> sub-agent window (each sub checks its mandate,
+ * then reports ACT/REFUSE on-chain with its own report-only key) -> log.
+ *
+ * Still simulated: swarm state (readFakeSwarmState), decide() (Phase 6),
+ * and ALLOCATE (no real transfers). Everything else talks to testnet.
  */
 
 import { readFakeSwarmState, SUB_AGENTS } from "./subAgents.js";
 import { getLatestMemoryRecord, hashDecision, writeMemoryRecord } from "./memory.js";
-import { evaluateSubDecision } from "./refuse.js";
+import { evaluateSubDecision, type SubRuntimeDecision } from "./refuse.js";
+import { reportOnChain, type ReportResult } from "./report.js";
 import type {
   CycleResult,
   MemoryRecord,
   PrivateDecision,
   SubDecision,
+  SubId,
 } from "./types.js";
 
 function makeCycleId(): string {
@@ -114,34 +117,56 @@ export async function runCycle(): Promise<CycleResult> {
   }
 
   // 5. SUB-AGENT WINDOW
-  console.log("[5/6] SUB-AGENT WINDOW: local REFUSE checks (each sub validates the directive against its own mandate ceiling)...");
+  // Each sub validates the directive against its own mandate (local), then
+  // writes its ACT/REFUSE on-chain via report(), signing with ITS OWN
+  // report-only key. PAUSE subs are inactive and don't report.
+  console.log("[5/6] SUB-AGENT WINDOW: mandate checks + on-chain report()...");
+  const verdicts: SubRuntimeDecision[] = [];
   for (const d of memoryRecord.decisions) {
     if (d.action === "PAUSE") {
-      console.log(`      sub ${d.sub}: PAUSE -> no REFUSE check needed (already inactive)`);
+      console.log(`      sub ${d.sub}: PAUSE -> inactive this cycle, nothing to report`);
       continue;
     }
+    let verdict: SubRuntimeDecision;
     if (!d.target_capital || !d.max_position || !d.max_loss_cycle || !d.mandate) {
-      console.log(`      sub ${d.sub}: REFUSE (missing directive fields from governor; cannot evaluate, fail-closed)`);
-      continue;
+      verdict = { sub: d.sub, action: "REFUSE", reason: "missing directive fields from governor, fail-closed" };
+    } else {
+      verdict = evaluateSubDecision({
+        sub: d.sub,
+        status: d.action,
+        target_capital: Number(d.target_capital),
+        max_position: Number(d.max_position),
+        max_loss_cycle: Number(d.max_loss_cycle),
+        mandate: d.mandate,
+        current_capital: swarmState.find((s) => s.sub === d.sub)?.capital,
+      });
     }
-    const subResult = evaluateSubDecision({
-      sub: d.sub,
-      // refuse.ts only distinguishes KEEP vs PAUSE; PAUSE is handled
-      // above, so every directive reaching here maps to "KEEP" for this
-      // check. decide() doesn't emit INCREASE/CUT yet -- revisit this
-      // mapping if/when it does.
-      status: "KEEP",
-      target_capital: Number(d.target_capital),
-      max_position: Number(d.max_position),
-      max_loss_cycle: Number(d.max_loss_cycle),
-      mandate: d.mandate,
-    });
-    console.log(`      sub ${d.sub}: ${subResult.action} (${subResult.reason})`);
+    verdicts.push(verdict);
+    console.log(`      sub ${d.sub}: ${verdict.action} (${verdict.reason})`);
+  }
+
+  // Tie each report to this cycle's commitment so the audit trail links up.
+  const shortHash = decisionHash.replace(/^sha256:/, "").slice(0, 12);
+  // Different signer accounts -> no nonce contention, so send in parallel.
+  const reports: ReportResult[] = await Promise.all(
+    verdicts.map((v) =>
+      reportOnChain(v.sub as SubId, v.action, `cycle ${shortHash}: ${v.reason}`)
+    )
+  );
+  for (const r of reports) {
+    if (r.status === "reported") {
+      console.log(`      sub ${r.sub} -> on-chain ${r.action} as ${r.accountId}`);
+      if (r.txHash) console.log(`        tx: https://testnet.nearblocks.io/txns/${r.txHash}`);
+    } else if (r.status === "skipped") {
+      console.log(`      sub ${r.sub} -> NOT reported (${r.error})`);
+    } else {
+      console.log(`      sub ${r.sub} -> REPORT FAILED as ${r.accountId}: ${r.error}`);
+    }
   }
 
   // 6. PUBLIC LOG
   console.log("[6/6] PUBLIC LOG: cycle complete.");
   console.log(`=== end cycle ${cycleId} ===\n`);
 
-  return { memoryRecord, privateDecision, committed: true };
+  return { memoryRecord, privateDecision, committed: true, reports };
 }

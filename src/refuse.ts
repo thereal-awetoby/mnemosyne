@@ -1,20 +1,22 @@
 // Phase 4: local REFUSE logic for sub-agents.
 //
 // Each sub-agent evaluates the governor's directive against its own
-// hardcoded mandate ceiling and may refuse to act even when the
-// governor says KEEP. This is LOCAL-ONLY for now: refusals are
-// computed and printed, but not yet written on-chain via the
-// contract's report() method -- that needs each sub's own NEAR
-// signing key wired into near-api-js, which is a separate step
-// (see HANDOFF.md "Not done yet").
+// hardcoded mandate rules and may refuse to act even when the governor
+// says KEEP. The result (ACT / REFUSE + reason) is then written on-chain
+// by the sub itself via report() -- see src/report.ts.
+
+import type { SubAction } from "./types.js";
 
 export type GovernorDirective = {
   sub: string;
-  status: "KEEP" | "PAUSE";
+  status: SubAction; // KEEP | INCREASE | CUT | PAUSE
   target_capital: number;
   max_position: number;
   max_loss_cycle: number;
   mandate: string;
+  /** Capital the sub holds right now. Needed for the reduce-only rule;
+   *  if absent, a reduce-only sub refuses (fail-closed). */
+  current_capital?: number;
 };
 
 export type SubRuntimeDecision = {
@@ -23,62 +25,62 @@ export type SubRuntimeDecision = {
   reason: string;
 };
 
-// Hardcoded per-mandate ceilings. Sub C is defensive/reduce-only, so
-// it gets a tighter loss ceiling than A and B on purpose -- a
-// defensive agent should refuse sooner, not later.
-const MANDATE_CEILINGS: Record<
+// Hardcoded per-mandate rules. Sub C is defensive/reduce-only, so it gets a
+// tighter ceiling than A and B on purpose -- a defensive agent should refuse
+// sooner, not later -- and it may never take on MORE capital.
+const MANDATE_RULES: Record<
   string,
-  { maxPosition: number; maxLossCycle: number }
+  { maxPosition: number; maxLossCycle: number; reduceOnly: boolean }
 > = {
-  mean_reversion_only: { maxPosition: 200, maxLossCycle: 50 },
-  inventory_liquidity_only: { maxPosition: 200, maxLossCycle: 50 },
-  defensive_reduce_only: { maxPosition: 150, maxLossCycle: 30 },
+  mean_reversion_only: { maxPosition: 200, maxLossCycle: 50, reduceOnly: false },
+  inventory_liquidity_only: { maxPosition: 200, maxLossCycle: 50, reduceOnly: false },
+  defensive_reduce_only: { maxPosition: 150, maxLossCycle: 30, reduceOnly: true },
 };
 
-export function evaluateSubDecision(
-  directive: GovernorDirective
-): SubRuntimeDecision {
-  const ceiling = MANDATE_CEILINGS[directive.mandate];
+function refuse(sub: string, reason: string): SubRuntimeDecision {
+  return { sub, action: "REFUSE", reason };
+}
 
-  // Unknown mandate -> fail-closed. A sub should never silently act
-  // under a mandate it doesn't recognize.
-  if (!ceiling) {
-    return {
-      sub: directive.sub,
-      action: "REFUSE",
-      reason: `unknown mandate "${directive.mandate}" -- no ceiling on file, fail-closed`,
-    };
+export function evaluateSubDecision(directive: GovernorDirective): SubRuntimeDecision {
+  const { sub } = directive;
+  const rules = MANDATE_RULES[directive.mandate];
+
+  // Unknown mandate -> fail-closed.
+  if (!rules) return refuse(sub, `unknown mandate "${directive.mandate}", fail-closed`);
+
+  // Malformed numbers -> fail-closed (Number("abc") is NaN, NaN > x is false,
+  // which would otherwise silently pass every ceiling check).
+  for (const k of ["target_capital", "max_position", "max_loss_cycle"] as const) {
+    const v = directive[k];
+    if (!Number.isFinite(v) || v < 0) return refuse(sub, `invalid ${k} "${v}", fail-closed`);
   }
 
-  // Contradictory directive from the governor -- refuse rather than
-  // guess what was meant.
+  // Contradictory directive -- refuse rather than guess.
   if (directive.status === "PAUSE" && directive.target_capital !== 0) {
-    return {
-      sub: directive.sub,
-      action: "REFUSE",
-      reason: "contradictory directive: PAUSE with nonzero target_capital",
-    };
+    return refuse(sub, "contradictory directive: PAUSE with nonzero target_capital");
   }
 
-  if (directive.max_position > ceiling.maxPosition) {
-    return {
-      sub: directive.sub,
-      action: "REFUSE",
-      reason: `max_position ${directive.max_position} exceeds mandate ceiling ${ceiling.maxPosition}`,
-    };
+  if (rules.reduceOnly) {
+    if (directive.status === "INCREASE") {
+      return refuse(sub, "reduce-only mandate: INCREASE not allowed");
+    }
+    if (directive.current_capital === undefined || !Number.isFinite(directive.current_capital)) {
+      return refuse(sub, "reduce-only mandate: current capital unknown, fail-closed");
+    }
+    if (directive.target_capital > directive.current_capital) {
+      return refuse(
+        sub,
+        `reduce-only mandate: target_capital ${directive.target_capital} > current ${directive.current_capital}`
+      );
+    }
   }
 
-  if (directive.max_loss_cycle > ceiling.maxLossCycle) {
-    return {
-      sub: directive.sub,
-      action: "REFUSE",
-      reason: `max_loss_cycle ${directive.max_loss_cycle} exceeds mandate ceiling ${ceiling.maxLossCycle}`,
-    };
+  if (directive.max_position > rules.maxPosition) {
+    return refuse(sub, `max_position ${directive.max_position} exceeds mandate ceiling ${rules.maxPosition}`);
+  }
+  if (directive.max_loss_cycle > rules.maxLossCycle) {
+    return refuse(sub, `max_loss_cycle ${directive.max_loss_cycle} exceeds mandate ceiling ${rules.maxLossCycle}`);
   }
 
-  return {
-    sub: directive.sub,
-    action: "ACT",
-    reason: "within mandate ceiling",
-  };
+  return { sub, action: "ACT", reason: "within mandate" };
 }
