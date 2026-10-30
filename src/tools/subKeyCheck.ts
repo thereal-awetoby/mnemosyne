@@ -40,7 +40,10 @@ function result(ok: boolean, label: string, detail?: string) {
 /** Errors that mean "NEAR refused this EXISTING key for this action".
  *  Deliberately does NOT match "key does not exist": a missing key also gets
  *  every transaction rejected, which would otherwise look like a PASS. */
-const KEY_SCOPE_ERROR = /MethodNameMismatch|ReceiverMismatch|RequiresFullAccess|InvalidAccessKeyError|isn't allowed|is not allowed|not allowed by the access key|full access/i;
+// Includes the exact near-api-js 7.4 wording seen on testnet 2026-10-30:
+//   "Access key does not allow method commit"  (MethodNameMismatch)
+//   "Access key requires full access"          (RequiresFullAccess)
+const KEY_SCOPE_ERROR = /MethodNameMismatch|ReceiverMismatch|RequiresFullAccess|InvalidAccessKeyError|does not allow method|does not allow receiver|isn't allowed|is not allowed|not allowed by the access key|full access/i;
 const KEY_MISSING_ERROR = /does not exist|AccessKeyNotFound|UNKNOWN_ACCESS_KEY/i;
 
 const RPC_URL = process.env.NEAR_RPC_URL ?? "https://rpc.testnet.near.org";
