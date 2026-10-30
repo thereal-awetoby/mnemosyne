@@ -5,7 +5,7 @@ use near_sdk::{env, log, near};
 const SUB_ACCOUNTS: [&str; 3] = [
     "mnemosyne-sub-a.testnet",
     "mnemosyne-sub-b.testnet",
-    "mnemosyne-sub-c.testnet",
+    "mnemosyne-sub-c2.testnet",
 ];
 
 // Minimal on-chain memory gate for Mnemosyne.
