@@ -2,6 +2,35 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (current) — Phases 3 + 4 code complete; on-chain steps waiting to be run on the Windows machine
+
+**Correction to the entry below:** it says `src/refuse.ts` "has never been wired into `cycle.ts`". That was wrong: it was wired into step 5 (see the Phase 4 entry). What was missing was the *on-chain* `report()` call. That is now done.
+
+**What was done (code, tested offline):**
+
+- `src/report.ts`: each sub writes its ACT/REFUSE on-chain via `report()`, signing with **its own** report-only key from `.env` (`SUB_A/B/C_PRIVATE_KEY`). Never throws; a missing key prints `NOT reported` (skipped), a rejected call prints `REPORT FAILED` and makes `npm run cycle` exit 1.
+- `src/cycle.ts` step 5: mandate check per sub (local), then all reports sent in parallel (different signers, no nonce clash). Each reason is prefixed with the first 12 hex chars of that cycle's `decision_hash`, so a report can be traced to the commit it acted under.
+- `src/refuse.ts`: sub C's **reduce-only** rule is now enforced (refuses INCREASE, refuses `target_capital` > current capital, refuses if current capital is unknown). NaN/negative numbers now fail closed (previously `NaN > ceiling` was false, so garbage passed). Takes the real action (KEEP/INCREASE/CUT/PAUSE) instead of mapping everything to KEEP.
+- `src/memory.ts` hardening: a commit tx that executed but **failed** (e.g. "chain broken" panic) is now detected from the outcome's `status.Failure` / receipt failures and treated as not committed. Before, if near-api-js returned the failure instead of throwing, the cycle would have proceeded to ALLOCATE -- a fail-closed hole.
+- `scripts/gen-sub-key.mjs` (`npm run sub:keygen -- A`): generates a NEAR ed25519 keypair with no dependencies, prints the public key + `.env` lines + the exact `add-key` command. Solves the keychain -> near-api-js problem: the secret never goes in the keychain, only in `.env`.
+- `src/tools/subKeyCheck.ts` (`npm run sub:check -- A`): proves a sub key with the same code path as the cycle: report() succeeds; commit() rejected **by NEAR** (MethodNameMismatch, not just the contract); a transfer is rejected. ALL PASS is the precondition for deleting any key.
+- `docs/PHASE3_KEYS.md` rewritten: cmd.exe syntax, verify-before-delete order, allowance raised to 1 NEAR, and the recommendation to keep FullAccess as a cold key (agent never holds it) instead of deleting it before the demo.
+- `.env.example` added. Removed root-level one-off files (`cycle.patch`, `handoff-phase3-step1.patch`, `phase3-report-and-handoff.patch`, `phase2-fixes.mjs`, `phase2-handoff.mjs`): all already applied or obsolete; still in git history.
+
+**How it was tested (and what wasn't):** this sandbox can't reach testnet or the npm registry. Type-checked against a stub near-api-js with the same signatures `memory.ts` already uses. Ran `npm run cycle` and `sub:check` against a fake chain that enforces key scopes + the contract's rules: full cycle (A ACT, B skipped, C REFUSE reported), commit failure returned as `status.Failure` -> FAIL-CLOSED, report rejected by contract -> exit 1, scoped key -> ALL PASS, FullAccess key -> 2 FAILs, missing key -> FAIL. 13 refuse-rule cases + UTF-8 reason clamp pass. 500 generated keys verified (64-byte seed||pub layout, pubkey re-derived, sign/verify). **Not verified: any real testnet call from the new code.**
+
+**Next step (on the Windows machine), in order -- full commands in `docs/PHASE3_KEYS.md`:**
+
+1. `npm install`, then `npm run typecheck` (first real check against near-api-js 7.4).
+2. Governor negative test (step 0) -- uses sub-a's FullAccess key, so before anything else.
+3. Sub A: keygen -> add-key -> `npm run sub:check -- A` ALL PASS -> delete dead `commit` key.
+4. Same for B, then C (sub-c2).
+5. `npm run cycle`: all three subs report on-chain, C refuses, exit 0. Log the tx links here.
+
+If `sub:check` shows a negative check failing with an error that clearly *is* a key rejection, the wording didn't match `KEY_SCOPE_ERROR` in `src/tools/subKeyCheck.ts` -- paste the message here and widen the pattern; don't delete keys until it reads ALL PASS.
+
+---
+
 ## 2026-10-30 (newest) — Phase 3: sub-c bricked and replaced; report() mechanism proven working
 
 **What was done:**

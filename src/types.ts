@@ -56,4 +56,6 @@ export interface CycleResult {
   memoryRecord: MemoryRecord;
   privateDecision: PrivateDecision;
   committed: boolean;
+  /** On-chain report() outcome per active sub (only when committed). */
+  reports?: Array<{ sub: SubId; status: "reported" | "skipped" | "failed"; error?: string }>;
 }
