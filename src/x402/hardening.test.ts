@@ -1,7 +1,7 @@
 /** Regression tests for public-origin binding, untrusted inputs and failure paths. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -228,15 +228,19 @@ test("inconsistent successful settlement never releases an answer or asks for a 
 });
 
 test("failed disk write rolls back memory; a retry can still succeed", async (t) => {
+  // Portable failure injection: a DIRECTORY sitting where the state file must
+  // go makes the final rename fail on Linux, macOS and Windows alike, as any
+  // user. (chmod 0o500 on a folder doesn't stop writes on Windows or as root.)
   const dir = mkdtempSync(join(tmpdir(), "mnemo-rollback-"));
-  t.after(() => { chmodSync(dir, 0o700); rmSync(dir, { recursive: true, force: true }); });
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const path = join(dir, "state.json");
   const store = new JsonStore<{ spent: boolean }>(path, () => ({ spent: false }));
-  chmodSync(dir, 0o500);
+  mkdirSync(path);
+  writeFileSync(join(path, "blocker"), "x");
   assert.throws(() => store.update(v => { v.spent = true; }));
-  assert.deepEqual(store.get(), { spent: false });
-  assert.equal(exists(path), false);
-  chmodSync(dir, 0o700);
+  assert.deepEqual(store.get(), { spent: false }, "memory not updated when the write failed");
+  assert.deepEqual(readdirSync(dir), ["state.json"], "no temp file left behind");
+  rmSync(path, { recursive: true, force: true });
   store.update(v => { v.spent = true; });
   assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), { spent: true });
   assert.throws(() => store.update(() => { throw new Error("mutation failed"); }));
