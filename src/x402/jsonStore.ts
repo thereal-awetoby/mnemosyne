@@ -1,9 +1,11 @@
 /**
  * Tiny JSON-file persistence with atomic writes (write temp file, rename).
- * Good enough for one server process; not a database.
+ * Good enough for one server process; not a database or a multi-process lock.
+ * A failed mutation or write leaves the last successfully saved value intact.
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 export class JsonStore<T> {
@@ -11,6 +13,7 @@ export class JsonStore<T> {
 
   constructor(private readonly path: string, initial: () => T) {
     if (existsSync(path)) {
+      // Corrupt state must fail startup, never silently reset a spent ledger.
       this.value = JSON.parse(readFileSync(path, "utf8")) as T;
     } else {
       this.value = initial();
@@ -21,13 +24,26 @@ export class JsonStore<T> {
     return this.value;
   }
 
-  /** Mutate, then persist. If the write fails the error propagates, so a
-   *  caller never reports success for state that wasn't saved. */
+  /** Mutate a copy, persist it, then publish it in memory. In particular, a
+   *  failed ledger write must not burn a nonce that was never saved. */
   update(fn: (v: T) => void): void {
-    fn(this.value);
-    mkdirSync(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.${process.pid}.tmp`;
-    writeFileSync(tmp, JSON.stringify(this.value, null, 2));
-    renameSync(tmp, this.path);
+    const next = structuredClone(this.value);
+    fn(next);
+    mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
+    const tmp = `${this.path}.${randomUUID()}.tmp`;
+    try {
+      const fd = openSync(tmp, "wx", 0o600);
+      try {
+        writeFileSync(fd, JSON.stringify(next, null, 2), "utf8");
+        fsyncSync(fd);
+      } finally {
+        closeSync(fd);
+      }
+      renameSync(tmp, this.path);
+    } catch (err) {
+      try { rmSync(tmp, { force: true }); } catch { /* preserve the original write error */ }
+      throw err;
+    }
+    this.value = next;
   }
 }

@@ -2,6 +2,25 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 — Phase 5 patch applied and integration hardened
+
+- Applied the supplied Phase 5 patch on the PR branch; retained the original
+  `patches/phase5-x402-memory-api.patch` unchanged for provenance.
+- Fixed public-origin payment binding for reverse proxies, explicit `HOST`
+  binding (default `0.0.0.0`), client resource/redirect/network validation,
+  exact decimal amount checks, and settlement-response consistency checks.
+- JSON stores now mutate a copy, fsync and atomically rename it, and publish the
+  new value only after success. Failed writes roll back; corrupt state fails startup.
+- The demo now checks the initial 402, recipient/network/price limits, settlement
+  proof, receipt fields and exact replay refusal reason. Chain reads honor
+  `NEAR_RPC_URL` and the configured governor account.
+- Added 12 regression tests (28 total), a Node 22 CI workflow, and deployment /
+  mock-settlement documentation. `npm run typecheck`, `npm test`, `npm run build`
+  and the live local mock demo pass. No NEAR transaction was sent by these checks;
+  the real HTTP facilitator adapter remains unverified against a live service.
+
+---
+
 ## 2026-10-30 (night) — Phase 5: x402 paid memory API built (mock settlement)
 
 **Rules check:** HACKATHON.md (copy dated 21/10/2026) has no rule against work started before 1 Nov. It requires a public repo by 2026-11-14T23:59:00Z, a human-posted demo on X, and one submission sent between 2026-11-01 and 2026-11-14 (the API answers 403 outside that window).

@@ -36,13 +36,18 @@ This runs one cycle and prints each step. Run it again and you'll see
 
 ## Try the x402 memory API (do X -> see Y)
 
-No NEAR keys needed for these steps. Two terminals, repo root.
+No NEAR keys needed for these steps. Use Node.js 22+ and two terminals at the repo root.
 
-1. `npm run server` -> prints `Mnemosyne API on http://localhost:8402`, `memory entries: 6`, `facilitator: MOCK`.
+1. `npm run server` -> listens on `0.0.0.0:8402`, `memory entries: 6`, `facilitator: MOCK`.
 2. `curl -i -X POST localhost:8402/memory/check -H "content-type: application/json" -d "{\"query\":\"delete the full access key\"}"` -> `HTTP/1.1 402 Payment Required`, a `PAYMENT-REQUIRED` header, and a JSON body quoting price (`amount` in yoctoNEAR), `payTo: mnemosyne-gov.testnet`, `network: near:testnet`. No answer is included.
 3. `npm run x402:demo` -> an external agent (a fresh NEAR implicit account) gets the 402, signs the quoted price, retries, and receives `match: true (citation M-001, key-management)` plus one line of advice and a `receipt: R-...`. It then fetches the receipt and checks both hashes (`answer hash matches ... YES`), replays the same payment and gets `HTTP 402: nonce_already_used`. Last line: `DEMO OK`.
 4. `npm run x402:demo -- "planning the team lunch menu"` -> still paid, but `match: false`: unrelated situations don't produce false citations.
 5. Open `http://localhost:8402/audit` -> every paid check (receipt id, payer, amount, citation, `mock_` settlement id), and never the query text.
-6. `npm test` -> 16 tests: wrong amount, recipient, network, payer key, endpoint, expired or over-long window, tampered signature, replay, 8 concurrent uses of one payment (exactly 1 settles), restart persistence, admin-only routes, and that `private_detail` never appears in any response.
+6. `npm test` -> 28 tests: wrong amount, recipient, network, payer key, endpoint, expired or over-long window, tampered signature, replay, 8 concurrent uses of one payment (exactly 1 settles), restart persistence, admin-only routes, and that `private_detail` never appears in any response.
+
+For a remote deployment, set `PUBLIC_URL` to its public HTTPS origin and point
+`MNEMOSYNE_URL` at the same origin. Without a pinned URL, the demo also works
+through a trusted reverse proxy that preserves Host and sets `X-Forwarded-Proto`.
+See [`docs/X402.md`](docs/X402.md) for security limits and facilitator configuration.
 
 Governor side (needs `.env` with testnet keys): `npm run cycle` -> step 3 prints a `MEMORY COMMIT` tx link; step 5 prints `on-chain ACT` for subs A and B and `on-chain REFUSE` for sub C, each with a tx link.

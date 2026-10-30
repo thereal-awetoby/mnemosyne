@@ -2,8 +2,9 @@
  * Start the Mnemosyne API:  npm run server
  *
  * Env (all optional; see .env.example):
+ *   HOST                      default 0.0.0.0
  *   PORT                      default 8402
- *   PUBLIC_URL                default http://localhost:<PORT>
+ *   PUBLIC_URL                optional pinned public origin; default: request Host
  *   GOVERNOR_ACCOUNT_ID       payTo + contract (default mnemosyne-gov.testnet)
  *   X402_PRICE_YOCTO          price per check, default 1e21 (0.001 NEAR)
  *   X402_FACILITATOR_URL      use a real x402 facilitator instead of the mock
@@ -21,8 +22,10 @@ import { createMnemosyneServer } from "./x402/server.js";
 import { HttpFacilitator, MockFacilitator, type Facilitator } from "./x402/facilitator.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const HOST = process.env.HOST ?? "0.0.0.0";
 const PORT = Number(process.env.PORT ?? 8402);
-const PUBLIC_URL = process.env.PUBLIC_URL ?? `http://localhost:${PORT}`;
+if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) throw new Error("PORT must be an integer from 0 to 65535");
+const PUBLIC_URL = process.env.PUBLIC_URL || undefined;
 const GOVERNOR = process.env.GOVERNOR_ACCOUNT_ID ?? "mnemosyne-gov.testnet";
 const RPC_URL = process.env.NEAR_RPC_URL ?? "https://rpc.testnet.near.org";
 const DATA_DIR = resolve(process.env.DATA_DIR ?? join(REPO_ROOT, "data/runtime"));
@@ -32,12 +35,15 @@ async function keyBelongsToAccount(accountId: string, publicKey: string): Promis
   try {
     const r = await fetch(RPC_URL, {
       method: "POST",
+      redirect: "error",
+      signal: AbortSignal.timeout(8_000),
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         jsonrpc: "2.0", id: "x402", method: "query",
         params: { request_type: "view_access_key", finality: "final", account_id: accountId, public_key: publicKey },
       }),
     });
+    if (!r.ok) return false;
     const j: any = await r.json();
     return !j.error && !j.result?.error && j.result?.permission !== undefined;
   } catch {
@@ -66,7 +72,7 @@ const { server, memory } = createMnemosyneServer({
   adminToken: process.env.ADMIN_TOKEN || undefined,
   readChainHead: async () => {
     const { getLatestMemoryRecord } = await import("./memory.js");
-    const rec = await getLatestMemoryRecord();
+    const rec = await getLatestMemoryRecord(GOVERNOR);
     return rec ? { latest_hash: rec.decision_hash, prev_hash: rec.prev_memory_hash } : null;
   },
   runCycle: async () => {
@@ -84,9 +90,25 @@ const { server, memory } = createMnemosyneServer({
   },
 });
 
-server.listen(PORT, () => {
-  console.log(`Mnemosyne API on ${PUBLIC_URL}`);
+server.on("error", (err) => {
+  console.error(`Mnemosyne API failed to listen: ${err.message}`);
+  process.exitCode = 1;
+});
+
+server.listen(PORT, HOST, () => {
+  const address = server.address();
+  const actualPort = typeof address === "object" && address ? address.port : PORT;
+  console.log(`Mnemosyne API listening on ${HOST}:${actualPort}; public URL: ${PUBLIC_URL ?? "derived from each request's Host"}`);
   console.log(`  memory entries: ${memory.size}   payTo: ${GOVERNOR}   data: ${DATA_DIR}`);
   console.log(`  facilitator: ${realFacilitatorUrl ? realFacilitatorUrl : "MOCK (verifies everything, settles to a local ledger)"}`);
   console.log(`  admin routes: ${process.env.ADMIN_TOKEN ? "enabled" : "disabled (set ADMIN_TOKEN)"}`);
 });
+
+// Close cleanly on container / terminal shutdown; synchronous stores have no
+// background writes left to flush.
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    server.close();
+    server.closeIdleConnections();
+  });
+}

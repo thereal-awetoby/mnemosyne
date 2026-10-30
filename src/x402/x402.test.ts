@@ -56,7 +56,6 @@ before(async () => {
   const created = createMnemosyneServer({
     dataDir,
     seedPath: SEED,
-    publicUrl: "http://mnemosyne.test",
     payTo: "mnemosyne-gov.testnet",
     network: "near:testnet",
     asset: "NEAR",
@@ -68,9 +67,9 @@ before(async () => {
     runCycle: async () => ({ committed: true, decision_hash: "sha256:x" }),
   });
   requirements = created.requirements;
-  checkUrl = "http://mnemosyne.test/memory/check";
   await new Promise<void>((r) => created.server.listen(0, "127.0.0.1", () => r()));
   base = `http://127.0.0.1:${(created.server.address() as AddressInfo).port}`;
+  checkUrl = base + "/memory/check";
   close = () => created.server.close();
 });
 
@@ -257,7 +256,7 @@ test("state survives a restart (spent nonces, receipts, confessions)", async () 
   const p = buildPayment(requirements, checkUrl, newPayer());
   assert.equal((await post("/memory/check", { query: MATCHING }, payHeader(p))).status, 200);
   const second = createMnemosyneServer({
-    dataDir, seedPath: SEED, publicUrl: "http://mnemosyne.test", payTo: "mnemosyne-gov.testnet",
+    dataDir, seedPath: SEED, payTo: "mnemosyne-gov.testnet",
     network: "near:testnet", asset: "NEAR", priceAmount: "1000000000000000000000", maxTimeoutSeconds: 300,
     facilitator: new MockFacilitator(dataDir), mockSettlement: true,
   });

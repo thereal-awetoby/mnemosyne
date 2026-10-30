@@ -23,6 +23,7 @@ import { join } from "node:path";
 import { JsonStore } from "./jsonStore.js";
 import { MemoryStore, MAX_QUERY_CHARS, type CheckResult } from "./memoryStore.js";
 import { b64json, canonicalJson, fromB64json, sha256Hex } from "./crypto.js";
+import { requirementsError, settlementError } from "./validation.js";
 import type { Facilitator } from "./facilitator.js";
 import {
   MOCK_TRANSFER_METHOD,
@@ -35,8 +36,9 @@ import {
 export interface ServerConfig {
   dataDir: string;
   seedPath: string;
-  /** Public base URL; payments are bound to `${publicUrl}/memory/check`. */
-  publicUrl: string;
+  /** Pin the public origin. If omitted, derive it from each request's Host
+   *  and forwarded protocol so local and proxied clients get the same binding. */
+  publicUrl?: string;
   payTo: string;
   network: string;
   asset: string;
@@ -116,7 +118,21 @@ function tokenOk(given: string | undefined, expected: string | undefined): boole
 export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memory: MemoryStore; requirements: PaymentRequirements } {
   const memory = new MemoryStore(cfg.dataDir, cfg.seedPath);
   const receipts = new JsonStore<{ receipts: Record<string, Receipt> }>(join(cfg.dataDir, "receipts.json"), () => ({ receipts: {} }));
-  const checkUrl = cfg.publicUrl.replace(/\/$/, "") + "/memory/check";
+  if (cfg.publicUrl !== undefined) cfg.publicUrl = normalizePublicUrl(cfg.publicUrl);
+
+  function checkUrlFor(req: IncomingMessage): string {
+    if (cfg.publicUrl !== undefined) return cfg.publicUrl + "/memory/check";
+    const host = req.headers.host;
+    const forwarded = req.headers["x-forwarded-proto"];
+    const protocol = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "http";
+    if (!host || !["http", "https"].includes(protocol)) throw new HttpError(400, "invalid public host");
+    let origin: URL;
+    try { origin = new URL(`${protocol}://${host}`); } catch { throw new HttpError(400, "invalid public host"); }
+    if (origin.hostname === "" || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) {
+      throw new HttpError(400, "invalid public host");
+    }
+    return origin.origin + "/memory/check";
+  }
 
   const requirements: PaymentRequirements = {
     scheme: "exact",
@@ -134,7 +150,10 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     },
   };
 
-  const paymentRequired = (error: string): PaymentRequired => ({
+  const requirementsIssue = requirementsError(requirements);
+  if (requirementsIssue) throw new Error(`invalid server payment configuration: ${requirementsIssue}`);
+
+  const paymentRequired = (error: string, checkUrl: string): PaymentRequired => ({
     x402Version: X402_VERSION,
     error,
     resource: {
@@ -145,36 +164,45 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     accepts: [requirements],
   });
 
-  const require402 = (res: ServerResponse, error: string) => {
-    const body = paymentRequired(error);
+  const require402 = (res: ServerResponse, error: string, checkUrl: string) => {
+    const body = paymentRequired(error, checkUrl);
     send(res, 402, body, { "PAYMENT-REQUIRED": b64json(body) });
   };
 
   async function handleCheck(req: IncomingMessage, res: ServerResponse) {
+    const checkUrl = checkUrlFor(req);
     const body = await readJson(req);
     const query = body?.query;
     if (typeof query !== "string" || query.trim().length === 0) throw new HttpError(400, 'body must be {"query": "<text>"}');
     if (query.length > MAX_QUERY_CHARS) throw new HttpError(400, `query longer than ${MAX_QUERY_CHARS} chars`);
 
     const header = req.headers["payment-signature"];
-    if (typeof header !== "string" || header.length === 0) return require402(res, "payment required");
+    if (typeof header !== "string" || header.length === 0) return require402(res, "payment required", checkUrl);
 
     let payment: PaymentPayload;
     try {
       payment = fromB64json<PaymentPayload>(header);
     } catch {
-      return require402(res, "invalid_payment_header");
+      return require402(res, "invalid_payment_header", checkUrl);
     }
-    if (payment?.payload?.authorization?.resource !== checkUrl) return require402(res, "payment not bound to this resource");
+    if (payment?.payload?.authorization?.resource !== checkUrl) return require402(res, "payment not bound to this resource", checkUrl);
 
     const v = await cfg.facilitator.verify(payment, requirements);
-    if (!v.isValid) return require402(res, v.invalidReason ?? "invalid_payment");
+    if (!v?.isValid) return require402(res, v?.invalidReason ?? "invalid_payment", checkUrl);
+    if (typeof v.payer !== "string" || v.payer.length === 0) throw new HttpError(502, "invalid facilitator verification");
+    const verifiedPayer = v.payer;
 
     // Compute, then settle, then release. If settlement fails, the payer
     // gets nothing and isn't charged.
     const result: CheckResult = memory.check(query);
     const settlement = await cfg.facilitator.settle(payment, requirements);
-    if (!settlement.success || !settlement.transaction) return require402(res, settlement.errorReason ?? "settlement_failed");
+    if (!settlement?.success) return require402(res, settlement?.errorReason ?? "settlement_failed", checkUrl);
+    const settlementIssue = settlementError(settlement, requirements, verifiedPayer);
+    // Do not ask for a second payment when settlement succeeded but its proof
+    // is inconsistent. Surface an upstream error instead.
+    if (settlementIssue) throw new HttpError(502, settlementIssue);
+    const transaction = settlement.transaction;
+    if (!transaction) throw new HttpError(502, "invalid_settlement_transaction");
 
     const answer = {
       match: result.match,
@@ -187,11 +215,11 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       receipt_id: "R-" + randomBytes(12).toString("hex"),
       created_at: new Date().toISOString(),
       resource: checkUrl,
-      payer: settlement.payer ?? payment.payload.authorization.from,
-      amount: settlement.amount ?? payment.payload.authorization.value,
+      payer: verifiedPayer,
+      amount: requirements.amount,
       asset: requirements.asset,
       network: settlement.network,
-      settlement: settlement.transaction,
+      settlement: transaction,
       mock: cfg.mockSettlement,
       request_sha256: sha256Hex(canonicalJson({ query })),
       answer_sha256: sha256Hex(canonicalJson(answer)),
@@ -305,4 +333,14 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
   });
 
   return { server, memory, requirements };
+}
+
+function normalizePublicUrl(value: string): string {
+  let url: URL;
+  try { url = new URL(value); } catch { throw new Error("PUBLIC_URL must be an absolute HTTP(S) URL"); }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
+      url.pathname !== "/" || url.search || url.hash) {
+    throw new Error("PUBLIC_URL must be an HTTP(S) origin without credentials, query, or fragment");
+  }
+  return url.href.replace(/\/+$/, "");
 }

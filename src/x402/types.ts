@@ -75,6 +75,8 @@ export interface SettlementResponse {
   network: string;
   payer: string | null;
   amount: string | null;
+  /** Added by the API; raw facilitator responses may omit it. */
+  mock?: boolean;
   errorReason?: string;
 }
 

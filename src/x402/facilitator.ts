@@ -13,6 +13,7 @@
 
 import { join } from "node:path";
 import { JsonStore } from "./jsonStore.js";
+import { parseBaseUnits, requirementsError } from "./validation.js";
 import {
   canonicalJson,
   implicitAccountId,
@@ -85,12 +86,15 @@ export class MockFacilitator implements Facilitator {
       invalidReason,
     });
 
+    const requirementsIssue = requirementsError(req);
+    if (requirementsIssue) return bad(requirementsIssue);
     if (!p || typeof p !== "object") return bad("invalid_payload");
     if (p.x402Version !== X402_VERSION) return bad("invalid_x402_version");
     const a = p.payload?.authorization;
     const publicKey = p.payload?.publicKey;
     const signature = p.payload?.signature;
-    if (!a || typeof publicKey !== "string" || typeof signature !== "string") return bad("invalid_payload");
+    if (!a || typeof a !== "object" || Array.isArray(a) ||
+        typeof publicKey !== "string" || typeof signature !== "string") return bad("invalid_payload");
     const payer = typeof a.from === "string" ? a.from : null;
 
     // The payer must have accepted exactly what we asked for.
@@ -100,13 +104,15 @@ export class MockFacilitator implements Facilitator {
     if (a.asset !== req.asset) return bad("invalid_asset", payer);
     if (a.network !== req.network) return bad("invalid_network", payer);
     if (typeof a.resource !== "string" || a.resource.length === 0) return bad("invalid_resource", payer);
+    if (!verifyMessage(publicKey, authorizationMessage(a), signature)) return bad("invalid_signature", payer);
     let value: bigint;
     try {
-      value = BigInt(a.value);
+      value = parseBaseUnits(a.value);
     } catch {
       return bad("invalid_amount", payer);
     }
     if (value < BigInt(req.amount)) return bad("insufficient_amount", payer);
+    if (value > BigInt(req.amount)) return bad("amount_mismatch", payer);
 
     const now = this.nowSeconds();
     if (!Number.isInteger(a.validAfter) || !Number.isInteger(a.validBefore)) return bad("invalid_time_window", payer);
@@ -119,14 +125,15 @@ export class MockFacilitator implements Facilitator {
     if (typeof a.nonce !== "string" || !/^[0-9a-f]{32,128}$/.test(a.nonce)) return bad("invalid_nonce", payer);
     if (this.ledger.get().spentNonces[a.nonce]) return bad("nonce_already_used", payer);
 
-    if (!verifyMessage(publicKey, authorizationMessage(a), signature)) return bad("invalid_signature", payer);
 
     // Identity: the signing key must belong to the `from` account.
     if (!payer) return bad("invalid_payer", payer);
     if (isImplicitAccountId(payer)) {
       if (implicitAccountId(publicKey) !== payer) return bad("payer_key_mismatch", payer);
     } else if (this.opts.checkNamedAccountKey) {
-      if (!(await this.opts.checkNamedAccountKey(payer, publicKey))) return bad("payer_key_mismatch", payer);
+      let ownsKey = false;
+      try { ownsKey = await this.opts.checkNamedAccountKey(payer, publicKey); } catch { /* fail closed */ }
+      if (ownsKey !== true) return bad("payer_key_mismatch", payer);
     } else {
       return bad("named_payer_unverifiable", payer);
     }
@@ -164,7 +171,7 @@ export class MockFacilitator implements Facilitator {
         network: a.network,
         resource: a.resource,
         nonce: a.nonce,
-        at: new Date().toISOString(),
+        at: new Date(this.nowSeconds() * 1000).toISOString(),
       });
     });
     return { success: true, transaction: id, network: req.network, payer: a.from, amount: a.value };
@@ -173,11 +180,18 @@ export class MockFacilitator implements Facilitator {
 
 /** Client for a real x402 facilitator (POST {base}/verify, {base}/settle). */
 export class HttpFacilitator implements Facilitator {
-  constructor(private readonly baseUrl: string, private readonly apiKey?: string) {}
+  constructor(private readonly baseUrl: string, private readonly apiKey?: string) {
+    const url = new URL(baseUrl);
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+      throw new Error("facilitator URL must be HTTP(S) without credentials, query, or fragment");
+    }
+  }
 
   private async post<T>(path: string, p: PaymentPayload, req: PaymentRequirements): Promise<T> {
     const res = await fetch(this.baseUrl.replace(/\/$/, "") + path, {
       method: "POST",
+      redirect: "error",
+      signal: AbortSignal.timeout(30_000),
       headers: {
         "content-type": "application/json",
         ...(this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {}),
