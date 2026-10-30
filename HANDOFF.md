@@ -4,6 +4,20 @@ Running record of what was actually built, patch by patch. Newest entry on top.
 
 ---
 
+## 2026-10-30 — deploy-build fix: `--no-abi` is required on `cargo near deploy`
+
+**What was done:**
+
+- Diagnosed the deploy failure: `cargo near deploy build-non-reproducible-wasm ...` runs the ABI step *before* the wasm build, which compiles the crate for the **host** (x86_64-pc-windows-gnu). That link fails under MinGW with `undefined reference to read_register / promise_batch_action_* / bls12381_*` -- `near-sys` declares those NEAR-VM externs unconditionally and only wasm32 supplies them. ELF/Mach-O linkers tolerate unresolved symbols in a shared object; the PE linker does not. Nothing wrong with the contract, rustc, or near-sdk here -- and note the failing command was `build`, not `deploy`: it died before reaching the network.
+- Fix, same as the Phase 2 `cargo near build` draw: pass `--no-abi` (it was present for `build` in Phase 2, missing from this `deploy` invocation). The flag is accepted on `deploy build-non-reproducible-wasm` because that subcommand flattens the build `BuildOpts`. It must come *before* the account id, since everything after `send` is parsed as part of the `send` subcommand.
+- Added `contract/README.md` (build/deploy commands + why ABI generation cannot link on Windows) and `contract/deploy.ps1` (wrapper that sets the flags correctly and verifies `get_latest` after deploy) so the incantation is not re-derived from scratch.
+- Added `contract/target/`, `target/` to `.gitignore`. **Note:** `contract/target/` (~2,100 files, ~560 MB of build cache) is already *tracked*, so the ignore rule does not apply to it until it is untracked -- intentionally not done here, because it would wipe the local build cache on the next pull. One-liner when you want it: `git rm -r --cached contract/target`.
+- ABI metadata is now not embedded in the deployed wasm. Purely cosmetic for tooling; callable methods are unaffected. Regenerate on WSL/Linux (`cargo near build non-reproducible-wasm --no-embed-abi`) or via Docker (`cargo near build reproducible-wasm`, needs a clean committed tree) if ever needed.
+
+**Not done / still open:** nothing changed in the contract or the TypeScript side. Phase 3 (stray `commit` keys on sub-a/sub-b, FullAccess -> function-call keys) is still the next step, unchanged.
+
+---
+
 ## 2026-10-29 — Phase 2 (done): on-chain memory gate live on NEAR testnet
 
 **What was done:**
