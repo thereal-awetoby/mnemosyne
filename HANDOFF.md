@@ -2,6 +2,34 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-30 (late night) — Real x402 settlement PROVEN on NEAR testnet
+
+**Live run (sandbox, 2026-10-30 ~21:10 UTC):** `X402_RAIL=near-testnet npm run server` + `npm run x402:demo:real`, payer = fresh implicit account `0a6ebca6dded7628d295bb705dab7e20e608a1e620e2f60a8b4187811b47bd47`, relayer = sandbox account `e220b3d5...6b77` (funded with 1 testnet NEAR by the governor), payTo = `mnemosyne-gov.testnet`. Result: `REAL DEMO OK`.
+
+| Check | Result |
+|---|---|
+| 402 quote | 0.001 wNEAR (`wrap.testnet`) to `mnemosyne-gov.testnet` on `near:testnet` |
+| Paid check (match, M-001) | settled in tx [`AAWMt68QRu8QEqcdeVf1VdeqnQMbyeDfpzMy6jd9tqzJ`](https://testnet.nearblocks.io/txns/AAWMt68QRu8QEqcdeVf1VdeqnQMbyeDfpzMy6jd9tqzJ) |
+| Paid check (no match) | settled in tx [`D7QrKnSzF8XFcsrXrAM2jScFYQ3dJoiM5fb2HYXNnT6K`](https://testnet.nearblocks.io/txns/D7QrKnSzF8XFcsrXrAM2jScFYQ3dJoiM5fb2HYXNnT6K) |
+| Independent RPC check (`EXPERIMENTAL_tx_status`) | `SuccessValue`; outer action `Delegate` signed by the relayer; wrap.testnet log `Transfer 1000000000000000000000 from 0a6ebca6... to mnemosyne-gov.testnet` |
+| Balances | payTo +0.001 wNEAR, payer -0.001 wNEAR per check |
+| Receipt | `mock=false`, settlement = tx hash, request/answer hashes match |
+| Replay of the same PAYMENT-SIGNATURE | 402 `invalid_exact_near_payload_delegate_action_nonce_already_used`, payer not charged again |
+| Relayer gas per settlement | 0.000288 NEAR |
+
+**Bugs found by the first real run on Windows, fixed in `src/tools/x402Setup.ts`:**
+1. `near_deposit` with 30 TGas failed "Not enough balance": NEAR reserves prepaid gas up front (~0.03 NEAR at current testnet gas price), which plus the 0.02 wrap exceeded a 0.05 NEAR payer. Now 10 TGas for storage/wrap calls and the payer is funded with 0.1 NEAR.
+2. The new payer's key was printed only at the end, so the failure stranded ~0.048 NEAR in `73bb555340b59e05c254e082b736b34ae4790e6599a61936aefbefcec4dd82a3` (key lost, testnet only). Now the key is written to `.env` (`X402_PAYER_*`) **before** any money moves, and plain `npm run x402:setup` resumes: registers the payer and tops up wNEAR only if below 0.005.
+3. Any RPC/network error was reported as "account does not exist". Now only `UNKNOWN_ACCOUNT` means missing; other errors surface as errors.
+
+**Already done on chain by the Windows run:** `mnemosyne-gov.testnet` is registered with `wrap.testnet` (tx `EU5iFxD6hdxDhT47nbMmLbDnE3WnutJkA3UnFobHYbfG`) and now holds 0.002 wNEAR from the two live checks above.
+
+**Sandbox-only note:** in the Claude workspace Node's `fetch` needs `NODE_USE_ENV_PROXY=1` to reach NEAR RPC through the proxy. Not needed on a normal machine.
+
+**Next step (Windows):** apply this patch, `npm run x402:setup -- --new-payer` (now saves the payer to .env automatically), then the two-terminal real demo; record your own tx links here.
+
+---
+
 ## 2026-10-30 (night) — Real x402 settlement on NEAR testnet (wNEAR) — built, offline-tested, LIVE RUN PENDING
 
 **Operator decision:** wNEAR (`wrap.testnet`) on NEAR testnet, tiny amounts, no mainnet, no real USDC. Phases 1–5 unchanged; mock stays the default.
