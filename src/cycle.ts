@@ -10,6 +10,7 @@
 
 import { readFakeSwarmState, SUB_AGENTS } from "./subAgents.js";
 import { getLatestMemoryRecord, hashDecision, writeMemoryRecord } from "./memory.js";
+import { evaluateSubDecision } from "./refuse.js";
 import type {
   CycleResult,
   MemoryRecord,
@@ -113,7 +114,30 @@ export async function runCycle(): Promise<CycleResult> {
   }
 
   // 5. SUB-AGENT WINDOW
-  console.log("[5/6] SUB-AGENT WINDOW: (Phase 4 adds real local REFUSE checks here)");
+  console.log("[5/6] SUB-AGENT WINDOW: local REFUSE checks (each sub validates the directive against its own mandate ceiling)...");
+  for (const d of memoryRecord.decisions) {
+    if (d.action === "PAUSE") {
+      console.log(`      sub ${d.sub}: PAUSE -> no REFUSE check needed (already inactive)`);
+      continue;
+    }
+    if (!d.target_capital || !d.max_position || !d.max_loss_cycle || !d.mandate) {
+      console.log(`      sub ${d.sub}: REFUSE (missing directive fields from governor; cannot evaluate, fail-closed)`);
+      continue;
+    }
+    const subResult = evaluateSubDecision({
+      sub: d.sub,
+      // refuse.ts only distinguishes KEEP vs PAUSE; PAUSE is handled
+      // above, so every directive reaching here maps to "KEEP" for this
+      // check. decide() doesn't emit INCREASE/CUT yet -- revisit this
+      // mapping if/when it does.
+      status: "KEEP",
+      target_capital: Number(d.target_capital),
+      max_position: Number(d.max_position),
+      max_loss_cycle: Number(d.max_loss_cycle),
+      mandate: d.mandate,
+    });
+    console.log(`      sub ${d.sub}: ${subResult.action} (${subResult.reason})`);
+  }
 
   // 6. PUBLIC LOG
   console.log("[6/6] PUBLIC LOG: cycle complete.");

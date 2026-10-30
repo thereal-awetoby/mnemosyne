@@ -4,6 +4,26 @@ Running record of what was actually built, patch by patch. Newest entry on top.
 
 ---
 
+## 2026-10-30 — Phase 4 (in progress): local REFUSE checks wired into cycle.ts
+
+**What was done:**
+
+- Added `src/refuse.ts`: each sub-agent evaluates the governor's directive against a hardcoded per-mandate ceiling (`max_position`, `max_loss_cycle`) and can REFUSE even when the governor says KEEP. Sub C (defensive/reduce-only) has a tighter ceiling than A and B on purpose. Refuses on an unknown mandate (fail-closed) or a contradictory directive (PAUSE with nonzero target_capital).
+- Wired `evaluateSubDecision()` into `cycle.ts` step 5 ("SUB-AGENT WINDOW"), which previously just printed a placeholder line. For each decision: a PAUSE is skipped (nothing to refuse, the sub is already inactive); a decision missing `target_capital`/`max_position`/`max_loss_cycle`/`mandate` is treated as a REFUSE (fail-closed -- can't evaluate without those fields); everything else is converted from the governor's string amounts to numbers and run through `evaluateSubDecision()`, printing ACT or REFUSE + reason per sub.
+- `refuse.ts`'s `GovernorDirective.status` only distinguishes `"KEEP" | "PAUSE"` (no INCREASE/CUT yet, matching what `decide()` currently emits). Every non-PAUSE decision reaching the check is passed as `"KEEP"` for this purpose -- documented inline in `cycle.ts` as something to revisit if/when `decide()` starts emitting INCREASE/CUT.
+- Still local-only and print-only: no on-chain `report()` call yet. That needs each sub's own NEAR signing key loaded into `near-api-js` (separate, unsolved piece -- see the Phase 3 entry above on keychain vs. `near-api-js` keystore).
+- Verified with the current fake swarm state (every sub starts at 1000 capital, 20%/5% of capital as `max_position`/`max_loss_cycle`): subs A and B are exactly at their ceiling (200/50) so they ACT; sub C's tighter defensive ceiling (150/30) is exceeded by the same numbers, so it REFUSEs with `max_position 200 exceeds mandate ceiling 150` -- the first real end-to-end proof that a sub-agent can refuse a KEEP directive from the governor.
+
+**Not done yet:**
+
+- No on-chain `report()` call from `cycle.ts` -- ACT/REFUSE decisions are printed locally only.
+- `mnemosyne-sub-a.testnet` and `mnemosyne-sub-b.testnet` still need the Phase 3 key treatment (add `report`-scoped key, verify with a real `report()` call, then remove FullAccess) -- unchanged by this patch.
+- `decide()` is still a stub (Phase 6), no x402 API yet (Phase 5).
+
+**Next step:** finish Phase 3 for sub-a and sub-b (one at a time, verify-before-delete), then have `cycle.ts` actually call `report()` on-chain for each sub's ACT/REFUSE result once their scoped keys are confirmed working.
+
+---
+
 ## 2026-10-30 (later) — `verify:contract` re-added; it was silently missing from `main`
 
 **What happened:** `npm run verify:contract` failed with `Missing script: "verify:contract"` on a clean checkout of `main`. Cause was not the user's environment: the verification work (`scripts/verify-contract.mjs` + the npm script) **never landed in the merge**. `main` at `445cade` contains the earlier `--no-abi` commit's files (`contract/README.md`, `contract/deploy.ps1`, the `.gitignore` additions) but has no `scripts/` directory and no `verify:contract` in `package.json`. A previous session's summary claimed both commits were merged; only the first one was.
