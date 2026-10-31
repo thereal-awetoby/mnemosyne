@@ -2,6 +2,23 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-31 — Phase 6: private decision path in a NEAR AI Cloud TEE
+
+`decide()` stub replaced by `src/private/` ([`docs/PRIVATE.md`](docs/PRIVATE.md)):
+
+- `nearAi.ts`: NEAR AI Cloud client (`Qwen/Qwen3.8-27B`, `x-no-aliasing`), keeps the exact request/response bytes.
+- `teeVerify.ts`: enclave signature (EIP-191 ECDSA over `model:sha256(req):sha256(resp)`), TDX report_data binding to a fresh nonce, Intel TDX quote (`@phala/dcap-qvl-node`), NVIDIA NRAS GPU attestation with the token's ES384 signature checked against NVIDIA's JWKS.
+- `decide.ts`: prompt with a random salt + memory lessons, strict JSON parse, deterministic policy guard, salted private commitment, private blob in `data/runtime/private/`, fail-closed on any failed check; `local-policy` fallback without a key.
+- `cycle.ts`: MemoryRecord schema 2 (`decision_path`, `private_commitment`, `tee`); public record written to `data/runtime/public/` before the commit.
+- `npm run tee:check` (dry run) and `npm run tee:check -- --record <file>` (independent check of a public record).
+- `SWARM_SCENARIO` = calm / stressed / recovery (still simulated).
+- 14 new offline tests against a fake enclave signing with a real secp256k1 key (51 total).
+
+**Live in the sandbox (2026-10-31):** real TEE completions on NEAR AI Cloud, signer `0x835ab53d20294ef795906dff21ae4c045336aa26`: hashes match, signature recovers, provider_tee, TDX report_data binds signer + our nonce, NVIDIA GPU attestation OK with a valid NRAS token. Stressed scenario -> A KEEP 1000, B CUT 750, C PAUSE. A public record re-checked with `--record`: decision_hash recomputes, signature recovers, fresh attestation binds.
+Not checkable from the sandbox: Intel TDX quote collateral (`certificates.trustedservices.intel.com` blocked there), so full verify fails closed there, as designed. The on-chain commit needs the governor key on the Windows machine.
+
+---
+
 ## 2026-10-31 — Real x402 payment proven on the Windows machine (governor as relayer)
 
 The operator's own setup, no sandbox involved: `npm run x402:setup -- --new-payer` (payer key saved to .env automatically), then `set X402_RAIL=near-testnet` + `npm run server`, and `npm run x402:demo:real` -> **`REAL DEMO OK`**.

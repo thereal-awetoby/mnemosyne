@@ -2,9 +2,11 @@
  * Shared types for Mnemosyne.
  *
  * These mirror the memory schema in docs/BUILD_PLAN.md (section 8).
- * This phase (Phase 1 — skeleton) only uses these in-memory / in a local
- * JSON log. Nothing here touches NEAR yet.
+ * MemoryRecord is the public record whose hash is committed on NEAR;
+ * PrivateDecision only points at the private blob kept locally.
  */
+
+import type { TeeEvidence } from "./private/decide.js";
 
 export type SubId = "A" | "B" | "C";
 
@@ -39,17 +41,28 @@ export interface MemoryRecord {
   prev_memory_hash: string | null;
   decisions: SubDecision[];
   swarm_risk: SwarmRisk;
-  schema_version: 1;
+  /** 1 = Phases 1-5 (stub decide). 2 = Phase 6: adds decision_path,
+   *  private_commitment and (for near-ai-tee) public TEE evidence. */
+  schema_version: 1 | 2;
+  /** How the decision was made: inside a NEAR AI Cloud TEE, or by the
+   *  deterministic local rule (no API key). Never overclaimed. */
+  decision_path?: "near-ai-tee" | "local-policy";
+  /** sha256(salt:canonical(private blob)). The blob and salt stay in
+   *  data/runtime/private/; this binds them without revealing them. */
+  private_commitment?: string;
+  /** Public TEE evidence: hashes, enclave signature, attestation results.
+   *  Contains nothing from the prompt or reasoning. */
+  tee?: TeeEvidence | null;
 }
 
-/** The PRIVATE part of a decision — full reasoning. In this phase it's
- * just kept in local memory/logs, clearly labeled. Phase 6 moves this
- * behind a private execution path (NEAR AI Cloud / isolated worker) and
- * stops writing it anywhere public. */
+/** Handle to the PRIVATE part of a decision (Phase 6). The reasoning
+ * itself is produced inside the TEE and stored only in private_file. */
 export interface PrivateDecision {
   cycle_id: string;
-  reasoning: string;
-  raw_inputs: Record<string, unknown>;
+  path: "near-ai-tee" | "local-policy";
+  /** Local file holding the full private blob + salt (never published). */
+  private_file: string;
+  guard_adjustments: number;
 }
 
 export interface CycleResult {

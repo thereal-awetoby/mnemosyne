@@ -1,15 +1,19 @@
 /**
  * One governor cycle (docs/BUILD_PLAN.md section 7).
  *
- * read -> decide (stub, private) -> MEMORY COMMIT on NEAR (fail-closed gate)
+ * read -> decide (private: NEAR AI TEE or local rule) -> MEMORY COMMIT on NEAR (fail-closed gate)
  * -> allocate (print-only) -> sub-agent window (each sub checks its mandate,
  * then reports ACT/REFUSE on-chain with its own report-only key) -> log.
  *
- * Still simulated: swarm state (readFakeSwarmState), decide() (Phase 6),
- * and ALLOCATE (no real transfers). Everything else talks to testnet.
+ * Still simulated: swarm state (readFakeSwarmState, SWARM_SCENARIO) and
+ * ALLOCATE (no real transfers). Everything else talks to testnet / NEAR AI.
  */
 
-import { readFakeSwarmState, SUB_AGENTS } from "./subAgents.js";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { readFakeSwarmState, swarmScenario } from "./subAgents.js";
+import { decidePrivately, DEFAULT_ENVELOPE, type DecisionOutcome } from "./private/decide.js";
 import { getLatestMemoryRecord, hashDecision, writeMemoryRecord } from "./memory.js";
 import { evaluateSubDecision, type SubRuntimeDecision } from "./refuse.js";
 import { reportOnChain, type ReportResult } from "./report.js";
@@ -17,7 +21,6 @@ import type {
   CycleResult,
   MemoryRecord,
   PrivateDecision,
-  SubDecision,
   SubId,
 } from "./types.js";
 
@@ -25,41 +28,28 @@ function makeCycleId(): string {
   return new Date().toISOString() + "-" + Math.random().toString(16).slice(2, 7);
 }
 
-/**
- * Step 2: DECIDE (private).
- *
- * Stub logic for now — deterministic, not "AI", just enough to exercise
- * every branch (KEEP / INCREASE / CUT / PAUSE) so later phases have a
- * real decision object to replace this with. This is the function a
- * later phase swaps out for a real private reasoning path.
- */
-function decide(cycleId: string, swarmState: ReturnType<typeof readFakeSwarmState>): {
-  decisions: SubDecision[];
-  privateDecision: PrivateDecision;
-} {
-  const decisions: SubDecision[] = swarmState.map((s) => {
-    const profile = SUB_AGENTS.find((a) => a.id === s.sub)!;
-    if (s.lastCycleLoss > 100) {
-      return { sub: s.sub, action: "PAUSE", reason_code: "local_loss_limit" };
-    }
-    return {
-      sub: s.sub,
-      action: "KEEP",
-      target_capital: String(s.capital),
-      max_position: String(Math.round(s.capital * 0.2)),
-      max_loss_cycle: String(Math.round(s.capital * 0.05)),
-      mandate: profile.mandate,
-    };
-  });
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const DATA_DIR = resolve(process.env.DATA_DIR ?? join(REPO_ROOT, "data/runtime"));
 
-  const privateDecision: PrivateDecision = {
-    cycle_id: cycleId,
-    reasoning:
-      "[stub] No real reasoning yet — Phase 1 placeholder. Every sub kept at current capital unless its last-cycle loss exceeded 100.",
-    raw_inputs: { swarmState },
-  };
+function writePublicRecord(rec: MemoryRecord): string {
+  const dir = join(DATA_DIR, "public");
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `${rec.cycle_id.replace(/[^A-Za-z0-9_.-]/g, "_")}.json`);
+  writeFileSync(file, JSON.stringify(rec, null, 2));
+  return file;
+}
 
-  return { decisions, privateDecision };
+/** Public summaries of past lessons: context for the private decision. They
+ *  go to the TEE only, never into the public record. */
+function memoryLessons(): string[] {
+  for (const p of [join(DATA_DIR, "memory.json"), join(REPO_ROOT, "data/seed-memory.json")]) {
+    if (!existsSync(p)) continue;
+    try {
+      const j = JSON.parse(readFileSync(p, "utf8"));
+      return (j.entries ?? []).map((e: any) => String(e.public_summary ?? "")).filter(Boolean).slice(-8);
+    } catch { /* fall through */ }
+  }
+  return [];
 }
 
 export async function runCycle(): Promise<CycleResult> {
@@ -74,8 +64,39 @@ export async function runCycle(): Promise<CycleResult> {
   console.log(`      prev_memory_hash: ${prevHash ?? "(none — first cycle)"}`);
 
   // 2. DECIDE (private)
-  console.log("[2/6] DECIDE: running (stub) private decision logic...");
-  const { decisions, privateDecision } = decide(cycleId, swarmState);
+  const apiKey = process.env.NEAR_AI_API_KEY || undefined;
+  console.log(`[2/6] DECIDE: ${apiKey ? `private reasoning in a NEAR AI Cloud TEE (${process.env.NEAR_AI_MODEL || "Qwen/Qwen3.8-27B"})` : "local policy rule (no NEAR_AI_API_KEY)"}...`);
+  console.log(`      swarm state: SIMULATED, scenario "${swarmScenario()}"`);
+  let outcome: DecisionOutcome;
+  try {
+    outcome = await decidePrivately(cycleId, swarmState, {
+      apiKey,
+      model: process.env.NEAR_AI_MODEL || undefined,
+      verify: process.env.TEE_VERIFY === "signature" ? "signature" : "full",
+      dataDir: DATA_DIR,
+      lessons: memoryLessons(),
+    });
+  } catch (err) {
+    // Fail-closed: an unverifiable private decision is no decision at all.
+    // Nothing is committed and nothing is allocated.
+    console.log(`[FAIL-CLOSED] private decision failed: ${(err as Error).message}. Cycle ends. Nothing committed.`);
+    throw err;
+  }
+  const { decisions } = outcome;
+  const privateDecision: PrivateDecision = {
+    cycle_id: cycleId,
+    path: outcome.path,
+    private_file: outcome.privateFile,
+    guard_adjustments: outcome.guardAdjustments,
+  };
+  if (outcome.tee) {
+    const c = outcome.tee.checks;
+    const tdx = c.tdx === "not_checked" ? "not checked" : `${c.tdx.verified ? "OK" : "FAIL"} (${c.tdx.status})`;
+    const gpu = c.gpu === "not_checked" ? "not checked" : c.gpu.verdict && c.gpu.token_signature_valid ? "OK" : "FAIL";
+    console.log(`      TEE signer ${outcome.tee.signing_address}: signature OK, bound to fresh nonce, Intel TDX ${tdx}, NVIDIA GPU ${gpu}`);
+  }
+  console.log(`      policy guard adjustments: ${outcome.guardAdjustments}`);
+  console.log(`      private_commitment: ${outcome.privateCommitment} (blob stays local)`);
 
   const recordWithoutHash: Omit<MemoryRecord, "decision_hash"> = {
     cycle_id: cycleId,
@@ -83,14 +104,21 @@ export async function runCycle(): Promise<CycleResult> {
     prev_memory_hash: prevHash,
     decisions,
     swarm_risk: {
-      max_total_exposure: "3000",
-      max_daily_loss: "150",
+      max_total_exposure: String(DEFAULT_ENVELOPE.max_total_exposure),
+      max_daily_loss: String(DEFAULT_ENVELOPE.max_daily_loss),
     },
-    schema_version: 1,
+    schema_version: 2,
+    decision_path: outcome.path,
+    private_commitment: outcome.privateCommitment,
+    tee: outcome.tee,
   };
   const decisionHash = hashDecision(recordWithoutHash);
   const memoryRecord: MemoryRecord = { ...recordWithoutHash, decision_hash: decisionHash };
   console.log(`      decision_hash: ${decisionHash}`);
+  // The public record, so anyone can recompute decision_hash and check the
+  // TEE signature (npm run tee:check -- --record <file>).
+  const publicFile = writePublicRecord(memoryRecord);
+  console.log(`      public record: ${publicFile}`);
 
   // 3. MEMORY COMMIT (mandatory gate)
   console.log("[3/6] MEMORY COMMIT: writing memory record (on-chain, mnemosyne-gov.testnet)...");

@@ -115,6 +115,9 @@ const { server, memory } = createMnemosyneServer({
       decision_hash: r.memoryRecord.decision_hash,
       prev_memory_hash: r.memoryRecord.prev_memory_hash,
       decisions: r.memoryRecord.decisions,
+      decision_path: r.memoryRecord.decision_path,
+      private_commitment: r.memoryRecord.private_commitment,
+      tee: r.memoryRecord.tee ?? null,
       reports: r.reports ?? [],
     };
   },

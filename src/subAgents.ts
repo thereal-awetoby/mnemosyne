@@ -62,10 +62,26 @@ export interface FakeSubState {
   lastCycleLoss: number;
 }
 
+/**
+ * SIMULATED swarm state. SWARM_SCENARIO picks one of a few fixed situations
+ * so the decision path has something to reason about:
+ *   calm      (default) every sub at 1000, no losses
+ *   stressed  B lost 60 last cycle, C lost 120 (past the pause threshold)
+ *   recovery  A had a clean cycle and has room to grow, C is shrinking
+ */
+const SCENARIOS: Record<string, Record<SubId, { capital: number; lastCycleLoss: number }>> = {
+  calm: { A: { capital: 1000, lastCycleLoss: 0 }, B: { capital: 1000, lastCycleLoss: 0 }, C: { capital: 1000, lastCycleLoss: 0 } },
+  stressed: { A: { capital: 1000, lastCycleLoss: 10 }, B: { capital: 1000, lastCycleLoss: 60 }, C: { capital: 900, lastCycleLoss: 120 } },
+  recovery: { A: { capital: 800, lastCycleLoss: 0 }, B: { capital: 1000, lastCycleLoss: 20 }, C: { capital: 700, lastCycleLoss: 5 } },
+};
+
+export function swarmScenario(): string {
+  const name = (process.env.SWARM_SCENARIO ?? "calm").toLowerCase();
+  if (!SCENARIOS[name]) throw new Error(`unknown SWARM_SCENARIO "${name}" (calm | stressed | recovery)`);
+  return name;
+}
+
 export function readFakeSwarmState(): FakeSubState[] {
-  return SUB_AGENTS.map((s) => ({
-    sub: s.id,
-    capital: 1000,
-    lastCycleLoss: 0,
-  }));
+  const sc = SCENARIOS[swarmScenario()];
+  return SUB_AGENTS.map((s) => ({ sub: s.id, ...sc[s.id] }));
 }
