@@ -10,7 +10,7 @@
  *   3. binding     the Intel TDX quote's report_data = signing_address (padded)
  *                  || our fresh random nonce  -> that key lives in this TEE now
  *   4. tdx         the TDX quote verifies against Intel's collateral
- *                  (@phala/dcap-qvl, same library as NEAR's reference verifier)
+ *                  (pure-JS @phala/dcap-qvl 0.7.0, includes the CVE-2026-22696 fix)
  *   5. gpu         NVIDIA NRAS says the GPU evidence is valid for our nonce,
  *                  and the NRAS token's ES384 signature checks against
  *                  NVIDIA's published JWKS
@@ -103,24 +103,27 @@ export function checkBinding(att: ModelAttestation, nonceHex: string): { binds_a
   return { binds_address: rd.subarray(0, 32).equals(padded), binds_nonce: rd.subarray(32, 64).toString("hex") === nonceHex.toLowerCase() };
 }
 
-export const INTEL_PCCS = "https://api.trustedservices.intel.com/tdx/certification/v4";
+export const INTEL_PCS = "https://api.trustedservices.intel.com";
 
-/** Check 4: Intel DCAP verification of the TDX quote. "OutOfDate" still means
- *  the quote is cryptographically valid (platform TCB below Intel's latest
- *  advisory baseline); we record the status verbatim. */
+/** Check 4: Intel DCAP verification of the TDX quote, using the pure-JS
+ *  @phala/dcap-qvl >= 0.3.9. The WASM @phala/dcap-qvl-node is NOT used: it
+ *  skips the QE Identity signature/policy check (CVE-2026-22696,
+ *  GHSA-796p-j2gh-9m2q) and has no fixed release. Intel's root CA is pinned
+ *  inside the library, so the collateral source needn't be trusted.
+ *  "OutOfDate" still means the quote is cryptographically valid (platform
+ *  TCB below Intel's latest advisory baseline); the status is recorded verbatim. */
 export async function checkTdxQuote(quoteHex: string): Promise<{ verified: boolean; status: string }> {
-  const { js_get_collateral, js_verify } = await import("@phala/dcap-qvl-node");
+  const { getCollateral, verify } = await import("@phala/dcap-qvl");
   const quote = Buffer.from(quoteHex, "hex");
   let collateral;
   try {
-    collateral = await js_get_collateral(INTEL_PCCS, quote);
+    collateral = await getCollateral(INTEL_PCS, quote);
   } catch (err) {
-    // the wasm library throws plain strings, not Errors
     return { verified: false, status: `collateral_unavailable: ${String((err as any)?.message ?? err)}` };
   }
   let r: any;
   try {
-    r = js_verify(quote, collateral, BigInt(Math.floor(Date.now() / 1000)));
+    r = verify(quote, collateral, Math.floor(Date.now() / 1000));
   } catch (err) {
     return { verified: false, status: `quote_invalid: ${String((err as any)?.message ?? err)}` };
   }
