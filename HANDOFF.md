@@ -2,6 +2,21 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-31 — Real x402 payment proven on the Windows machine (governor as relayer)
+
+The operator's own setup, no sandbox involved: `npm run x402:setup -- --new-payer` (payer key saved to .env automatically), then `set X402_RAIL=near-testnet` + `npm run server`, and `npm run x402:demo:real` -> **`REAL DEMO OK`**.
+
+- Payer: `5931c36cd4d5253286a33a230612795b6298a79c60bc504501b708aeaf0f10b1` (0.1 NEAR funded, 0.02 wNEAR wrapped)
+- Relayer + payTo: `mnemosyne-gov.testnet`
+- Settlement: [`DPytH8YgLAXBUUiSEvT1jcCutg5vN6hSzC1T98APcFMf`](https://testnet.nearblocks.io/txns/DPytH8YgLAXBUUiSEvT1jcCutg5vN6hSzC1T98APcFMf), checked independently via RPC: `SuccessValue`, `Delegate` signed by `mnemosyne-gov.testnet`, wrap.testnet log `Transfer 1000000000000000000000 from 5931c36c... to mnemosyne-gov.testnet`
+- Answer: match, citation M-001; receipt `mock=false`, hashes match
+- Replay: 402 `invalid_exact_near_payload_delegate_action_nonce_already_used`, payer not charged again
+- Governor now holds 0.003 wNEAR (3 real agent payments across both runs)
+
+**Status: Phases 1–5 complete and proven on NEAR testnet, including real agent-to-agent x402 payments.** Next: Phase 6 (private decision path replacing the `decide()` stub).
+
+---
+
 ## 2026-10-30 (late night) — Real x402 settlement PROVEN on NEAR testnet
 
 **Live run (sandbox, 2026-10-30 ~21:10 UTC):** `X402_RAIL=near-testnet npm run server` + `npm run x402:demo:real`, payer = fresh implicit account `0a6ebca6dded7628d295bb705dab7e20e608a1e620e2f60a8b4187811b47bd47`, relayer = sandbox account `e220b3d5...6b77` (funded with 1 testnet NEAR by the governor), payTo = `mnemosyne-gov.testnet`. Result: `REAL DEMO OK`.
