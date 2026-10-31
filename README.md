@@ -6,7 +6,7 @@ commitments, capability-limited sub-agents, and x402-paid memory queries.
 Full build plan: [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
 Build progress / what's been done in each step: [`HANDOFF.md`](HANDOFF.md).
 
-## Current status: Phases 1–6 proven on NEAR testnet, including real x402 payments in wNEAR and private decisions verified in a NEAR AI Cloud TEE
+## Current status: Phases 1–6 built; 1–5 proven on NEAR testnet (incl. real x402 in wNEAR), Phase 6 private decisions proven live in a NEAR AI Cloud TEE
 
 One cycle runs: read -> decide -> **on-chain memory commit** (mnemosyne-gov.testnet, hash-chained, fail-closed) -> allocate (print-only) -> **sub-agent window**: each sub checks the directive against its own mandate and writes ACT/REFUSE on-chain with its own report-only function-call key. Sub C (defensive, reduce-only) refuses directives above its tighter ceiling.
 
@@ -17,8 +17,6 @@ Proven on testnet 2026-10-30 (see HANDOFF.md): a full cycle committed memory, th
 **Real settlement (testnet, proven):** with `X402_RAIL=near-testnet` the same API takes real wNEAR on NEAR testnet through the official x402 NEAR scheme, e.g. tx [`AAWMt68Q...`](https://testnet.nearblocks.io/txns/AAWMt68QRu8QEqcdeVf1VdeqnQMbyeDfpzMy6jd9tqzJ): an agent paid 0.001 wNEAR to `mnemosyne-gov.testnet` for a memory check; replaying the same payment was refused by NEAR's nonce. See "Two payment rails" in [`docs/X402.md`](docs/X402.md). Mock remains the default.
 
 **Private decisions (Phase 6):** the governor reasons inside a NEAR AI Cloud TEE (Intel TDX + NVIDIA confidential GPU). Before a decision is used, Mnemosyne checks the enclave's signature over the exact request/response bytes, a fresh attestation bound to its own nonce, the Intel TDX quote and NVIDIA's GPU attestation; any failure stops the cycle before the memory commit. A deterministic policy guard clamps whatever the model proposes. The reasoning stays private; the public record carries only the decisions, a salted commitment to the private blob, and the TEE evidence. Without an API key it falls back to a local rule labelled `local-policy`. Details: [`docs/PRIVATE.md`](docs/PRIVATE.md).
-
-Proven 2026-10-31: a cycle decided in the TEE (signature, nonce binding, Intel TDX `UpToDate`, NVIDIA GPU all verified) committed memory in [`BNv6Kg1R...`](https://testnet.nearblocks.io/txns/BNv6Kg1RwT8FuogbJoDXx19tKn5ozr95kjkGKtXm9Cii), then sub A and B reported ACT on-chain and sub C stayed paused. Its public record re-verified independently with `npm run tee:check -- --record`.
 
 Still simulated, and labeled as such: swarm state (`SWARM_SCENARIO`), ALLOCATE (no real transfers), and x402 settlement in the default mock rail.
 
