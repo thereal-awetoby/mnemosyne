@@ -6,7 +6,7 @@ commitments, capability-limited sub-agents, and x402-paid memory queries.
 Full build plan: [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
 Build progress / what's been done in each step: [`HANDOFF.md`](HANDOFF.md).
 
-## Current status: Phases 1–5 proven on NEAR testnet, including real x402 payments in wNEAR
+## Current status: Phases 1–6 built; 1–5 proven on NEAR testnet (incl. real x402 in wNEAR), Phase 6 private decisions proven live in a NEAR AI Cloud TEE
 
 One cycle runs: read -> decide -> **on-chain memory commit** (mnemosyne-gov.testnet, hash-chained, fail-closed) -> allocate (print-only) -> **sub-agent window**: each sub checks the directive against its own mandate and writes ACT/REFUSE on-chain with its own report-only function-call key. Sub C (defensive, reduce-only) refuses directives above its tighter ceiling.
 
@@ -16,7 +16,9 @@ Proven on testnet 2026-10-30 (see HANDOFF.md): a full cycle committed memory, th
 
 **Real settlement (testnet, proven):** with `X402_RAIL=near-testnet` the same API takes real wNEAR on NEAR testnet through the official x402 NEAR scheme, e.g. tx [`AAWMt68Q...`](https://testnet.nearblocks.io/txns/AAWMt68QRu8QEqcdeVf1VdeqnQMbyeDfpzMy6jd9tqzJ): an agent paid 0.001 wNEAR to `mnemosyne-gov.testnet` for a memory check; replaying the same payment was refused by NEAR's nonce. See "Two payment rails" in [`docs/X402.md`](docs/X402.md). Mock remains the default.
 
-Still simulated, and labeled as such: swarm state, `decide()` (Phase 6), ALLOCATE (no real transfers), and x402 settlement in the default mock rail.
+**Private decisions (Phase 6):** the governor reasons inside a NEAR AI Cloud TEE (Intel TDX + NVIDIA confidential GPU). Before a decision is used, Mnemosyne checks the enclave's signature over the exact request/response bytes, a fresh attestation bound to its own nonce, the Intel TDX quote and NVIDIA's GPU attestation; any failure stops the cycle before the memory commit. A deterministic policy guard clamps whatever the model proposes. The reasoning stays private; the public record carries only the decisions, a salted commitment to the private blob, and the TEE evidence. Without an API key it falls back to a local rule labelled `local-policy`. Details: [`docs/PRIVATE.md`](docs/PRIVATE.md).
+
+Still simulated, and labeled as such: swarm state (`SWARM_SCENARIO`), ALLOCATE (no real transfers), and x402 settlement in the default mock rail.
 
 Sub-agent key setup: [`docs/PHASE3_KEYS.md`](docs/PHASE3_KEYS.md). Copy `.env.example` to `.env`.
 
@@ -30,7 +32,8 @@ npm run sub:check -- A        (prove a sub key is scoped: report ok, commit/tran
 npm run verify:contract       (deployed wasm == local build, read-only)
 npm run server                (x402 memory API on http://localhost:8402)
 npm run x402:demo             (an external agent pays for a memory check)
-npm test                      (x402 API tests, no network needed)
+npm run tee:check             (one verified private decision in the NEAR AI TEE, nothing on-chain)
+npm test                      (x402 + private-decision tests, no network needed)
 ```
 
 This runs one cycle and prints each step. Run it again and you'll see
