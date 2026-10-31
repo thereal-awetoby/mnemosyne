@@ -23,6 +23,7 @@
  */
 
 import "dotenv/config";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMnemosyneServer } from "./x402/server.js";
@@ -105,6 +106,15 @@ const { server, memory } = createMnemosyneServer({
     const rec = await getLatestMemoryRecord(GOVERNOR);
     return rec ? { latest_hash: rec.decision_hash, prev_hash: rec.prev_memory_hash } : null;
   },
+  dashboardHtml: readFileSync(join(REPO_ROOT, "web/dashboard.html"), "utf8"),
+  dashboardFonts: Object.fromEntries(
+    readdirSync(join(REPO_ROOT, "web/fonts")).filter((f) => f.endsWith(".woff2")).map((f) => [f, readFileSync(join(REPO_ROOT, "web/fonts", f))])
+  ),
+  dashboardData: async () => {
+    const { buildDashboard } = await import("./dashboard/data.js");
+    const { getChainHead } = await import("./memory.js");
+    return buildDashboard({ dataDir: DATA_DIR, contract: GOVERNOR, readHead: () => getChainHead(GOVERNOR) });
+  },
   runCycle: async () => {
     const { runCycle } = await import("./cycle.js");
     const r = await runCycle();
@@ -135,6 +145,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  memory entries: ${memory.size}   payTo: ${GOVERNOR}   data: ${DATA_DIR}`);
   console.log(`  facilitator: ${rail ? `REAL near:testnet -- ${rail.requirements.amount} ${rail.requirements.asset} per check, relayer pays gas` : realFacilitatorUrl ? realFacilitatorUrl : "MOCK (verifies everything, settles to a local ledger)"}`);
   console.log(`  admin routes: ${process.env.ADMIN_TOKEN ? "enabled" : "disabled (set ADMIN_TOKEN)"}`);
+  console.log(`  dashboard:    http://localhost:${actualPort}/dashboard  (read-only)`);
 });
 
 // Close cleanly on container / terminal shutdown; synchronous stores have no

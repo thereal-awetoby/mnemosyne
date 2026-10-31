@@ -2,6 +2,22 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-31 — Read-only dashboard (`/dashboard`)
+
+Built to `MNEMOSYNE_UI_SPEC.md`: a read-only page served by the existing API (`npm run server`, then open `http://localhost:8402/dashboard`). It cannot sign, pay or run a cycle.
+
+- **Latest decision:** how the decision was made, decision hash, previous hash, sealed-reasoning commitment, commit tx, and the TEE proof checked before commit; the six cycle steps with their outcome.
+- **Sub-agents:** each sub's directive, limits, ACT/REFUSE answer and report tx, plus its key read live from NEAR (`view_access_key_list`): the agent's key shown as restricted to `report()` on the governor contract, and how many full-access keys the account has (never held by the agent).
+- **Memory chain:** every public record on this machine, newest first, with a check mark where an entry follows the previous committed one and the on-chain head highlighted; reasoning shown as sealed.
+- **Paid memory checks:** x402 receipts with settlement txs (or "local ledger" on the mock rail).
+- Data: `GET /dashboard.json` = chain head (`get_latest`, new `getChainHead()` with commit count) + `data/runtime/public/*.json` + new `*.run.json` per cycle (commit and report tx hashes, written by `cycle.ts`). Private blobs are never read.
+- Design: the operator's own charcoal-and-gold layout (`MNEMOSYNE_UI_SPEC.md` shell: flat blocks, 3px corners, IBM Plex Sans and Mono, uppercase section titles, gold only for accents and links), with live data wired in and extra panels added: overview strip (entries on-chain, sealed in a TEE, report-only keys, paid checks), latest decision (record, TEE checks, six cycle steps), the cycle log re-derived from the public record and run log, and x402 receipts. Fonts bundled in `web/fonts` (SIL OFL, licences included), so no CDN and it works offline. Strict CSP, no third-party origins. Checked at 1920, 1440, 1280, 1024, 820, 390 and 360 px wide: no sideways page scroll at any size; tables become stacked rows on small screens.
+- 5 new tests (56 total).
+
+Cycles run before this change have no `.run.json`, so their tx column says "not recorded"; run a fresh `npm run cycle` before recording the demo.
+
+---
+
 ## 2026-10-31 — Phase 6 PROVEN on the Windows machine: TEE decision -> on-chain commit -> sub reports
 
 Both Phase 6 patches applied, `npm install`, `npm test` 51/51. `SWARM_SCENARIO=stressed`, `NEAR_AI_API_KEY` set, `TEE_VERIFY=full` (default).

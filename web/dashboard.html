@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#1b1b1d" />
+<title>Mnemosyne — Governor Dashboard</title>
+<meta name="description" content="Live, read-only view of the Mnemosyne governor on NEAR testnet: memory chain, sealed decisions, sub-agents and paid memory checks." />
+<style>
+  /* Fonts ship with the repo (web/fonts, SIL Open Font License): no CDN, works offline. */
+  @font-face { font-family: "IBM Plex Sans"; src: url("/dashboard/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "IBM Plex Sans"; src: url("/dashboard/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+  @font-face { font-family: "IBM Plex Sans"; src: url("/dashboard/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+  @font-face { font-family: "IBM Plex Mono"; src: url("/dashboard/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "IBM Plex Mono"; src: url("/dashboard/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+  @font-face { font-family: "IBM Plex Mono"; src: url("/dashboard/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+
+  :root{
+    --bg:        #1b1b1d;
+    --panel:     #212123;
+    --panel-alt: #19191a;
+    --border:    #38383b;
+    --border-lo: #2a2a2c;
+    --text:      #e9e7e2;
+    --text-dim:  #9a9a96;
+    --text-faint:#6b6b68;
+    --accent:    #c9a227;
+    --accent-lo: #7d6a24;
+    --ok:        #5f9e6f;
+    --refuse:    #b8564f;
+    --radius:    3px;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .wrap {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  .ok { color: var(--ok); }
+  .refuse { color: var(--refuse); }
+  .faint { color: var(--text-faint); }
+  .dim { color: var(--text-dim); }
+
+  /* ---------- header ---------- */
+
+  header.topbar {
+    border-bottom: 1px solid var(--border);
+    padding: 28px 0 18px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .brand h1 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .brand p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.03em;
+    color: var(--text-dim);
+    background: var(--panel);
+  }
+  a.badge:hover { text-decoration: none; border-color: var(--text-dim); }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ok);
+  }
+  .dot.down { background: var(--refuse); }
+
+  /* ---------- section titles ---------- */
+
+  .section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .section-title h2 {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .section-title span.note {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    text-align: right;
+  }
+
+  section { margin-bottom: 44px; }
+
+  /* ---------- panel ---------- */
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .panel-pad { padding: 20px; }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    border: 1px solid var(--accent-lo);
+    border-radius: var(--radius);
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
+
+  .problem {
+    margin: -12px 0 32px;
+    padding: 12px 16px;
+    border: 1px solid color-mix(in srgb, var(--refuse) 55%, transparent);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--refuse) 9%, var(--panel));
+    color: var(--refuse);
+    font-size: 13.5px;
+  }
+
+  .empty { padding: 22px 20px; color: var(--text-dim); font-size: 13.5px; }
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    background: var(--panel-alt);
+    border: 1px solid var(--border-lo);
+    border-radius: var(--radius);
+    padding: 1px 6px;
+  }
+
+  button.copy {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: copy;
+    text-align: left;
+  }
+  button.copy:hover { color: var(--accent); }
+
+  /* ---------- overview strip ---------- */
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    margin-bottom: 44px;
+  }
+  .stats > div { padding: 16px 20px; }
+  .stats > div + div { border-left: 1px solid var(--border); }
+  .stats .k {
+    display: block;
+    font-family: var(--mono);
+    color: var(--text-faint);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .stats .v {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- memory chain / paid tables ---------- */
+
+  table.chain {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+
+  table.chain th {
+    text-align: left;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: 0 16px 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  table.chain td {
+    padding: 12px 16px 12px 0;
+    border-bottom: 1px solid var(--border-lo);
+    color: var(--text-dim);
+    vertical-align: top;
+    white-space: nowrap;
+  }
+
+  table.chain tr:last-child td { border-bottom: none; }
+  table.chain td.hash { color: var(--text); }
+  table.chain tr.head td.hash { color: var(--accent); }
+
+  .chain-footnote {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  .chain-footnote strong { color: var(--text); font-weight: 500; }
+
+  /* ---------- latest decision ---------- */
+
+  .decision {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+  }
+  .decision > div { padding: 20px; }
+  .decision > div + div { border-left: 1px solid var(--border); }
+
+  .sub-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 0 0 12px;
+  }
+
+  dl.kv { margin: 0; font-family: var(--mono); font-size: 12px; }
+  dl.kv .r {
+    display: grid;
+    grid-template-columns: 9.5em minmax(0, 1fr);
+    gap: 14px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-lo);
+  }
+  dl.kv .r:first-child { padding-top: 0; }
+  dl.kv .r:last-child { border-bottom: 0; padding-bottom: 0; }
+  dl.kv dt {
+    color: var(--text-faint);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding-top: 2px;
+  }
+  dl.kv dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+
+  ul.checks { list-style: none; margin: 0; padding: 0; }
+  ul.checks li {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 8px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-lo);
+    font-size: 13px;
+  }
+  ul.checks li:first-child { padding-top: 0; }
+  ul.checks li:last-child { border-bottom: 0; padding-bottom: 0; }
+  ul.checks .m { font-family: var(--mono); font-weight: 600; }
+  ul.checks small { display: block; color: var(--text-faint); font-size: 12px; }
+
+  ol.steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    border-top: 1px solid var(--border);
+  }
+  ol.steps li { padding: 12px 16px; font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); }
+  ol.steps li + li { border-left: 1px solid var(--border-lo); }
+  ol.steps .n { display: block; color: var(--text-faint); font-size: 10.5px; letter-spacing: 0.04em; margin-bottom: 2px; }
+  ol.steps .s { display: block; color: var(--text-faint); font-size: 10.5px; margin-top: 2px; }
+  ol.steps li.done { color: var(--text); }
+  ol.steps li.done .n { color: var(--ok); }
+  ol.steps li.stop { color: var(--refuse); }
+  ol.steps li.stop .n { color: var(--refuse); }
+
+  /* ---------- swarm cards ---------- */
+
+  .swarm-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .sub-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .sub-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sub-id {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .status-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+  }
+
+  .status-pill.act   { color: var(--ok);     border-color: color-mix(in srgb, var(--ok) 40%, transparent); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+  .status-pill.refuse{ color: var(--refuse); border-color: color-mix(in srgb, var(--refuse) 40%, transparent); background: color-mix(in srgb, var(--refuse) 10%, transparent); }
+  .status-pill.idle  { color: var(--text-dim); border-color: var(--border); background: var(--panel-alt); }
+
+  .sub-mandate {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    overflow-wrap: anywhere;
+  }
+
+  .sub-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .sub-stats div { min-width: 0; }
+  .sub-stats div span.k {
+    display: block;
+    color: var(--text-faint);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .sub-stats div span.v { color: var(--text); overflow-wrap: anywhere; }
+
+  .sub-reason {
+    font-size: 12px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border-lo);
+    padding-top: 12px;
+    overflow-wrap: anywhere;
+  }
+  .sub-reason b { color: var(--text); font-weight: 500; }
+  .sub-reason .tx { display: block; margin-top: 4px; font-family: var(--mono); font-size: 11.5px; }
+
+  .key-badge {
+    align-self: flex-start;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .key-badge.scoped { color: var(--accent); border-color: var(--accent-lo); }
+  .key-badge.bad { color: var(--refuse); border-color: color-mix(in srgb, var(--refuse) 50%, transparent); }
+
+  .sub-keys {
+    margin-top: auto;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    overflow-wrap: anywhere;
+  }
+  .sub-keys a { font-family: var(--mono); }
+
+  /* ---------- log panel ---------- */
+
+  .log-box {
+    background: var(--panel-alt);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: var(--text-dim);
+  }
+
+  .log-box .ln { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .log-box .ok     { color: var(--ok); }
+  .log-box .refuse { color: var(--refuse); }
+  .log-box .hi     { color: var(--text); }
+  .log-box .faint  { color: var(--text-faint); }
+
+  /* ---------- x402 panel ---------- */
+
+  .x402-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .x402-copy p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-dim);
+    max-width: 58ch;
+  }
+  .x402-copy p + p { margin-top: 6px; }
+  .x402-flow { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); }
+  .x402-flow b { color: var(--accent); font-weight: 600; margin-right: 6px; }
+
+  .x402-table { border-top: 1px solid var(--border); padding: 20px; }
+
+  /* ---------- buttons: flat, no shine ---------- */
+
+  button.block-btn, a.block-btn {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: border-color 120ms ease, color 120ms ease;
+  }
+  a.block-btn:hover { text-decoration: none; }
+  button.block-btn:hover, a.block-btn:hover { border-color: var(--text-dim); }
+  button.block-btn:disabled { cursor: progress; color: var(--text-faint); opacity: 0.6; }
+  button.block-btn:disabled:hover { border-color: var(--border); }
+
+  /* ---------- footer ---------- */
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+    font-size: 12px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ---------- fits every screen: nothing scrolls sideways ---------- */
+
+  @media (max-width: 900px) {
+    .swarm-grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stats > div:nth-child(3) { border-left: 0; }
+    .stats > div:nth-child(n+3) { border-top: 1px solid var(--border); }
+    .decision { grid-template-columns: 1fr; }
+    .decision > div + div { border-left: 0; border-top: 1px solid var(--border); }
+    ol.steps { grid-template-columns: repeat(3, 1fr); }
+    ol.steps li:nth-child(4) { border-left: 0; }
+    ol.steps li:nth-child(n+4) { border-top: 1px solid var(--border-lo); }
+
+    /* tables become one stacked block per row */
+    table.chain, table.chain tbody, table.chain tr, table.chain td { display: block; }
+    table.chain thead { display: none; }
+    table.chain tr { padding: 12px 0; border-bottom: 1px solid var(--border-lo); }
+    table.chain tr:first-child { padding-top: 0; }
+    table.chain tr:last-child { border-bottom: 0; padding-bottom: 0; }
+    table.chain td {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 4px 0;
+      border: 0;
+      white-space: normal;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+    table.chain td::before {
+      content: attr(data-label);
+      flex: none;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      text-align: left;
+      padding-top: 1px;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 0 16px 64px; }
+    header.topbar { padding-top: 22px; }
+    .panel-pad, .decision > div, .x402-table { padding: 16px; }
+    dl.kv .r { grid-template-columns: 1fr; gap: 2px; }
+    ol.steps { grid-template-columns: 1fr 1fr; }
+    ol.steps li:nth-child(n) { border-left: 0; border-top: 1px solid var(--border-lo); }
+    ol.steps li:nth-child(2n) { border-left: 1px solid var(--border-lo); }
+    ol.steps li:nth-child(-n+2) { border-top: 0; }
+    .stats .v { font-size: 19px; }
+    .stats > div { padding: 14px 16px; }
+    .section-title { flex-wrap: wrap; }
+    .section-title span.note { text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="wrap">
+
+    <header class="topbar">
+      <div class="brand">
+        <h1>MNEMOSYNE</h1>
+        <p>non-trading governor — private decisions, on-chain memory</p>
+      </div>
+      <div class="topbar-right">
+        <span class="badge" id="netBadge"><span class="dot" id="netDot"></span> NEAR TESTNET</span>
+        <span class="badge" id="governorBadge">mnemosyne-gov.testnet</span>
+        <button class="block-btn" id="refresh" type="button">REFRESH</button>
+      </div>
+    </header>
+
+    <div class="problem" id="problem" hidden></div>
+
+    <!-- ================= OVERVIEW ================= -->
+    <div class="panel stats" id="stats" aria-live="polite"></div>
+
+    <!-- ================= MEMORY CHAIN ================= -->
+    <section>
+      <div class="section-title">
+        <h2>Memory Chain</h2>
+        <span class="note" id="chainNote">live</span>
+      </div>
+
+      <div class="panel panel-pad">
+        <div id="chainBox"></div>
+
+        <div class="chain-footnote">
+          Only the <strong>hash</strong> of each decision is written on-chain. The governor's
+          private reasoning is never published — not here, not in the contract, not in a log.
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= LATEST DECISION ================= -->
+    <section>
+      <div class="section-title">
+        <h2>Latest Decision</h2>
+        <span class="note" id="decisionNote"></span>
+      </div>
+      <div id="decisionBox"></div>
+    </section>
+
+    <!-- ================= SUB-AGENT SWARM ================= -->
+    <section>
+      <div class="section-title">
+        <h2>Sub-Agent Swarm</h2>
+        <span class="tag" title="Capital and losses are simulated; keys, directives and on-chain reports are real.">SIMULATED BALANCES</span>
+      </div>
+
+      <div class="swarm-grid" id="swarmGrid"></div>
+    </section>
+
+    <!-- ================= CYCLE LOG ================= -->
+    <section>
+      <div class="section-title">
+        <h2>Latest Cycle Log</h2>
+        <span class="note">read-only — cycles are run from the CLI</span>
+      </div>
+
+      <div class="panel">
+        <div class="log-box" id="logBox"></div>
+      </div>
+    </section>
+
+    <!-- ================= X402 ================= -->
+    <section>
+      <div class="section-title">
+        <h2>x402 Memory Queries</h2>
+        <span class="tag" id="railTag">…</span>
+      </div>
+
+      <div class="panel" id="x402Box"></div>
+    </section>
+
+    <footer>
+      <span>mnemosyne — NEAR hackathon build</span>
+      <span id="updated">read-only · live from NEAR testnet</span>
+    </footer>
+
+  </div>
+
+<script>
+"use strict";
+const EXPLORER = "https://testnet.nearblocks.io";
+const TX = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
+const ACCOUNT = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
+const $ = (id) => document.getElementById(id);
+
+/* Everything is built with DOM calls and textContent, never innerHTML:
+   record files on disk are data, not markup. */
+function h(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v; else n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) n.append(k instanceof Node ? k : String(k));
+  return n;
+}
+function short(s, a = 10, b = 6) { s = String(s ?? ""); return s.length > a + b + 1 ? `${s.slice(0, a)}…${s.slice(-b)}` : s; }
+const txUrl = (hash) => (TX.test(hash || "") ? `${EXPLORER}/txns/${hash}` : null);
+const ext = (href, text) => h("a", { href, target: "_blank", rel: "noopener" }, text);
+const txLink = (hash, text) => (txUrl(hash) ? ext(txUrl(hash), text || "view ↗") : h("span", { class: "faint" }, "—"));
+const accLink = (id) => (ACCOUNT.test(id || "") && id.length <= 64 ? ext(`${EXPLORER}/address/${id}`, id) : h("span", {}, String(id ?? "")));
+function hashEl(full, a = 14, b = 6) {
+  if (!full) return h("span", { class: "faint" }, "(genesis)");
+  const btn = h("button", { class: "copy", type: "button", title: `${full}\nClick to copy` }, short(full, a, b));
+  btn.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(full); const t = btn.textContent; btn.textContent = "copied"; setTimeout(() => (btn.textContent = t), 1100); } catch {}
+  });
+  return btn;
+}
+const cycleIso = (id) => String(id || "").replace(/-[0-9a-f]{5}$/, "");
+const cycleLabel = (id) => cycleIso(id).replace(/\.\d+Z$/, "Z");
+function ago(iso) {
+  const t = Date.parse(iso); if (isNaN(t)) return "";
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) { const n = Math.floor(s / 3600); return `${n} hour${n === 1 ? "" : "s"} ago`; }
+  const n = Math.floor(s / 86400); return `${n} day${n === 1 ? "" : "s"} ago`;
+}
+const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); };
+const wnear = (u) => { try { return (Number(BigInt(u) / 10n ** 18n) / 1e6).toFixed(3); } catch { return String(u); } };
+const isTee = (r) => r.decision_path === "near-ai-tee";
+const td = (label, ...kids) => h("td", { "data-label": label }, ...kids);
+const th = (...t) => h("thead", {}, h("tr", {}, t.map((x) => h("th", { scope: "col" }, x))));
+const emptyBox = (...kids) => h("div", { class: "empty" }, ...kids);
+
+/* ---------- overview ---------- */
+function renderStats(d) {
+  const keys = d.subs.map((s) => s.keys?.agent_key?.kind);
+  const known = keys.filter(Boolean).length;
+  const scoped = keys.filter((k) => k === "function_call").length;
+  const cell = (k, v) => h("div", {}, h("span", { class: "k" }, k), h("span", { class: "v" }, v));
+  $("stats").replaceChildren(
+    cell("Entries on-chain", d.chain.ok ? d.chain.commit_count : "–"),
+    cell("Sealed in a TEE", d.cycles.filter((c) => isTee(c.record) && c.run?.committed !== false).length),
+    cell("Report-only keys", known ? `${scoped} of ${d.subs.length}` : "–"),
+    cell("Paid checks", d.x402 ? d.x402.paid_checks_total : "–"));
+}
+
+/* ---------- memory chain ---------- */
+function renderChain(d) {
+  const box = $("chainBox");
+  if (!d.cycles.length) {
+    $("chainNote").textContent = "no entries on this machine yet";
+    box.replaceChildren(emptyBox("Nothing recorded here yet. Run ", h("code", {}, "npm run cycle"), ", then refresh."));
+    return;
+  }
+  const committed = d.cycles.filter((c) => c.run?.committed !== false).length;
+  $("chainNote").textContent = `${committed} of ${d.cycles.length} entries on this machine committed`;
+  const rows = d.cycles.map((c, i) => {
+    const r = c.record, failed = c.run?.committed === false;
+    const older = d.cycles.slice(i + 1).find((x) => x.run?.committed !== false)?.record;
+    const linked = !failed && older && r.prev_memory_hash && r.prev_memory_hash === older.decision_hash;
+    const isHead = !failed && d.chain.ok && r.decision_hash === d.chain.latest_hash;
+    return h("tr", { class: isHead ? "head" : "" },
+      td("Cycle", cycleLabel(r.cycle_id)),
+      td("Decision Hash", h("span", { class: "hash" }, hashEl(r.decision_hash))),
+      td("Prev Hash", linked ? h("span", {}, h("span", { class: "ok", title: "Links to the entry below" }, "✓ "), hashEl(r.prev_memory_hash)) : hashEl(r.prev_memory_hash)),
+      td("Time", h("span", { title: cycleIso(r.cycle_id) }, ago(cycleIso(r.cycle_id)))),
+      td("Decided", isTee(r) ? "TEE · sealed" : r.decision_path === "local-policy" ? "local rule" : "stub"),
+      td("Tx", failed ? h("span", { class: "refuse" }, "not committed") : c.run ? txLink(c.run.commit_tx) : h("span", { class: "faint" }, "—")));
+  });
+  // the hash cell is brighter than the others, like the original design
+  rows.forEach((tr) => tr.children[1].classList.add("hash"));
+  box.replaceChildren(h("table", { class: "chain" },
+    th("Cycle", "Decision Hash", "Prev Hash", "Time", "Decided", "Tx"), h("tbody", {}, rows)));
+}
+
+/* ---------- latest decision ---------- */
+function checkList(r) {
+  const ul = h("ul", { class: "checks" });
+  const item = (st, title, detail) => ul.append(h("li", {},
+    h("span", { class: "m " + (st === "ok" ? "ok" : st === "bad" ? "refuse" : "faint") }, st === "ok" ? "✓" : st === "bad" ? "✗" : "–"),
+    h("span", { class: st === "skip" ? "dim" : "" }, title, detail ? h("small", {}, detail) : null)));
+  if (isTee(r) && r.tee) {
+    const c = r.tee.checks || {}, s = (b) => (b ? "ok" : "bad");
+    item(s(c.hashes_match), "Answer untouched", "Request and response match what the enclave signed");
+    item(s(c.signature_valid && c.provider_tee && c.model_matches), "Signed inside the enclave", `${r.tee.model}, key ${short(r.tee.signing_address, 6, 4)}`);
+    item(s(c.binds_address && c.binds_nonce), "Enclave key proven live", "Bound to a fresh random challenge from us");
+    if (c.tdx === "not_checked") item("skip", "Intel TDX quote not checked", "Run with TEE_VERIFY=full");
+    else item(s(c.tdx && c.tdx.verified), "Intel TDX hardware verified", `Platform status: ${c.tdx ? c.tdx.status : "unknown"}`);
+    if (c.gpu === "not_checked") item("skip", "NVIDIA GPU not checked", null);
+    else item(s(c.gpu && c.gpu.verdict && c.gpu.token_signature_valid), "NVIDIA GPU verified", "NVIDIA's signed verdict, checked against its keys");
+  } else if (r.decision_path === "local-policy") item("skip", "No enclave used", "Decided by the fixed local rule, and labelled so on-chain");
+  else item("skip", "Recorded before sealed decisions", "Schema 1 entry");
+  return ul;
+}
+
+function renderDecision(d) {
+  const box = $("decisionBox"), c = d.cycles[0];
+  if (!c) { $("decisionNote").textContent = ""; box.replaceChildren(h("div", { class: "panel" }, emptyBox("No decision yet. Run ", h("code", {}, "npm run cycle"), "."))); return; }
+  const r = c.record, run = c.run, committed = run ? run.committed : null;
+  $("decisionNote").textContent = `cycle ${cycleLabel(r.cycle_id)}`;
+  const row = (k, v) => h("div", { class: "r" }, h("dt", {}, k), h("dd", {}, v));
+  const left = h("div", {},
+    h("h3", { class: "sub-title" }, "Record"),
+    h("dl", { class: "kv" },
+      row("Decided via", isTee(r) ? "NEAR AI Cloud TEE" : r.decision_path === "local-policy" ? "fixed local rule" : "stub"),
+      row("Decision hash", hashEl(r.decision_hash, 14, 8)),
+      row("Follows", hashEl(r.prev_memory_hash, 14, 8)),
+      row("Sealed reasoning", r.private_commitment ? hashEl(r.private_commitment, 14, 8) : h("span", { class: "faint" }, "n/a")),
+      row("Written to NEAR", committed === false ? h("span", { class: "refuse" }, `no — ${run.error || "commit failed"}`) : run ? txLink(run.commit_tx, short(run.commit_tx, 10, 6)) : h("span", { class: "faint" }, "not recorded on this machine")),
+      row("Risk limits", `exposure ≤ ${r.swarm_risk?.max_total_exposure ?? "?"}, daily loss ≤ ${r.swarm_risk?.max_daily_loss ?? "?"}`)));
+  const right = h("div", {}, h("h3", { class: "sub-title" }, "Checked before the commit"), checkList(r));
+  const reported = run?.reports?.filter((x) => x.status === "reported").length || 0;
+  const st = ["done", "done", committed === false ? "stop" : committed ? "done" : "", committed ? "done" : "", committed ? "done" : "", committed ? "done" : ""];
+  const names = [["READ", "simulated swarm"], ["DECIDE", isTee(r) ? "sealed in TEE" : "local rule"], ["COMMIT", "memory on NEAR"], ["ALLOCATE", "print-only"], ["SUB-AGENTS", `${reported} reported on-chain`], ["PUBLISH", "public record"]];
+  const steps = h("ol", { class: "steps", "aria-label": "Cycle steps" }, names.map(([n, s], i) =>
+    h("li", { class: st[i] }, h("span", { class: "n" }, `${i + 1}/6`), n, h("span", { class: "s" }, st[i] === "stop" ? "stopped here" : st[i] ? s : "not run"))));
+  box.replaceChildren(h("div", { class: "panel" }, h("div", { class: "decision" }, left, right), steps));
+}
+
+/* ---------- sub-agent swarm ---------- */
+function renderSwarm(d) {
+  const latest = d.cycles[0];
+  const grid = h("div", { class: "swarm-grid" });
+  for (const s of d.subs) {
+    const dec = latest?.record?.decisions?.find((x) => x.sub === s.id);
+    const ver = latest?.run?.verdicts?.find((x) => x.sub === s.id);
+    const rep = latest?.run?.reports?.find((x) => x.sub === s.id);
+    let pillCls = "idle", pill = "WAITING", reason;
+    if (!dec) reason = h("span", {}, h("b", {}, "NO DIRECTIVE"), " — no cycle recorded yet");
+    else if (dec.action === "PAUSE") { pill = "PAUSED"; reason = h("span", {}, h("b", {}, "PAUSE"), ` — ${String(dec.reason_code || "paused by governor").replaceAll("_", " ")}`); }
+    else if (!ver) { reason = h("span", {}, h("b", {}, dec.action), " — no answer recorded; run a fresh cycle"); }
+    else if (ver.action === "ACT") { pillCls = "act"; pill = "ACT"; reason = h("span", {}, h("b", {}, "ACT"), ` — ${ver.reason}`); }
+    else { pillCls = "refuse"; pill = "REFUSE"; reason = h("span", { class: "refuse" }, h("b", {}, "REFUSE"), ` — ${ver.reason}`); }
+    if (rep?.status === "reported") reason.append(h("span", { class: "tx" }, "on-chain report: ", txLink(rep.txHash, short(rep.txHash, 8, 6) + " ↗")));
+    else if (rep && rep.status !== "reported") reason.append(h("span", { class: "tx refuse" }, `report ${rep.status}${rep.error ? ": " + rep.error : ""}`));
+
+    const k = s.keys, a = k?.agent_key;
+    let badge;
+    if (!k || k.error) badge = h("span", { class: "key-badge" }, "keys unreadable");
+    else if (!a) badge = h("span", { class: "key-badge" }, "key not set on this machine");
+    else if (a.kind === "function_call") badge = h("span", { class: "key-badge scoped", title: `Can only call ${(a.methods || []).join(", ")} on ${a.receiver}` }, "report-only (function-call)");
+    else if (a.kind === "full_access") badge = h("span", { class: "key-badge bad" }, "FullAccess — not scoped");
+    else badge = h("span", { class: "key-badge bad" }, "agent key not on the account");
+
+    const keyNote = k && !k.error
+      ? h("div", { class: "sub-keys" }, `${k.full_access_keys} full-access key${k.full_access_keys === 1 ? "" : "s"} on the account, held cold, never by the agent · `, accLink(k.account))
+      : h("div", { class: "sub-keys" }, accLink(k?.account));
+
+    const active = dec && dec.action !== "PAUSE";
+    grid.append(h("article", { class: "sub-card" },
+      h("div", { class: "sub-head" }, h("span", { class: "sub-id" }, `SUB ${s.id}`), h("span", { class: "status-pill " + pillCls }, pill)),
+      h("div", { class: "sub-mandate" }, s.mandate),
+      h("div", { class: "sub-stats" },
+        h("div", {}, h("span", { class: "k" }, "Directive"), h("span", { class: "v" }, dec ? dec.action : "–")),
+        h("div", {}, h("span", { class: "k" }, "Target"), h("span", { class: "v" }, active ? dec.target_capital : "–")),
+        h("div", {}, h("span", { class: "k" }, "Max Position"), h("span", { class: "v" }, active ? dec.max_position : "–")),
+        h("div", {}, h("span", { class: "k" }, "Max Loss / Cycle"), h("span", { class: "v" }, active ? dec.max_loss_cycle : "–"))),
+      h("div", { class: "sub-reason" }, reason),
+      badge,
+      keyNote));
+  }
+  $("swarmGrid").replaceChildren(...grid.children);
+}
+
+/* ---------- cycle log (re-derived from the public record + run log) ---------- */
+function logLines(c) {
+  const r = c.record, run = c.run, L = [];
+  const add = (cls, ...parts) => L.push({ cls, parts });
+  add("", "[1/6] READ: reading swarm state (simulated)...");
+  add("faint", `      prev_memory_hash: ${r.prev_memory_hash ?? "(none — first cycle)"}`);
+  if (isTee(r) && r.tee) {
+    const k = r.tee.checks || {}, okAll = k.hashes_match && k.signature_valid && k.binds_address && k.binds_nonce && (k.tdx === "not_checked" || k.tdx?.verified) && (k.gpu === "not_checked" || (k.gpu?.verdict && k.gpu?.token_signature_valid));
+    add("", `[2/6] DECIDE: private reasoning in a NEAR AI Cloud TEE (${r.tee.model})...`);
+    const tdx = k.tdx === "not_checked" ? "not checked" : `${k.tdx?.verified ? "OK" : "FAIL"} (${k.tdx?.status})`;
+    const gpu = k.gpu === "not_checked" ? "not checked" : k.gpu?.verdict && k.gpu?.token_signature_valid ? "OK" : "FAIL";
+    add(okAll ? "ok" : "refuse", `      TEE signer ${r.tee.signing_address}: signature ${k.signature_valid ? "OK" : "FAIL"}, nonce ${k.binds_nonce ? "bound" : "NOT bound"}, Intel TDX ${tdx}, NVIDIA GPU ${gpu}`);
+  } else if (r.decision_path === "local-policy") add("", "[2/6] DECIDE: local policy rule (no NEAR_AI_API_KEY)...");
+  else add("", "[2/6] DECIDE: stub logic (recorded before private decisions)...");
+  if (r.private_commitment) add("faint", `      private_commitment: ${r.private_commitment} (blob stays local)`);
+  add("faint", `      decision_hash: ${r.decision_hash}`);
+  add("", "[3/6] MEMORY COMMIT: writing memory record (on-chain, " + r.governor + ")...");
+  if (!run) { add("faint", "      (outcome not recorded on this machine — run a fresh cycle)"); return L; }
+  if (run.committed === false) {
+    add("refuse", `[FAIL-CLOSED] memory commit failed (${run.error}). Cycle ends. No allocation performed.`);
+    return L;
+  }
+  add("ok", "      committed.");
+  if (txUrl(run.commit_tx)) add("faint", "      tx: ", ext(txUrl(run.commit_tx), txUrl(run.commit_tx)));
+  add("", "[4/6] ALLOCATE: applying decisions (print-only — no real transfers)...");
+  for (const x of r.decisions || []) {
+    add("", x.action === "PAUSE" ? `      sub ${x.sub}: PAUSE (${x.reason_code})` : `      sub ${x.sub}: ${x.action} -> target_capital=${x.target_capital}, max_position=${x.max_position}, max_loss_cycle=${x.max_loss_cycle}, mandate=${x.mandate}`);
+  }
+  add("", "[5/6] SUB-AGENT WINDOW: mandate checks + on-chain report()...");
+  for (const x of r.decisions || []) {
+    if (x.action === "PAUSE") { add("faint", `      sub ${x.sub}: PAUSE -> inactive this cycle, nothing to report`); continue; }
+    const v = (run.verdicts || []).find((y) => y.sub === x.sub);
+    if (v) add(v.action === "ACT" ? "ok" : "refuse", `      sub ${x.sub}: ${v.action} (${v.reason})`);
+  }
+  for (const x of run.reports || []) {
+    if (x.status === "reported") {
+      add("", `      sub ${x.sub} -> on-chain ${x.action} as ${x.accountId}`);
+      if (txUrl(x.txHash)) add("faint", "        tx: ", ext(txUrl(x.txHash), txUrl(x.txHash)));
+    } else add("refuse", `      sub ${x.sub} -> REPORT ${String(x.status).toUpperCase()}${x.error ? ": " + x.error : ""}`);
+  }
+  add("", "[6/6] PUBLIC LOG: cycle complete.");
+  return L;
+}
+
+function renderLog(d) {
+  const box = $("logBox");
+  if (!d.cycles[0]) { box.replaceChildren(h("div", { class: "ln faint" }, "No cycle recorded on this machine yet.")); return; }
+  // leading spaces become a real indent, so wrapped text on a phone lines up under its own line
+  box.replaceChildren(...logLines(d.cycles[0]).map((l) => {
+    const first = typeof l.parts[0] === "string" ? l.parts[0] : "";
+    const indent = first.length - first.trimStart().length;
+    const parts = indent ? [first.slice(indent), ...l.parts.slice(1)] : l.parts;
+    return h("div", { class: "ln " + l.cls, style: indent ? `padding-left:${indent}ch` : null }, ...parts);
+  }));
+}
+
+/* ---------- x402 ---------- */
+function renderX402(d) {
+  const x = d.x402, box = $("x402Box");
+  if (!x) { box.replaceChildren(); return; }
+  $("railTag").textContent = x.mock_settlement ? "MOCK RAIL" : "REAL · wNEAR TESTNET";
+  const rail = x.mock_settlement
+    ? "Mock rail: every payment is fully verified, then recorded in a local ledger instead of on-chain."
+    : `Real settlement: ${wnear(x.price)} wNEAR per check on NEAR testnet, paid to ${x.pay_to}.`;
+  const top = h("div", { class: "panel-pad" }, h("div", { class: "x402-row" },
+    h("div", { class: "x402-copy" },
+      h("p", {}, "Other agents pay per query over x402 to ask whether a situation matches a failure Mnemosyne has already learned from. They get a citation and one line of advice — never the private detail."),
+      h("p", {}, rail, ` ${x.memory_entries} lessons in memory.`),
+      h("ol", { class: "x402-flow" },
+        ["POST /memory/check", "402 + price", "sign and retry", "answer + receipt"].map((t, i) => h("li", {}, h("b", {}, `${i + 1}`), t)))),
+    h("a", { class: "block-btn", href: "/audit", target: "_blank", rel: "noopener" }, "OPEN AUDIT JSON ↗")));
+  let bottom;
+  if (!x.recent.length) bottom = h("div", { class: "x402-table" }, emptyBox("No paid checks on this server yet. Run ", h("code", {}, "npm run x402:demo:real"), " against it to make one."));
+  else bottom = h("div", { class: "x402-table" }, h("table", { class: "chain" },
+    th("When", "Payer", "Paid", "Answer", "Settlement", "Receipt"),
+    h("tbody", {}, x.recent.map((r) => h("tr", {},
+      td("When", when(r.at)),
+      td("Payer", h("span", { title: r.payer }, short(r.payer, 8, 6))),
+      td("Paid", r.mock ? "mock" : `${wnear(r.amount)} wNEAR`),
+      td("Answer", r.match ? h("span", { class: "ok" }, `matched ${r.citation_id}`) : "no match"),
+      td("Settlement", r.mock ? h("span", { class: "faint" }, "local ledger") : txLink(r.settlement, short(r.settlement, 8, 6) + " ↗")),
+      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 8, 4))))))));
+  box.replaceChildren(top, bottom);
+}
+
+/* ---------- load ---------- */
+async function load() {
+  const btn = $("refresh");
+  btn.disabled = true; btn.textContent = "READING…";
+  try {
+    const r = await fetch("/dashboard.json", { cache: "no-store" });
+    if (!r.ok) throw new Error(`the server answered ${r.status}`);
+    const d = await r.json();
+    const problems = [];
+    if (!d.chain.ok) problems.push(`Couldn't read the chain (${d.chain.error}). Showing records stored on this machine.`);
+    if (d.subs.some((s) => s.keys?.error)) problems.push("Couldn't read the sub-agents' keys from NEAR.");
+    $("problem").hidden = !problems.length;
+    $("problem").textContent = problems.join(" ");
+    $("netDot").classList.toggle("down", !d.chain.ok);
+    $("governorBadge").replaceChildren(accLink(d.contract));
+    renderStats(d); renderChain(d); renderDecision(d); renderSwarm(d); renderLog(d); renderX402(d);
+    $("updated").textContent = `read-only · live from NEAR testnet · updated ${new Date(d.generated_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+  } catch (err) {
+    $("problem").hidden = false;
+    $("problem").textContent = `Couldn't load the dashboard data: ${err.message}. Is npm run server still running?`;
+    $("netDot").classList.add("down");
+  } finally {
+    btn.disabled = false; btn.textContent = "REFRESH";
+  }
+}
+$("refresh").addEventListener("click", load);
+load();
+setInterval(() => { if (!document.hidden) load(); }, 30000);
+</script>
+
+</body>
+</html>

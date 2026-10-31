@@ -60,6 +60,15 @@ export async function getLatestMemoryRecord(accountId = GOVERNOR_ACCOUNT_ID): Pr
   };
 }
 
+/** Raw on-chain head, including how many commits the chain holds. */
+export async function getChainHead(accountId = GOVERNOR_ACCOUNT_ID): Promise<{ latest_hash: string | null; prev_hash: string | null; commit_count: number }> {
+  const res: any = await provider.callFunction({ contractId: accountId, method: "get_latest", args: {} });
+  const [latest_hash, prev_hash, commit_count] = Array.isArray(res)
+    ? (res as [string, string, number])
+    : (JSON.parse(Buffer.from(res.result).toString()) as [string, string, number]);
+  return { latest_hash: latest_hash || null, prev_hash: prev_hash || null, commit_count: Number(commit_count) };
+}
+
 /**
  * Mandatory gate: commits a memory record's hash on-chain.
  *

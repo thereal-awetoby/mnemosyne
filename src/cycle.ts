@@ -31,6 +31,28 @@ function makeCycleId(): string {
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DATA_DIR = resolve(process.env.DATA_DIR ?? join(REPO_ROOT, "data/runtime"));
 
+/** What happened on-chain for a cycle (commit + sub report txs). Kept next
+ *  to the public record, not inside it, so decision_hash stays checkable. */
+export interface CycleRun {
+  cycle_id: string;
+  finished_at: string;
+  committed: boolean;
+  commit_tx: string | null;
+  error: string | null;
+  verdicts: Array<{ sub: string; action: string; reason: string }>;
+  reports: Array<{ sub: string; status: string; action?: string; accountId?: string; txHash?: string; error?: string }>;
+}
+
+function writeRun(run: CycleRun): void {
+  try {
+    const dir = join(DATA_DIR, "public");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${run.cycle_id.replace(/[^A-Za-z0-9_.-]/g, "_")}.run.json`), JSON.stringify(run, null, 2));
+  } catch (err) {
+    console.log(`      (could not write run log: ${(err as Error).message})`);
+  }
+}
+
 function writePublicRecord(rec: MemoryRecord): string {
   const dir = join(DATA_DIR, "public");
   mkdirSync(dir, { recursive: true });
@@ -127,6 +149,7 @@ export async function runCycle(): Promise<CycleResult> {
   if (!commitResult.committed) {
     // Fail-closed: no capital/authority action follows a failed commit.
     console.log(`[FAIL-CLOSED] memory commit failed (${commitResult.error}). Cycle ends. No allocation performed.`);
+    writeRun({ cycle_id: cycleId, finished_at: new Date().toISOString(), committed: false, commit_tx: null, error: commitResult.error ?? "commit failed", verdicts: [], reports: [] });
     return { memoryRecord, privateDecision, committed: false };
   }
   console.log("      committed.");
@@ -196,5 +219,14 @@ export async function runCycle(): Promise<CycleResult> {
   console.log("[6/6] PUBLIC LOG: cycle complete.");
   console.log(`=== end cycle ${cycleId} ===\n`);
 
+  writeRun({
+    cycle_id: cycleId,
+    finished_at: new Date().toISOString(),
+    committed: true,
+    commit_tx: commitResult.txHash ?? null,
+    error: null,
+    verdicts: verdicts.map((v) => ({ sub: v.sub, action: v.action, reason: v.reason })),
+    reports: reports.map((r) => ({ sub: r.sub, status: r.status, action: r.action, accountId: r.accountId, txHash: r.txHash, error: r.error })),
+  });
   return { memoryRecord, privateDecision, committed: true, reports };
 }

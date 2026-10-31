@@ -8,6 +8,8 @@
  *   POST /memory/confess         admin  append a rule after a real failure
  *   GET  /audit                  free   recent paid checks + chain links
  *   POST /cycle/run              admin  run one governor cycle
+ *   GET  /dashboard              free   read-only dashboard page
+ *   GET  /dashboard.json         free   its data (public records + chain + keys)
  *
  * x402 flow for /memory/check:
  *   no PAYMENT-SIGNATURE  -> 402 + PAYMENT-REQUIRED (price, payTo, network)
@@ -54,6 +56,11 @@ export interface ServerConfig {
   /** Lazily loaded so the API runs (and tests run) without near-api-js. */
   readChainHead?: () => Promise<{ latest_hash: string; prev_hash: string | null } | null>;
   runCycle?: () => Promise<unknown>;
+  /** Read-only dashboard: page HTML and its data (chain head, cycles, keys). */
+  dashboardHtml?: string;
+  dashboardData?: () => Promise<Record<string, unknown>>;
+  /** Static files under /dashboard/fonts/<name> (woff2 only). */
+  dashboardFonts?: Record<string, Buffer>;
 }
 
 export interface Receipt {
@@ -258,6 +265,50 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       if (!tokenOk(given, cfg.adminToken)) throw new HttpError(401, "admin token required");
     };
 
+    if (method === "GET" && path === "/" && cfg.dashboardHtml && String(req.headers.accept ?? "").includes("text/html")) {
+      res.writeHead(302, { location: "/dashboard" });
+      return res.end();
+    }
+    if (method === "GET" && path === "/dashboard") {
+      if (!cfg.dashboardHtml) throw new HttpError(404, "dashboard not configured");
+      res.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "no-referrer",
+        "content-security-policy":
+          "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
+          "font-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      });
+      return res.end(cfg.dashboardHtml);
+    }
+    if (method === "GET" && path.startsWith("/dashboard/fonts/")) {
+      const font = cfg.dashboardFonts?.[path.slice("/dashboard/fonts/".length)];
+      if (!font) throw new HttpError(404, "not found");
+      res.writeHead(200, { "content-type": "font/woff2", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" });
+      return res.end(font);
+    }
+    if (method === "GET" && path === "/dashboard.json") {
+      if (!cfg.dashboardData) throw new HttpError(404, "dashboard not configured");
+      const data = await cfg.dashboardData();
+      const all = Object.values(receipts.get().receipts).sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return send(res, 200, {
+        ...data,
+        x402: {
+          payment_rail: rail.mode,
+          mock_settlement: isMock,
+          price: requirements.amount,
+          asset: requirements.asset,
+          pay_to: requirements.payTo,
+          memory_entries: memory.size,
+          paid_checks_total: all.length,
+          recent: all.slice(0, 12).map((r) => ({
+            receipt_id: r.receipt_id, at: r.created_at, payer: r.payer, amount: r.amount,
+            match: r.match, citation_id: r.citation_id, settlement: r.settlement, explorer: r.explorer ?? null, mock: r.mock,
+          })),
+        },
+      });
+    }
     if (method === "GET" && path === "/") {
       return send(res, 200, {
         name: "mnemosyne",
@@ -269,6 +320,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
           "GET /audit": "free",
           "POST /memory/confess": "admin",
           "POST /cycle/run": "admin",
+          ...(cfg.dashboardHtml ? { "GET /dashboard": "free -- read-only dashboard", "GET /dashboard.json": "free" } : {}),
         },
       });
     }
