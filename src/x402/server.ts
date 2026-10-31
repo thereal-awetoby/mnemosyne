@@ -1,0 +1,366 @@
+/**
+ * Mnemosyne HTTP API (docs/BUILD_PLAN.md section 11), on node:http only.
+ *
+ *   GET  /health                 free
+ *   GET  /memory/latest          free   on-chain memory head (NEAR RPC)
+ *   POST /memory/check           x402   { query } -> match + citation only
+ *   GET  /memory/receipt/:id     free   proof a check was paid + answered
+ *   POST /memory/confess         admin  append a rule after a real failure
+ *   GET  /audit                  free   recent paid checks + chain links
+ *   POST /cycle/run              admin  run one governor cycle
+ *
+ * x402 flow for /memory/check:
+ *   no PAYMENT-SIGNATURE  -> 402 + PAYMENT-REQUIRED (price, payTo, network)
+ *   bad/insufficient pay  -> 402 + reason (nothing answered, nothing charged)
+ *   valid payment         -> verify -> compute answer -> settle -> 200
+ *                            + PAYMENT-RESPONSE header + receipt_id
+ * The answer is only released after settlement succeeds.
+ */
+
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
+import { join } from "node:path";
+import { JsonStore } from "./jsonStore.js";
+import { MemoryStore, MAX_QUERY_CHARS, type CheckResult } from "./memoryStore.js";
+import { b64json, canonicalJson, fromB64json, sha256Hex } from "./crypto.js";
+import { requirementsError } from "./validation.js";
+import type { Facilitator } from "./facilitator.js";
+import { createMockRail, type PaymentRail, type WireRequirements } from "./rails.js";
+import {
+  MOCK_TRANSFER_METHOD,
+  X402_VERSION,
+  type PaymentRequirements,
+} from "./types.js";
+
+export interface ServerConfig {
+  dataDir: string;
+  seedPath: string;
+  /** Pin the public origin. If omitted, derive it from each request's Host
+   *  and forwarded protocol so local and proxied clients get the same binding. */
+  publicUrl?: string;
+  payTo: string;
+  network: string;
+  asset: string;
+  /** price per check in base units (yoctoNEAR) */
+  priceAmount: string;
+  maxTimeoutSeconds: number;
+  /** Mock rail (default): payTo/network/asset/priceAmount above + this facilitator. */
+  facilitator?: Facilitator;
+  mockSettlement: boolean;
+  /** Real settlement: a prebuilt rail (e.g. createNearExactRail). When set,
+   *  it defines the payment terms; facilitator/asset/priceAmount are ignored. */
+  rail?: PaymentRail;
+  adminToken?: string;
+  /** Lazily loaded so the API runs (and tests run) without near-api-js. */
+  readChainHead?: () => Promise<{ latest_hash: string; prev_hash: string | null } | null>;
+  runCycle?: () => Promise<unknown>;
+}
+
+export interface Receipt {
+  receipt_id: string;
+  created_at: string;
+  resource: string;
+  payer: string;
+  amount: string;
+  asset: string;
+  network: string;
+  settlement: string;
+  /** public explorer link for a real on-chain settlement */
+  explorer: string | null;
+  mock: boolean;
+  /** sha256 of the canonical request body -- the query itself is NOT stored */
+  request_sha256: string;
+  /** sha256 of the canonical answer body minus receipt_id; lets the payer
+   *  prove later exactly what it was told */
+  answer_sha256: string;
+  match: boolean;
+  citation_id: string | null;
+}
+
+const MAX_BODY_BYTES = 16 * 1024;
+const RECEIPT_ID = /^R-[0-9a-f]{24}$/;
+
+class HttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function readJson(req: IncomingMessage): Promise<any> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length;
+    if (size > MAX_BODY_BYTES) throw new HttpError(413, "body too large");
+    chunks.push(chunk as Buffer);
+  }
+  if (size === 0) return {};
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new HttpError(400, "body must be JSON");
+  }
+}
+
+function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
+  const text = JSON.stringify(body, null, 2);
+  res.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "access-control-expose-headers": "PAYMENT-REQUIRED, PAYMENT-RESPONSE",
+    ...headers,
+  });
+  res.end(text);
+}
+
+function tokenOk(given: string | undefined, expected: string | undefined): boolean {
+  if (!expected || !given) return false;
+  const a = createHash("sha256").update(given).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
+export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memory: MemoryStore; requirements: PaymentRequirements; rail: PaymentRail } {
+  const memory = new MemoryStore(cfg.dataDir, cfg.seedPath);
+  const receipts = new JsonStore<{ receipts: Record<string, Receipt> }>(join(cfg.dataDir, "receipts.json"), () => ({ receipts: {} }));
+  if (cfg.publicUrl !== undefined) cfg.publicUrl = normalizePublicUrl(cfg.publicUrl);
+
+  function checkUrlFor(req: IncomingMessage): string {
+    if (cfg.publicUrl !== undefined) return cfg.publicUrl + "/memory/check";
+    const host = req.headers.host;
+    const forwarded = req.headers["x-forwarded-proto"];
+    const protocol = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "http";
+    if (!host || !["http", "https"].includes(protocol)) throw new HttpError(400, "invalid public host");
+    let origin: URL;
+    try { origin = new URL(`${protocol}://${host}`); } catch { throw new HttpError(400, "invalid public host"); }
+    if (origin.hostname === "" || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) {
+      throw new HttpError(400, "invalid public host");
+    }
+    return origin.origin + "/memory/check";
+  }
+
+  let rail: PaymentRail;
+  if (cfg.rail) {
+    rail = cfg.rail;
+  } else {
+    if (!cfg.facilitator) throw new Error("invalid server payment configuration: need a facilitator or a rail");
+    const mockRequirements: PaymentRequirements = {
+      scheme: "exact",
+      network: cfg.network,
+      amount: cfg.priceAmount,
+      asset: cfg.asset,
+      payTo: cfg.payTo,
+      maxTimeoutSeconds: cfg.maxTimeoutSeconds,
+      extra: {
+        assetTransferMethod: MOCK_TRANSFER_METHOD,
+        mock: cfg.mockSettlement,
+        note: cfg.mockSettlement
+          ? "Demo settlement: payments are fully verified (signature, payer key, amount, nonce) but recorded by a mock facilitator, not transferred on-chain."
+          : "Settled by the configured x402 facilitator.",
+      },
+    };
+    const requirementsIssue = requirementsError(mockRequirements);
+    if (requirementsIssue) throw new Error(`invalid server payment configuration: ${requirementsIssue}`);
+    rail = createMockRail(cfg.facilitator, mockRequirements, cfg.mockSettlement);
+  }
+  const requirements: WireRequirements = rail.requirements;
+  const isMock = rail.mock;
+
+  const paymentRequired = (error: string, checkUrl: string) => ({
+    x402Version: X402_VERSION,
+    error,
+    resource: {
+      url: checkUrl,
+      description: "Mnemosyne memory check: does this situation match a known failure? Returns match + citation id + public advice only.",
+      mimeType: "application/json",
+    },
+    accepts: [requirements],
+  });
+
+  const require402 = (res: ServerResponse, error: string, checkUrl: string) => {
+    const body = paymentRequired(error, checkUrl);
+    send(res, 402, body, { "PAYMENT-REQUIRED": b64json(body) });
+  };
+
+  async function handleCheck(req: IncomingMessage, res: ServerResponse) {
+    const checkUrl = checkUrlFor(req);
+    const body = await readJson(req);
+    const query = body?.query;
+    if (typeof query !== "string" || query.trim().length === 0) throw new HttpError(400, 'body must be {"query": "<text>"}');
+    if (query.length > MAX_QUERY_CHARS) throw new HttpError(400, `query longer than ${MAX_QUERY_CHARS} chars`);
+
+    const header = req.headers["payment-signature"];
+    if (typeof header !== "string" || header.length === 0) return require402(res, "payment required", checkUrl);
+
+    let payment: unknown;
+    try {
+      payment = rail.decode(header);
+    } catch {
+      return require402(res, "invalid_payment_header", checkUrl);
+    }
+    const bindingIssue = rail.bindingError(payment, checkUrl);
+    if (bindingIssue) return require402(res, bindingIssue, checkUrl);
+
+    const v = await rail.verify(payment);
+    if (!v?.isValid) return require402(res, v?.invalidReason ?? "invalid_payment", checkUrl);
+    if (typeof v.payer !== "string" || v.payer.length === 0) throw new HttpError(502, "invalid facilitator verification");
+    const verifiedPayer = v.payer;
+
+    // Compute, then settle, then release. If settlement fails, the payer
+    // gets nothing and isn't charged.
+    const result: CheckResult = memory.check(query);
+    const settlement = await rail.settle(payment);
+    if (!settlement?.success) return require402(res, settlement?.errorReason ?? "settlement_failed", checkUrl);
+    const settlementIssue = rail.settlementIssue(settlement, verifiedPayer);
+    // Do not ask for a second payment when settlement succeeded but its proof
+    // is inconsistent. Surface an upstream error instead.
+    if (settlementIssue) throw new HttpError(502, settlementIssue);
+    const transaction = settlement.transaction;
+    if (!transaction) throw new HttpError(502, "invalid_settlement_transaction");
+
+    const answer = {
+      match: result.match,
+      citation_id: result.citation_id,
+      category: result.category,
+      advice: result.advice,
+      score: result.score,
+    };
+    const receipt: Receipt = {
+      receipt_id: "R-" + randomBytes(12).toString("hex"),
+      created_at: new Date().toISOString(),
+      resource: checkUrl,
+      payer: verifiedPayer,
+      amount: requirements.amount,
+      asset: requirements.asset,
+      network: settlement.network,
+      settlement: transaction,
+      explorer: rail.explorerUrl(transaction),
+      mock: isMock,
+      request_sha256: sha256Hex(canonicalJson({ query })),
+      answer_sha256: sha256Hex(canonicalJson(answer)),
+      match: result.match,
+      citation_id: result.citation_id,
+    };
+    receipts.update((r) => {
+      r.receipts[receipt.receipt_id] = receipt;
+    });
+    send(res, 200, { ...answer, receipt_id: receipt.receipt_id }, { "PAYMENT-RESPONSE": rail.responseHeader(settlement) });
+  }
+
+  async function route(req: IncomingMessage, res: ServerResponse) {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const path = url.pathname.replace(/\/+$/, "") || "/";
+    const method = req.method ?? "GET";
+    const admin = () => {
+      if (!cfg.adminToken) throw new HttpError(503, "admin routes disabled (set ADMIN_TOKEN)");
+      const auth = req.headers.authorization ?? "";
+      const given = auth.startsWith("Bearer ") ? auth.slice(7) : undefined;
+      if (!tokenOk(given, cfg.adminToken)) throw new HttpError(401, "admin token required");
+    };
+
+    if (method === "GET" && path === "/") {
+      return send(res, 200, {
+        name: "mnemosyne",
+        routes: {
+          "GET /health": "free",
+          "GET /memory/latest": "free -- on-chain memory head",
+          "POST /memory/check": `x402 -- ${requirements.amount} ${requirements.asset} base units per check${isMock ? " (mock settlement)" : ` (real ${requirements.network} settlement)`}`,
+          "GET /memory/receipt/:id": "free",
+          "GET /audit": "free",
+          "POST /memory/confess": "admin",
+          "POST /cycle/run": "admin",
+        },
+      });
+    }
+    if (method === "GET" && path === "/health") {
+      return send(res, 200, {
+        ok: true, memory_entries: memory.size, payTo: requirements.payTo, network: requirements.network,
+        asset: requirements.asset, price: requirements.amount, payment_rail: rail.mode, mock_settlement: isMock,
+      });
+    }
+    if (method === "POST" && path === "/memory/check") return handleCheck(req, res);
+
+    if (method === "GET" && path.startsWith("/memory/receipt/")) {
+      const id = path.slice("/memory/receipt/".length);
+      if (!RECEIPT_ID.test(id)) throw new HttpError(400, "bad receipt id");
+      const r = receipts.get().receipts[id];
+      if (!r) throw new HttpError(404, "no such receipt");
+      return send(res, 200, r);
+    }
+
+    if (method === "GET" && path === "/memory/latest") {
+      if (!cfg.readChainHead) throw new HttpError(503, "chain reader not configured");
+      try {
+        const head = await cfg.readChainHead();
+        return send(res, 200, head
+          ? { ...head, contract: cfg.payTo, explorer: `https://testnet.nearblocks.io/address/${cfg.payTo}` }
+          : { latest_hash: null, note: "no commits yet" });
+      } catch (err) {
+        throw new HttpError(502, `could not read chain: ${(err as Error).message}`);
+      }
+    }
+
+    if (method === "GET" && path === "/audit") {
+      const all = Object.values(receipts.get().receipts).sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return send(res, 200, {
+        governor_contract: `https://testnet.nearblocks.io/address/${cfg.payTo}`,
+        paid_checks_total: all.length,
+        mock_settlement: isMock,
+        payment_rail: rail.mode,
+        recent: all.slice(0, 20).map((r) => ({
+          receipt_id: r.receipt_id,
+          at: r.created_at,
+          payer: r.payer,
+          amount: r.amount,
+          match: r.match,
+          citation_id: r.citation_id,
+          settlement: r.settlement,
+          explorer: r.explorer ?? null,
+        })),
+      });
+    }
+
+    if (method === "POST" && path === "/memory/confess") {
+      admin();
+      const b = await readJson(req);
+      const ok =
+        typeof b?.category === "string" && b.category.length > 0 && b.category.length <= 64 &&
+        Array.isArray(b?.keywords) && b.keywords.length >= 3 && b.keywords.length <= 30 &&
+        b.keywords.every((k: unknown) => typeof k === "string" && /^[a-z0-9]{2,32}$/.test(k)) &&
+        typeof b?.public_summary === "string" && b.public_summary.length >= 10 && b.public_summary.length <= 500 &&
+        typeof b?.private_detail === "string" && b.private_detail.length <= 4000;
+      if (!ok) throw new HttpError(400, "need category, keywords (3-30 lowercase words), public_summary (10-500 chars), private_detail");
+      const id = memory.confess({ category: b.category, keywords: b.keywords, public_summary: b.public_summary, private_detail: b.private_detail });
+      return send(res, 201, { citation_id: id });
+    }
+
+    if (method === "POST" && path === "/cycle/run") {
+      admin();
+      if (!cfg.runCycle) throw new HttpError(503, "cycle runner not configured");
+      const result = await cfg.runCycle();
+      return send(res, 200, { ran: true, result });
+    }
+
+    throw new HttpError(404, "not found");
+  }
+
+  const server = createServer((req, res) => {
+    route(req, res).catch((err) => {
+      if (err instanceof HttpError) return send(res, err.status, { error: err.message });
+      console.error("[server] unexpected error:", err);
+      send(res, 500, { error: "internal error" });
+    });
+  });
+
+  return { server, memory, requirements: requirements as unknown as PaymentRequirements, rail };
+}
+
+function normalizePublicUrl(value: string): string {
+  let url: URL;
+  try { url = new URL(value); } catch { throw new Error("PUBLIC_URL must be an absolute HTTP(S) URL"); }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
+      url.pathname !== "/" || url.search || url.hash) {
+    throw new Error("PUBLIC_URL must be an HTTP(S) origin without credentials, query, or fragment");
+  }
+  return url.href.replace(/\/+$/, "");
+}

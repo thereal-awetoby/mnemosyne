@@ -17,6 +17,106 @@ The operator's own setup, no sandbox involved: `npm run x402:setup -- --new-paye
 
 ---
 
+## 2026-10-30 (late night) — Real x402 settlement PROVEN on NEAR testnet
+
+**Live run (sandbox, 2026-10-30 ~21:10 UTC):** `X402_RAIL=near-testnet npm run server` + `npm run x402:demo:real`, payer = fresh implicit account `0a6ebca6dded7628d295bb705dab7e20e608a1e620e2f60a8b4187811b47bd47`, relayer = sandbox account `e220b3d5...6b77` (funded with 1 testnet NEAR by the governor), payTo = `mnemosyne-gov.testnet`. Result: `REAL DEMO OK`.
+
+| Check | Result |
+|---|---|
+| 402 quote | 0.001 wNEAR (`wrap.testnet`) to `mnemosyne-gov.testnet` on `near:testnet` |
+| Paid check (match, M-001) | settled in tx [`AAWMt68QRu8QEqcdeVf1VdeqnQMbyeDfpzMy6jd9tqzJ`](https://testnet.nearblocks.io/txns/AAWMt68QRu8QEqcdeVf1VdeqnQMbyeDfpzMy6jd9tqzJ) |
+| Paid check (no match) | settled in tx [`D7QrKnSzF8XFcsrXrAM2jScFYQ3dJoiM5fb2HYXNnT6K`](https://testnet.nearblocks.io/txns/D7QrKnSzF8XFcsrXrAM2jScFYQ3dJoiM5fb2HYXNnT6K) |
+| Independent RPC check (`EXPERIMENTAL_tx_status`) | `SuccessValue`; outer action `Delegate` signed by the relayer; wrap.testnet log `Transfer 1000000000000000000000 from 0a6ebca6... to mnemosyne-gov.testnet` |
+| Balances | payTo +0.001 wNEAR, payer -0.001 wNEAR per check |
+| Receipt | `mock=false`, settlement = tx hash, request/answer hashes match |
+| Replay of the same PAYMENT-SIGNATURE | 402 `invalid_exact_near_payload_delegate_action_nonce_already_used`, payer not charged again |
+| Relayer gas per settlement | 0.000288 NEAR |
+
+**Bugs found by the first real run on Windows, fixed in `src/tools/x402Setup.ts`:**
+1. `near_deposit` with 30 TGas failed "Not enough balance": NEAR reserves prepaid gas up front (~0.03 NEAR at current testnet gas price), which plus the 0.02 wrap exceeded a 0.05 NEAR payer. Now 10 TGas for storage/wrap calls and the payer is funded with 0.1 NEAR.
+2. The new payer's key was printed only at the end, so the failure stranded ~0.048 NEAR in `73bb555340b59e05c254e082b736b34ae4790e6599a61936aefbefcec4dd82a3` (key lost, testnet only). Now the key is written to `.env` (`X402_PAYER_*`) **before** any money moves, and plain `npm run x402:setup` resumes: registers the payer and tops up wNEAR only if below 0.005.
+3. Any RPC/network error was reported as "account does not exist". Now only `UNKNOWN_ACCOUNT` means missing; other errors surface as errors.
+
+**Already done on chain by the Windows run:** `mnemosyne-gov.testnet` is registered with `wrap.testnet` (tx `EU5iFxD6hdxDhT47nbMmLbDnE3WnutJkA3UnFobHYbfG`) and now holds 0.002 wNEAR from the two live checks above.
+
+**Sandbox-only note:** in the Claude workspace Node's `fetch` needs `NODE_USE_ENV_PROXY=1` to reach NEAR RPC through the proxy. Not needed on a normal machine.
+
+**Next step (Windows):** apply this patch, `npm run x402:setup -- --new-payer` (now saves the payer to .env automatically), then the two-terminal real demo; record your own tx links here.
+
+---
+
+## 2026-10-30 (night) — Real x402 settlement on NEAR testnet (wNEAR) — built, offline-tested, LIVE RUN PENDING
+
+**Operator decision:** wNEAR (`wrap.testnet`) on NEAR testnet, tiny amounts, no mainnet, no real USDC. Phases 1–5 unchanged; mock stays the default.
+
+**What was built:**
+- `src/x402/rails.ts`: a `PaymentRail` interface; the server's 402 -> verify -> answer -> settle -> receipt flow now runs through it. `mock` rail = previous behaviour, unchanged. `near-exact` rail = the official x402 NEAR "exact" scheme (`@x402/near` via `@fastnear/x402@2.5.0`): payer signs a NEP-366 delegate action for one `ft_transfer` of wNEAR to `payTo`; an in-process facilitator verifies it and a relayer (default: governor) submits it and pays gas. Settlement id = real tx hash; receipts and `/audit` carry nearblocks links. Mainnet refused in code.
+- `src/serve.ts`: `X402_RAIL=near-testnet` switches rails (`X402_ASSET`, `X402_PRICE`, `X402_RELAYER_*`, defaults to governor).
+- `src/tools/x402Setup.ts` (`npm run x402:setup [-- --new-payer]`): idempotent; registers `payTo` with `wrap.testnet`; optionally creates a demo payer (0.05 NEAR funded, 0.02 wrapped).
+- `src/tools/x402RealDemo.ts` (`npm run x402:demo:real`): external agent pays with the standard `createNearX402Client`, checks balances moved on chain, receipt hashes, replay refused + not charged. Ends `REAL DEMO OK`.
+- `src/x402/nearRail.test.ts`: 9 tests running the official NEAR verifier/settlement code against a simulated chain (real ed25519 NEP-366 delegates built with `@near-js/transactions`, payments built with the standard x402 client).
+- `docs/X402.md` "Two payment rails", `.env.example`.
+
+**Tested:** `npm test` 37/37 (28 existing + 9 new), real `near-api-js`/typecheck. Mutation check: removing resource binding, ignoring a failed settlement, or skipping verification each fails tests.
+
+**Read-only testnet facts (2026-10-30):** `wrap.testnet` = wNEAR, 24 decimals, storage 0.00125 NEAR. `mnemosyne-gov.testnet`: ~9.995 NEAR, NOT yet registered with `wrap.testnet`, 0 wNEAR.
+
+**NOT done:** no live testnet payment yet. Sandbox payer `e220b3d545e6efa96624066c367f129d44d765f1bea065d6b8ce1bb2cdce6b77` was never funded.
+
+**Sandbox note:** in the Claude workspace npm only works with `NO_PROXY=localhost no_proxy=localhost npm_config_noproxy=localhost` (its npmrc bypasses the proxy for registry.npmjs.org).
+
+**Next step (Windows):** `npm install`, `npm test` (37), `npm run x402:setup -- --new-payer`, paste the two `X402_PAYER_*` lines into `.env`, then terminal 1: `set X402_RAIL=near-testnet` + `npm run server`; terminal 2: `npm run x402:demo:real` -> `REAL DEMO OK` with a nearblocks tx link. Record the tx links here.
+
+---
+
+## 2026-10-30 (late) — Windows test fix
+
+- On Windows, `npm test` was 27/28: `failed disk write rolls back memory` simulated a disk failure with `chmod 0o500` on a folder. Windows ignores that (so does root on Linux), the write succeeded, and the test's `assert.throws` failed. Not a server bug.
+- The test now puts a directory where the state file must go, so the final rename fails on every OS and for every user. It still checks: memory not updated, no temp file left, retry succeeds, a throwing mutation leaves state intact. 28/28 pass here as root and as an unprivileged user.
+- Removed `patches/phase5-x402-memory-api.patch` (a copy of code already in the repo).
+
+---
+
+## 2026-10-30 — Phase 5 patch applied and integration hardened
+
+- Applied the supplied Phase 5 patch on the PR branch; retained the original
+  `patches/phase5-x402-memory-api.patch` unchanged for provenance.
+- Fixed public-origin payment binding for reverse proxies, explicit `HOST`
+  binding (default `0.0.0.0`), client resource/redirect/network validation,
+  exact decimal amount checks, and settlement-response consistency checks.
+- JSON stores now mutate a copy, fsync and atomically rename it, and publish the
+  new value only after success. Failed writes roll back; corrupt state fails startup.
+- The demo now checks the initial 402, recipient/network/price limits, settlement
+  proof, receipt fields and exact replay refusal reason. Chain reads honor
+  `NEAR_RPC_URL` and the configured governor account.
+- Added 12 regression tests (28 total), a Node 22 CI workflow, and deployment /
+  mock-settlement documentation. `npm run typecheck`, `npm test`, `npm run build`
+  and the live local mock demo pass. No NEAR transaction was sent by these checks;
+  the real HTTP facilitator adapter remains unverified against a live service.
+
+---
+
+## 2026-10-30 (night) — Phase 5: x402 paid memory API built (mock settlement)
+
+**Rules check:** HACKATHON.md (copy dated 21/10/2026) has no rule against work started before 1 Nov. It requires a public repo by 2026-11-14T23:59:00Z, a human-posted demo on X, and one submission sent between 2026-11-01 and 2026-11-14 (the API answers 403 outside that window).
+
+**What was built (all new, no new npm dependencies -- node:http + node:crypto only):**
+
+- `src/x402/server.ts`, `src/serve.ts` (`npm run server`, port 8402): every route from BUILD_PLAN section 11. `/memory/check` implements x402 v2: no `PAYMENT-SIGNATURE` -> 402 + `PAYMENT-REQUIRED`; valid payment -> verify -> answer -> settle -> 200 + `PAYMENT-RESPONSE` + `receipt_id`. The answer is released only after settlement. Bad input gets 400 before any price is quoted.
+- `src/x402/facilitator.ts`: `MockFacilitator` checks signature (ed25519, NEAR key format), payer owns the key (implicit accounts offline; named accounts via RPC if `X402_VERIFY_NAMED_PAYERS=1`), amount, recipient, asset, network, endpoint binding, time window, exact accepted terms, single-use nonce. It "settles" into `data/runtime/facilitator-ledger.json` with `mock_` ids. `HttpFacilitator` is the drop-in for a real facilitator (`X402_FACILITATOR_URL`).
+- `src/x402/memoryStore.ts` + `data/seed-memory.json`: private memory seeded with 6 real failures from this build (sub-c brick, unchecked tx failure, false-pass negative test, mandate ceiling, chain mismatch, interactive-prompt FullAccess mistake). Only id / category / public_summary / score leave; keywords and private_detail never do. Keyword-overlap matching, deterministic.
+- Receipts (`GET /memory/receipt/:id`) store payer, amount, settlement id, sha256(request), sha256(answer) -- not the query text. `/audit` lists paid checks. `/memory/confess` and `/cycle/run` need `ADMIN_TOKEN`; `/cycle/run` returns public fields only, never `privateDecision`.
+- `src/x402/client.ts` (`postWithPayment`, with max-price and allowed-recipient limits) and `src/tools/x402Demo.ts` (`npm run x402:demo`): an external agent with a fresh NEAR implicit account does 402 -> pay -> answer -> verify receipt hashes -> replay rejected.
+- `docs/X402.md`: protocol, message shapes, what's real vs mocked, refusal reasons, routes, settings. README: status + 6 "do X -> see Y" steps.
+
+**Tested (sandbox, no network):** `npm test` 16/16 -- includes 11 tampering cases each refused with its specific reason, replay, 8 concurrent uses of one payment (exactly 1 settles), failed attempts don't burn the nonce, restart persistence, admin auth, no `private_detail` in any response. Mutation check: removing the signature, payer-identity or amount check makes tests fail; removing both nonce checks fails 4 tests (each nonce check alone is backed up by the other). Ran `npm run server` + `npm run x402:demo` for real: `DEMO OK`.
+
+**Not done / honest limits:** settlement moves no NEAR (mock ledger). Matching is keyword overlap, not semantic. `/memory/latest` and `/cycle/run` were exercised only against a stub chain here; on the Windows machine they use real testnet. Not yet run on Windows.
+
+**Next step (Windows):** `git pull`, `npm install`, `npm test`, then `npm run server` in one terminal and `npm run x402:demo` in another; expect `DEMO OK`. Then Phase 6 (private decision path) or real settlement.
+
+---
+
 ## 2026-10-30 (final) — Phases 3 + 4 COMPLETE, proven end to end on testnet
 
 **Full cycle `2026-10-30T18:52:16.457Z-75d47`** (`npm run cycle`, exit 0):

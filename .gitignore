@@ -8,3 +8,6 @@ memory-log.json
 # Rust / contract build artifacts
 contract/target/
 target/
+
+# Mnemosyne API runtime state (receipts, spent nonces, private memory)
+data/runtime/
