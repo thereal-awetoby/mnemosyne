@@ -2,6 +2,30 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-10-31 — Phase 6 PROVEN on the Windows machine: TEE decision -> on-chain commit -> sub reports
+
+Both Phase 6 patches applied, `npm install`, `npm test` 51/51. `SWARM_SCENARIO=stressed`, `NEAR_AI_API_KEY` set, `TEE_VERIFY=full` (default).
+
+**`npm run tee:check` (dry run):** all six checks OK, including the Intel TDX quote (TCB `UpToDate`, via pure-JS `@phala/dcap-qvl` 0.7.0) that the sandbox could not reach. `DRY RUN OK` in 35.4s.
+
+**`npm run cycle`** (cycle `2026-10-31T17:12:35.005Z-ae8e8`):
+
+| Step | Result |
+|---|---|
+| Decide | NEAR AI Cloud TEE, `Qwen/Qwen3.8-27B`, signer `0x835ab53d20294ef795906dff21ae4c045336aa26`: signature OK, bound to fresh nonce, Intel TDX OK (`UpToDate`), NVIDIA GPU OK; guard adjustments 0 |
+| Private | `private_commitment sha256:095ed02d3e624a071b9a8b89bffbaf78ebc23816083390aba53d2c7323a0a069` (blob local only) |
+| Commit | `decision_hash sha256:836c62897ac6d9cae05fcbf9b74d9eb4a4b85bc140c8ab78e489b4b75ed44b7e`, chained on `sha256:301228ba...`, tx [`BNv6Kg1RwT8FuogbJoDXx19tKn5ozr95kjkGKtXm9Cii`](https://testnet.nearblocks.io/txns/BNv6Kg1RwT8FuogbJoDXx19tKn5ozr95kjkGKtXm9Cii) |
+| Decisions | A KEEP 1000, B CUT 750, C PAUSE (`local_loss_limit`) |
+| Sub A | ACT on-chain as `mnemosyne-sub-a.testnet`, tx [`5vG6Pj2ZLarx8HjwMvLVfwQJ2e3roQH7WVLkEPr7VJmB`](https://testnet.nearblocks.io/txns/5vG6Pj2ZLarx8HjwMvLVfwQJ2e3roQH7WVLkEPr7VJmB) |
+| Sub B | ACT on-chain as `mnemosyne-sub-b.testnet`, tx [`3C1VQ2kaUK1Bap8Q126RU8hpe3rZAvoDgRqLQh62pKhG`](https://testnet.nearblocks.io/txns/3C1VQ2kaUK1Bap8Q126RU8hpe3rZAvoDgRqLQh62pKhG) |
+| Sub C | paused, no report |
+
+**`npm run tee:check -- --record data\runtime\public\2026-10-31T17_12_35.005Z-ae8e8.json`:** decision_hash recomputes, enclave signature recovers to the signer, a fresh TDX quote binds that signer to a new nonce, Intel TDX `UpToDate`, NVIDIA GPU OK -> `RECORD OK`.
+
+Pushed as `982611b`. **Status: Phases 1–6 complete and proven on NEAR testnet.** Still simulated: swarm state (`SWARM_SCENARIO`) and ALLOCATE (print-only).
+
+---
+
 ## 2026-10-31 — Phase 6: private decision path in a NEAR AI Cloud TEE
 
 `decide()` stub replaced by `src/private/` ([`docs/PRIVATE.md`](docs/PRIVATE.md)):
