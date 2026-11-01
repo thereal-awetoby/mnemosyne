@@ -8,8 +8,9 @@
  *             removes a small extra fee); set ONECLICK_JWT if you have one. It is
  *             sent as "Authorization: Bearer <jwt>", as the 1Click docs show.
  *   rhea      Rhea's RHEA X Chain SDK (@rhea-finance/cross-chain-aggregation-dex),
- *             SwapClient.quote(). Needs an API key from https://boss.rhea.finance
- *             (RHEA_API_KEY). Rhea routes through several routers, NEAR Intents
+ *             SwapClient.quote(). The SDK lists the API key as optional, so it is
+ *             tried without one when CROSS_CHAIN_PROVIDER=rhea; a key from
+ *             https://boss.rhea.finance (RHEA_API_KEY) is used if set. Rhea routes through several routers, NEAR Intents
  *             among them; the router that won is recorded.
  *
  * Both of these networks are MAINNET. A quote costs nothing and moves nothing,
@@ -147,13 +148,16 @@ export interface RheaOptions {
   apiKey?: string;
   baseUrl?: string;
   client?: RheaQuoteClient;
+  /** only for tests: the fetch the real SDK client uses */
+  fetch?: typeof fetch;
   now?: () => number;
 }
 
-async function defaultRheaClient(apiKey: string, baseUrl: string): Promise<RheaQuoteClient> {
+/** The SDK's own docs list the API key as optional, so a missing key is tried, not refused up front. */
+async function defaultRheaClient(apiKey: string, baseUrl: string, doFetch?: typeof fetch): Promise<RheaQuoteClient> {
   // imported only when this provider is used, so everything else runs without the package
   const { SwapClient } = await import("@rhea-finance/cross-chain-aggregation-dex");
-  return new SwapClient({ baseUrl, apiKey, timeoutMs: TIMEOUT_MS }) as unknown as RheaQuoteClient;
+  return new SwapClient({ baseUrl, ...(apiKey ? { apiKey } : {}), ...(doFetch ? { fetch: doFetch } : {}), timeoutMs: TIMEOUT_MS }) as unknown as RheaQuoteClient;
 }
 
 export function rheaProvider(opts: RheaOptions = {}): QuoteProvider {
@@ -164,7 +168,6 @@ export function rheaProvider(opts: RheaOptions = {}): QuoteProvider {
   return {
     name: "rhea",
     async quote(plan) {
-      if (!opts.client && !apiKey) throw new ProviderError("RHEA_API_KEY is not set (request one at https://boss.rhea.finance), or set CROSS_CHAIN_PROVIDER=oneclick");
       const asset = (a: AllocationPlan["origin"]) => ({ chain: a.chain, address: a.address, symbol: a.symbol, decimals: a.decimals });
       const request = {
         fromChain: plan.origin.chain,
@@ -178,10 +181,17 @@ export function rheaProvider(opts: RheaOptions = {}): QuoteProvider {
       };
       let q: any;
       try {
-        const client = opts.client ?? (await defaultRheaClient(apiKey, baseUrl));
+        const client = opts.client ?? (await defaultRheaClient(apiKey, baseUrl, opts.fetch));
         q = await client.quote(request);
       } catch (err) {
-        throw new ProviderError(`Rhea quote failed (${(err as Error).message})`);
+        const e = err as Error & { code?: string };
+        if (e.code === "AUTH_FAILED") {
+          throw new ProviderError(apiKey
+            ? "Rhea rejected the API key in RHEA_API_KEY: check it at https://boss.rhea.finance"
+            : "Rhea wants an API key and none is set: request one at https://boss.rhea.finance and put RHEA_API_KEY=<the key> in .env, or use CROSS_CHAIN_PROVIDER=oneclick");
+        }
+        if (e.code === "RATE_LIMITED") throw new ProviderError("Rhea is rate limiting this machine: wait a minute, or set RHEA_API_KEY for a higher limit");
+        throw new ProviderError(`Rhea quote failed (${e.message})`);
       }
       if (!q || !digits(q.amountIn) || !digits(q.estimatedOut) || !digits(q.minAmountOut)) throw new ProviderError("Rhea returned a quote without usable amounts");
       const received = Number.isFinite(q.receivedAt) ? Number(q.receivedAt) : now();

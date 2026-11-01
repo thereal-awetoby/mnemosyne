@@ -96,15 +96,29 @@ describe("Rhea provider", () => {
     assert.equal(q.expires_at, NOW + QUOTE_TTL_MS);
   });
 
-  it("says how to get a key, and wraps SDK errors", async () => {
-    const saved = process.env.RHEA_API_KEY;
-    delete process.env.RHEA_API_KEY;
-    try {
-      await assert.rejects(rheaProvider({ apiKey: "" }).quote(plan), (e: Error) => e instanceof ProviderError && /RHEA_API_KEY is not set.*boss\.rhea\.finance.*oneclick/.test(e.message));
-    } finally {
-      if (saved !== undefined) process.env.RHEA_API_KEY = saved;
-    }
-    await assert.rejects(rheaProvider({ client: { quote: async () => { throw new Error("401 invalid key"); } } }).quote(plan), /Rhea quote failed \(401 invalid key\)/);
+  it("tries without a key (the SDK lists it as optional) and sends no Authorization header", async () => {
+    let seenAuth: string | null | undefined = "unset";
+    const fake = (async (_u: string, init: RequestInit) => {
+      seenAuth = new Headers(init.headers as any).get("authorization");
+      return new Response(JSON.stringify({ code: 401, msg: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
+    }) as any;
+    await assert.rejects(rheaProvider({ apiKey: "", fetch: fake, baseUrl: "https://stub" }).quote(plan), (e: Error) => e instanceof ProviderError && /wants an API key.*boss\.rhea\.finance.*RHEA_API_KEY.*oneclick/.test(e.message));
+    assert.equal(seenAuth, null);
+  });
+
+  it("with a key it sends it as Bearer, and says so if the key is rejected (never printing it)", async () => {
+    let seenAuth: string | null = null;
+    const fake = (async (_u: string, init: RequestInit) => {
+      seenAuth = new Headers(init.headers as any).get("authorization");
+      return new Response(JSON.stringify({ code: 403, msg: "forbidden" }), { status: 403, headers: { "content-type": "application/json" } });
+    }) as any;
+    await assert.rejects(rheaProvider({ apiKey: "SECRET-RHEA", fetch: fake, baseUrl: "https://stub" }).quote(plan), (e: Error) => e instanceof ProviderError && /rejected the API key/.test(e.message) && !e.message.includes("SECRET-RHEA"));
+    assert.equal(seenAuth, "Bearer SECRET-RHEA");
+  });
+
+  it("wraps other SDK errors and refuses an answer without amounts", async () => {
+    await assert.rejects(rheaProvider({ client: { quote: async () => { throw new Error("socket hang up"); } } }).quote(plan), /Rhea quote failed \(socket hang up\)/);
+    await assert.rejects(rheaProvider({ client: { quote: async () => { throw Object.assign(new Error("slow down"), { code: "RATE_LIMITED" }); } } }).quote(plan), /rate limiting/);
     await assert.rejects(rheaProvider({ client: { quote: async () => ({ id: "x" }) } }).quote(plan), /without usable amounts/);
   });
 

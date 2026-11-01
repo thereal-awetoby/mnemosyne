@@ -23,10 +23,10 @@ Order stays fixed: READ -> DECIDE (TEE) -> MEMORY COMMIT -> ALLOCATE (same-chain
 
 | `CROSS_CHAIN_PROVIDER` | what | key |
 | --- | --- | --- |
-| `rhea` | Rhea's RHEA X Chain SDK, `@rhea-finance/cross-chain-aggregation-dex` (pinned 2.1.9), `SwapClient.quote()`. Rhea chooses among several routers (NEAR Intents is one) and the router that won is recorded. | `RHEA_API_KEY` from <https://boss.rhea.finance> |
+| `rhea` | Rhea's RHEA X Chain SDK, `@rhea-finance/cross-chain-aggregation-dex` (pinned 2.1.9), `SwapClient.quote()`. Rhea chooses among several routers (NEAR Intents is one) and the router that won is recorded. | the SDK lists the key as optional, so `CROSS_CHAIN_PROVIDER=rhea` tries without one. If Rhea answers 401/403 the log says so plainly; then request `RHEA_API_KEY` at <https://boss.rhea.finance> and put it in `.env` |
 | `oneclick` | NEAR Intents' 1Click API, `POST /v0/quote` with `dry:true`. A dry quote has no deposit address by design. | none needed. A 1Click JWT (`ONECLICK_JWT`, sent as `Authorization: Bearer`) only removes a small extra fee |
 
-Default: `rhea` if `RHEA_API_KEY` is set, otherwise `oneclick`.
+Default: `rhea` if `RHEA_API_KEY` is set, otherwise `oneclick`. To try Rhea without a key, ask for it by name: `set CROSS_CHAIN_PROVIDER=rhea`.
 
 ## Configuration (all optional except the recipient)
 
@@ -61,7 +61,7 @@ set CROSS_CHAIN_ALLOCATE=1
 npm run cycle
 ```
 
-For Rhea, also `set RHEA_API_KEY=...` (in that same window; `set` only lasts for the window you type it in).
+For Rhea: `set CROSS_CHAIN_PROVIDER=rhea` first (in that same window; `set` only lasts for the window you type it in). If Rhea asks for a key, put `RHEA_API_KEY=<the key from boss.rhea.finance>` in `.env`.
 
 You should see one line like `CROSS-CHAIN QUOTE via near-intents: 0.00100 wNEAR -> about 0.001989 USDC on Base (at least 0.001979), quote <id>; quote only, nothing was sent`, followed by the memory commit that allowed it.
 
