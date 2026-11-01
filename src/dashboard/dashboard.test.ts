@@ -6,6 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 import type { AddressInfo } from "node:net";
 import { createMnemosyneServer } from "../x402/server.js";
 import { MockFacilitator } from "../x402/facilitator.js";
@@ -83,6 +84,15 @@ test("only listed font files are served; nothing else under /dashboard/", async 
   for (const p of ["/dashboard/fonts/../../.env", "/dashboard/fonts/b.woff2", "/dashboard/x"]) {
     assert.equal((await fetch(`${base}${p}`)).status, 404, p);
   }
+});
+
+test("the page script parses and carries the chain key and the stepped log", async () => {
+  const html = await (await fetch(`${base}/dashboard`)).text();
+  const js = html.match(/<script>([\s\S]*)<\/script>/)?.[1] ?? "";
+  assert.doesNotThrow(() => new vm.Script(js), "dashboard script must be valid JavaScript");
+  assert.match(html, /id="chainLegend"/);
+  assert.match(js, /function logSteps/);
+  assert.doesNotMatch(js, /\.innerHTML|insertAdjacentHTML|document\.write/, "all DOM is built with createElement/textContent");
 });
 
 test("dashboard routes are read-only", async () => {

@@ -267,6 +267,27 @@
     color: var(--text-dim);
   }
   .chain-footnote strong { color: var(--text); font-weight: 500; }
+  .chain-footnote p { margin: 0; }
+
+  /* the key to the chain table: gold hash, tick, dash */
+  .legend { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+  .legend:empty { display: none; }
+  .legend li { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: baseline; }
+  .legend .sym { font-family: var(--mono); font-size: 12px; }
+  .head-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 0 5px;
+    border: 1px solid var(--accent-lo);
+    border-radius: var(--radius);
+    font-family: var(--sans);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 16px;
+    color: var(--accent);
+    vertical-align: 1px;
+  }
 
   /* ---------- latest decision ---------- */
 
@@ -444,12 +465,39 @@
   .log-box {
     background: var(--panel-alt);
     border-radius: var(--radius);
-    padding: 18px 20px;
+    padding: 0 20px;
     font-family: var(--mono);
     font-size: 12.5px;
     line-height: 1.75;
     color: var(--text-dim);
   }
+
+  /* one block per cycle step, a rule between them */
+  .log-step { padding: 16px 0; border-top: 1px solid var(--border); }
+  .log-step:first-child { border-top: 0; }
+
+  .log-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 12px;
+    color: var(--text);
+  }
+  .log-head .n { color: var(--accent); font-weight: 500; }
+  .log-head .t { font-weight: 600; letter-spacing: 0.06em; }
+  .log-head .d { flex: 1 1 14ch; min-width: 0; color: var(--text-dim); overflow-wrap: anywhere; }
+  .log-head .st {
+    margin-left: auto;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ok);
+  }
+  .log-step.failed .st { color: var(--refuse); }
+  .log-step.skip .st, .log-step.unknown .st { color: var(--text-faint); }
+  .log-step.skip .log-head, .log-step.skip .log-head .d { color: var(--text-faint); }
+
+  .log-body { margin-top: 6px; padding-left: 14px; border-left: 1px solid var(--border); }
 
   .log-box .ln { white-space: pre-wrap; overflow-wrap: anywhere; }
   .log-box .ok     { color: var(--ok); }
@@ -525,7 +573,10 @@
     ol.steps { grid-template-columns: repeat(3, 1fr); }
     ol.steps li:nth-child(4) { border-left: 0; }
     ol.steps li:nth-child(n+4) { border-top: 1px solid var(--border-lo); }
+  }
 
+  /* the chain table needs ~950px on one line, so it stacks a little earlier than the rest */
+  @media (max-width: 960px) {
     /* tables become one stacked block per row */
     table.chain, table.chain tbody, table.chain tr, table.chain td { display: block; }
     table.chain thead { display: none; }
@@ -569,6 +620,11 @@
     .stats > div { padding: 14px 16px; }
     .section-title { flex-wrap: wrap; }
     .section-title span.note { text-align: left; }
+    /* log step: "3/6 TITLE ..... DONE" on one line, the description under it */
+    .log-box { padding: 0 16px; }
+    .log-head .st { order: 1; }
+    .log-head .d { order: 2; flex: 0 0 100%; margin-top: 2px; }
+    .legend li { grid-template-columns: 44px 1fr; }
   }
 </style>
 </head>
@@ -604,8 +660,11 @@
         <div id="chainBox"></div>
 
         <div class="chain-footnote">
-          Only the <strong>hash</strong> of each decision is written on-chain. The governor's
-          private reasoning is never published — not here, not in the contract, not in a log.
+          <ul class="legend" id="chainLegend"></ul>
+          <p>
+            Only the <strong>hash</strong> of each decision is written on-chain. The governor's
+            private reasoning is never published — not here, not in the contract, not in a log.
+          </p>
         </div>
       </div>
     </section>
@@ -729,15 +788,19 @@ function renderChain(d) {
   }
   const committed = d.cycles.filter((c) => c.run?.committed !== false).length;
   $("chainNote").textContent = `${committed} of ${d.cycles.length} entries on this machine committed`;
+  const seen = { head: false, linked: false, unlinked: false, noTx: false };
   const rows = d.cycles.map((c, i) => {
     const r = c.record, failed = c.run?.committed === false;
     const older = d.cycles.slice(i + 1).find((x) => x.run?.committed !== false)?.record;
     const linked = !failed && older && r.prev_memory_hash && r.prev_memory_hash === older.decision_hash;
     const isHead = !failed && d.chain.ok && r.decision_hash === d.chain.latest_hash;
+    if (isHead) seen.head = true;
+    if (linked) seen.linked = true; else if (!failed && r.prev_memory_hash) seen.unlinked = true;
+    if (!failed && !c.run) seen.noTx = true;
     return h("tr", { class: isHead ? "head" : "" },
       td("Cycle", cycleLabel(r.cycle_id)),
-      td("Decision Hash", h("span", { class: "hash" }, hashEl(r.decision_hash))),
-      td("Prev Hash", linked ? h("span", {}, h("span", { class: "ok", title: "Links to the entry below" }, "✓ "), hashEl(r.prev_memory_hash)) : hashEl(r.prev_memory_hash)),
+      td("Decision Hash", h("span", { class: "hash" }, hashEl(r.decision_hash), isHead ? h("span", { class: "head-tag", title: "The hash the contract holds on NEAR right now" }, "HEAD") : null)),
+      td("Prev Hash", linked ? h("span", {}, h("span", { class: "ok", title: "Matches the decision hash of the entry below" }, "✓ "), hashEl(r.prev_memory_hash)) : hashEl(r.prev_memory_hash)),
       td("Time", h("span", { title: cycleIso(r.cycle_id) }, ago(cycleIso(r.cycle_id)))),
       td("Decided", isTee(r) ? "TEE · sealed" : r.decision_path === "local-policy" ? "local rule" : "stub"),
       td("Tx", failed ? h("span", { class: "refuse" }, "not committed") : c.run ? txLink(c.run.commit_tx) : h("span", { class: "faint" }, "—")));
@@ -746,6 +809,13 @@ function renderChain(d) {
   rows.forEach((tr) => tr.children[1].classList.add("hash"));
   box.replaceChildren(h("table", { class: "chain" },
     th("Cycle", "Decision Hash", "Prev Hash", "Time", "Decided", "Tx"), h("tbody", {}, rows)));
+
+  // a plain-words key to what the colour and the tick mean, shown only for what is on screen
+  const key = (sym, text) => h("li", {}, sym, h("span", {}, text));
+  $("chainLegend").replaceChildren(
+    seen.head ? key(h("span", { class: "head-tag", style: "margin:0" }, "HEAD"), "The newest entry, in gold. This is the hash the contract is holding on NEAR right now.") : null,
+    seen.linked ? key(h("span", { class: "sym ok" }, "✓"), `A tick on a prev hash means it matches the decision hash of the entry below it, so the two are chained.${seen.unlinked ? " No tick: the entry it follows isn't stored on this machine." : ""}`) : null,
+    seen.noTx ? key(h("span", { class: "sym faint" }, "—"), "No transaction link was saved for this entry on this machine.") : null);
 }
 
 /* ---------- latest decision ---------- */
@@ -838,59 +908,78 @@ function renderSwarm(d) {
 }
 
 /* ---------- cycle log (re-derived from the public record + run log) ---------- */
-function logLines(c) {
-  const r = c.record, run = c.run, L = [];
-  const add = (cls, ...parts) => L.push({ cls, parts });
-  add("", "[1/6] READ: reading swarm state (simulated)...");
-  add("faint", `      prev_memory_hash: ${r.prev_memory_hash ?? "(none — first cycle)"}`);
+// One block per cycle step. state: done | failed | skip (not run) | unknown (no outcome stored here)
+function logSteps(c) {
+  const r = c.record, run = c.run, S = [];
+  const step = (name, text, state = "done") => { const s = { name, text, state, lines: [] }; S.push(s); return s; };
+  const add = (s, cls, ...parts) => s.lines.push({ cls, parts });
+  const stopped = !run || run.committed === false;   // nothing after the commit ran, or we can't tell
+
+  const read = step("READ", "reading swarm state (simulated)");
+  add(read, "faint", `prev_memory_hash: ${r.prev_memory_hash ?? "(none — first cycle)"}`);
+
+  let decide;
   if (isTee(r) && r.tee) {
-    const k = r.tee.checks || {}, okAll = k.hashes_match && k.signature_valid && k.binds_address && k.binds_nonce && (k.tdx === "not_checked" || k.tdx?.verified) && (k.gpu === "not_checked" || (k.gpu?.verdict && k.gpu?.token_signature_valid));
-    add("", `[2/6] DECIDE: private reasoning in a NEAR AI Cloud TEE (${r.tee.model})...`);
+    const k = r.tee.checks || {};
+    const okAll = k.hashes_match && k.signature_valid && k.binds_address && k.binds_nonce && (k.tdx === "not_checked" || k.tdx?.verified) && (k.gpu === "not_checked" || (k.gpu?.verdict && k.gpu?.token_signature_valid));
+    decide = step("DECIDE", `private reasoning in a NEAR AI Cloud TEE (${r.tee.model})`, okAll ? "done" : "failed");
     const tdx = k.tdx === "not_checked" ? "not checked" : `${k.tdx?.verified ? "OK" : "FAIL"} (${k.tdx?.status})`;
     const gpu = k.gpu === "not_checked" ? "not checked" : k.gpu?.verdict && k.gpu?.token_signature_valid ? "OK" : "FAIL";
-    add(okAll ? "ok" : "refuse", `      TEE signer ${r.tee.signing_address}: signature ${k.signature_valid ? "OK" : "FAIL"}, nonce ${k.binds_nonce ? "bound" : "NOT bound"}, Intel TDX ${tdx}, NVIDIA GPU ${gpu}`);
-  } else if (r.decision_path === "local-policy") add("", "[2/6] DECIDE: local policy rule (no NEAR_AI_API_KEY)...");
-  else add("", "[2/6] DECIDE: stub logic (recorded before private decisions)...");
-  if (r.private_commitment) add("faint", `      private_commitment: ${r.private_commitment} (blob stays local)`);
-  add("faint", `      decision_hash: ${r.decision_hash}`);
-  add("", "[3/6] MEMORY COMMIT: writing memory record (on-chain, " + r.governor + ")...");
-  if (!run) { add("faint", "      (outcome not recorded on this machine — run a fresh cycle)"); return L; }
-  if (run.committed === false) {
-    add("refuse", `[FAIL-CLOSED] memory commit failed (${run.error}). Cycle ends. No allocation performed.`);
-    return L;
+    add(decide, okAll ? "ok" : "refuse", `TEE signer ${r.tee.signing_address}: signature ${k.signature_valid ? "OK" : "FAIL"}, nonce ${k.binds_nonce ? "bound" : "NOT bound"}, Intel TDX ${tdx}, NVIDIA GPU ${gpu}`);
+  } else if (r.decision_path === "local-policy") decide = step("DECIDE", "local policy rule (no NEAR_AI_API_KEY)");
+  else decide = step("DECIDE", "stub logic (recorded before private decisions)");
+  if (r.private_commitment) add(decide, "faint", `private_commitment: ${r.private_commitment} (blob stays local)`);
+  add(decide, "faint", `decision_hash: ${r.decision_hash}`);
+
+  const commit = step("MEMORY COMMIT", `writing memory record (on-chain, ${r.governor})`, !run ? "unknown" : run.committed === false ? "failed" : "done");
+  if (!run) add(commit, "faint", "outcome not recorded on this machine — run a fresh cycle");
+  else if (run.committed === false) add(commit, "refuse", `FAIL-CLOSED: memory commit failed (${run.error}). Cycle ends. No allocation performed.`);
+  else {
+    add(commit, "ok", "committed.");
+    if (txUrl(run.commit_tx)) add(commit, "faint", "tx: ", ext(txUrl(run.commit_tx), txUrl(run.commit_tx)));
   }
-  add("ok", "      committed.");
-  if (txUrl(run.commit_tx)) add("faint", "      tx: ", ext(txUrl(run.commit_tx), txUrl(run.commit_tx)));
-  add("", "[4/6] ALLOCATE: applying decisions (print-only — no real transfers)...");
-  for (const x of r.decisions || []) {
-    add("", x.action === "PAUSE" ? `      sub ${x.sub}: PAUSE (${x.reason_code})` : `      sub ${x.sub}: ${x.action} -> target_capital=${x.target_capital}, max_position=${x.max_position}, max_loss_cycle=${x.max_loss_cycle}, mandate=${x.mandate}`);
+
+  const alloc = step("ALLOCATE", "applying decisions (print-only — no real transfers)", stopped ? "skip" : "done");
+  const window = step("SUB-AGENT WINDOW", "mandate checks + on-chain report()", stopped ? "skip" : "done");
+  const publish = step("PUBLIC LOG", "cycle complete", stopped ? "skip" : "done");
+  if (!stopped) {
+    for (const x of r.decisions || []) {
+      add(alloc, "", x.action === "PAUSE" ? `sub ${x.sub}: PAUSE (${x.reason_code})` : `sub ${x.sub}: ${x.action} -> target_capital=${x.target_capital}, max_position=${x.max_position}, max_loss_cycle=${x.max_loss_cycle}, mandate=${x.mandate}`);
+    }
+    for (const x of r.decisions || []) {
+      if (x.action === "PAUSE") { add(window, "faint", `sub ${x.sub}: PAUSE -> inactive this cycle, nothing to report`); continue; }
+      const v = (run.verdicts || []).find((y) => y.sub === x.sub);
+      if (v) add(window, v.action === "ACT" ? "ok" : "refuse", `sub ${x.sub}: ${v.action} (${v.reason})`);
+    }
+    for (const x of run.reports || []) {
+      if (x.status === "reported") {
+        add(window, "", `sub ${x.sub} -> on-chain ${x.action} as ${x.accountId}`);
+        if (txUrl(x.txHash)) add(window, "faint", "  tx: ", ext(txUrl(x.txHash), txUrl(x.txHash)));
+      } else { window.state = "failed"; add(window, "refuse", `sub ${x.sub} -> REPORT ${String(x.status).toUpperCase()}${x.error ? ": " + x.error : ""}`); }
+    }
   }
-  add("", "[5/6] SUB-AGENT WINDOW: mandate checks + on-chain report()...");
-  for (const x of r.decisions || []) {
-    if (x.action === "PAUSE") { add("faint", `      sub ${x.sub}: PAUSE -> inactive this cycle, nothing to report`); continue; }
-    const v = (run.verdicts || []).find((y) => y.sub === x.sub);
-    if (v) add(v.action === "ACT" ? "ok" : "refuse", `      sub ${x.sub}: ${v.action} (${v.reason})`);
-  }
-  for (const x of run.reports || []) {
-    if (x.status === "reported") {
-      add("", `      sub ${x.sub} -> on-chain ${x.action} as ${x.accountId}`);
-      if (txUrl(x.txHash)) add("faint", "        tx: ", ext(txUrl(x.txHash), txUrl(x.txHash)));
-    } else add("refuse", `      sub ${x.sub} -> REPORT ${String(x.status).toUpperCase()}${x.error ? ": " + x.error : ""}`);
-  }
-  add("", "[6/6] PUBLIC LOG: cycle complete.");
-  return L;
+  return S;
 }
+
+const STEP_LABEL = { done: "done", failed: "failed", skip: "not run", unknown: "no record" };
 
 function renderLog(d) {
   const box = $("logBox");
-  if (!d.cycles[0]) { box.replaceChildren(h("div", { class: "ln faint" }, "No cycle recorded on this machine yet.")); return; }
-  // leading spaces become a real indent, so wrapped text on a phone lines up under its own line
-  box.replaceChildren(...logLines(d.cycles[0]).map((l) => {
-    const first = typeof l.parts[0] === "string" ? l.parts[0] : "";
-    const indent = first.length - first.trimStart().length;
-    const parts = indent ? [first.slice(indent), ...l.parts.slice(1)] : l.parts;
-    return h("div", { class: "ln " + l.cls, style: indent ? `padding-left:${indent}ch` : null }, ...parts);
-  }));
+  if (!d.cycles[0]) { box.replaceChildren(h("div", { class: "ln faint", style: "padding:16px 0" }, "No cycle recorded on this machine yet.")); return; }
+  const steps = logSteps(d.cycles[0]);
+  box.replaceChildren(...steps.map((s, i) => h("div", { class: "log-step " + s.state },
+    h("div", { class: "log-head" },
+      h("span", { class: "n" }, `${i + 1}/${steps.length}`),
+      h("span", { class: "t" }, s.name),
+      h("span", { class: "d" }, s.text),
+      h("span", { class: "st" }, STEP_LABEL[s.state])),
+    s.lines.length ? h("div", { class: "log-body" }, s.lines.map((l) => {
+      // leading spaces become a real indent, so wrapped text on a phone lines up under its own line
+      const first = typeof l.parts[0] === "string" ? l.parts[0] : "";
+      const indent = first.length - first.trimStart().length;
+      const parts = indent ? [first.slice(indent), ...l.parts.slice(1)] : l.parts;
+      return h("div", { class: "ln " + l.cls, style: indent ? `padding-left:${indent}ch` : null }, ...parts);
+    })) : null)));
 }
 
 /* ---------- x402 ---------- */
