@@ -2,7 +2,7 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
-## 2026-11-01 — Real balances, real top-ups, owner-editable limits (built, offline-tested, LIVE RUN PENDING)
+## 2026-11-01 — Real balances, real top-ups, owner-editable limits (balances + limits proven live; top-up proof = `npm run rail:check`, PENDING)
 
 Full description: `docs/BALANCES_AND_LIMITS.md`. Nothing here is on by default.
 
@@ -12,7 +12,8 @@ Full description: `docs/BALANCES_AND_LIMITS.md`. Nothing here is on by default.
 - **`src/limits/index.ts`**: owner's risk limits with hard bounds in code, atomic `data/runtime/limits.json`, fail-closed reads, 20-entry history. `cycle.ts` loads them, passes them to the policy guard, and writes the full envelope into `swarm_risk` (extra optional fields, so older records still verify). Server: `GET /limits` (public), `PUT /limits` and `POST /limits/reset` (`ADMIN_TOKEN`; 503 without one; 429 after 10 wrong tokens in a minute).
 - **Run log** (`<cycle>.run.json`) gained `swarm_source`, `allocate_mode`, `allocations`, `limits_source`. Dashboard: on-chain balance on each sub card, `REAL BALANCES · SIMULATED LOSSES` tag, ALLOCATE step from the run log, and a **Your Limits** panel (edit with the admin token; nothing stored in the browser).
 - 38 new tests (95 total) incl. "allocate without memory is rejected", the gate against a tampered record, the cap, one-way CUT, fail-closed balance reads, and the limits API. Checked in a real browser: edit / wrong token / out-of-bounds / save / refresh-during-edit / cancel / two-step reset, no sideways scroll at 360-1920 px.
-- **Not yet proven live.** To prove it on the Windows machine: `npm run swarm:setup -- --seed 800`, then `set SWARM_STATE=onchain`, `set ALLOCATE_MODE=wnear`, `set SWARM_SCENARIO=recovery`, `npm run cycle`; expect a `ft_transfer` tx whose memo carries the decision-hash prefix. Record the tx here.
+- **Proven live on testnet (2026-11-01, Windows machine).** `npm run swarm:setup -- --seed 800` registered the three subs with `wrap.testnet` and funded each with 0.008 wNEAR (governor kept 0.01 wNEAR; e.g. sub A funding tx `7mXN9URbfM2QxwurmWGt1FYoJZdSnoVWMyGvMLadZds4`). Then a cycle with `SWARM_STATE=onchain`, `ALLOCATE_MODE=wnear`, `SWARM_SCENARIO=recovery` (cycle `2026-11-01T09:18:40.968Z-a4262`): READ showed real balances A=800 B=800 C=800; the TEE decided A KEEP 800, B CUT 700, C CUT 700; memory commit `B7Npf7hhmH8E6Q72tRMp5rGUAbtYLe5kGbihD9FvuuoP`; ALLOCATE moved nothing (no INCREASE) and logged that 100 units stay in each cut sub; sub C then REFUSED on-chain (`HmkaMHUwMSRp411ijHjgbswZtHoDLZpX97xFtES1hE4F`: max_loss_cycle 35 over its mandate ceiling 30). The limits panel edit (total exposure 3000 to 2500) saved through the dashboard; it has not yet been seen inside a committed record.
+- **Not yet proven live: the `ft_transfer` itself** (gas, memo, registration on `wrap.testnet`). The governor is told that protecting capital beats growth, and 8 probe runs against the real 800 balances (calm and recovery, with and without an owner-baseline hint) never chose INCREASE, so re-running the cycle will not produce one. `npm run rail:check` (`src/allocate/railCheck.ts`) sends 1 unit to sub A with the same transfer code and memo, and only after the newest on-chain commit matches an intact local record. Run it, then record the tx here.
 
 ---
 

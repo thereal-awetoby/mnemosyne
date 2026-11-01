@@ -26,7 +26,7 @@
 import { Account, JsonRpcProvider, KeyPairSigner, actions, teraToGas } from "near-api-js";
 import "dotenv/config";
 import { hashDecision } from "../memory.js";
-import { txFailure, txHashOf } from "../nearTx.js";
+import { txFailure, txHashOf, txLogs } from "../nearTx.js";
 import { capitalUnitYocto, fmtWnear, ftBalance, rpcUrl, swarmAsset, unitsToYocto, type SwarmSource } from "../swarmState.js";
 import type { FakeSubState } from "../subAgents.js";
 import { SUB_AGENTS, subAccountId } from "../subAgents.js";
@@ -149,16 +149,21 @@ export interface AllocateDeps {
   maxUnits?: number;
   governorBalance?: () => Promise<bigint>;
   isRegistered?: (accountId: string) => Promise<boolean>;
-  transfer?: (to: string, yocto: bigint, memo: string) => Promise<{ tx: string }>;
+  transfer?: (to: string, yocto: bigint, memo: string) => Promise<{ tx: string; logs?: string[] }>;
 }
 
-async function defaultIsRegistered(accountId: string): Promise<boolean> {
+/** The memo on every transfer: ties it to the memory commit that allowed it. */
+export function memoFor(decisionHash: string): string {
+  return `mnemosyne ${decisionHash.replace(/^sha256:/, "").slice(0, 12)}`;
+}
+
+export async function defaultIsRegistered(accountId: string): Promise<boolean> {
   const provider = new JsonRpcProvider({ url: rpcUrl() });
   const res = await provider.callFunction({ contractId: swarmAsset(), method: "storage_balance_of", args: { account_id: accountId } });
   return res !== null && res !== undefined;
 }
 
-async function defaultTransfer(to: string, yocto: bigint, memo: string): Promise<{ tx: string }> {
+export async function defaultTransfer(to: string, yocto: bigint, memo: string): Promise<{ tx: string; logs: string[] }> {
   const id = process.env.GOVERNOR_ACCOUNT_ID ?? "";
   const key = process.env.GOVERNOR_PRIVATE_KEY ?? "";
   if (!id || !key) throw new Error("Missing GOVERNOR_ACCOUNT_ID / GOVERNOR_PRIVATE_KEY -- check .env");
@@ -172,7 +177,7 @@ async function defaultTransfer(to: string, yocto: bigint, memo: string): Promise
   if (failure) throw new Error(failure);
   const tx = txHashOf(res);
   if (!tx) throw new Error("transfer returned no transaction hash");
-  return { tx };
+  return { tx, logs: txLogs(res) };
 }
 
 /**
@@ -197,7 +202,7 @@ export async function runAllocate(ctx: AllocationContext, deps: AllocateDeps = {
   const isRegistered = deps.isRegistered ?? defaultIsRegistered;
   const transfer = deps.transfer ?? defaultTransfer;
   const governorBalance = deps.governorBalance ?? (() => ftBalance(process.env.GOVERNOR_ACCOUNT_ID ?? ""));
-  const memo = `mnemosyne ${ctx.record.decision_hash.replace(/^sha256:/, "").slice(0, 12)}`;
+  const memo = memoFor(ctx.record.decision_hash);
   const memoryCap = memoryTargets(ctx.record);
 
   let remaining: bigint | null = null;

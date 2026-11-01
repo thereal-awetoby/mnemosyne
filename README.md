@@ -38,6 +38,7 @@ npm run server                (x402 memory API + read-only dashboard at http://l
 npm run x402:demo             (an external agent pays for a memory check)
 npm run tee:check             (one verified private decision in the NEAR AI TEE, nothing on-chain)
 npm run swarm:setup           (one-time: fund the subs with tiny testnet wNEAR for real balances)
+npm run rail:check            (send 1 unit of real testnet wNEAR to a sub, only if the newest memory commit checks out)
 npm test                      (x402 + private-decision tests, no network needed)
 ```
 

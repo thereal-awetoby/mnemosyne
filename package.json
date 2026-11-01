@@ -20,7 +20,8 @@
     "x402:setup": "tsx src/tools/x402Setup.ts",
     "x402:demo:real": "tsx src/tools/x402RealDemo.ts",
     "tee:check": "tsx src/tools/teeCheck.ts",
-    "swarm:setup": "tsx src/tools/swarmSetup.ts"
+    "swarm:setup": "tsx src/tools/swarmSetup.ts",
+    "rail:check": "tsx src/tools/railCheck.ts"
   },
   "dependencies": {
     "@fastnear/x402": "2.5.0",

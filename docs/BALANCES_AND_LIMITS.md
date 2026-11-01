@@ -34,7 +34,16 @@ set SWARM_SCENARIO=recovery
 npm run cycle
 ```
 
-`swarm:setup` is idempotent: it registers the governor and the three sub accounts with `wrap.testnet`, wraps NEAR into wNEAR for the governor if it is short, and funds each sub up to the seed (default 1000 units). It signs with the governor key only; the sub keys are never used for it. Seeding at 800 leaves room for the governor to INCREASE toward 1000 in the cycle.
+`swarm:setup` is idempotent: it registers the governor and the three sub accounts with `wrap.testnet`, wraps NEAR into wNEAR for the governor if it is short, and funds each sub up to the seed (default 1000 units). It signs with the governor key only; the sub keys are never used for it. Seeding below 1000 leaves room to grow, but the governor is told that protecting capital beats growth and usually KEEPs or CUTs, so a cycle will often move nothing. That is correct behaviour. To prove the transfer itself, use the rail check below.
+
+### Prove the top-up (`npm run rail:check`)
+
+```
+npm run rail:check                         1 unit (0.00001 wNEAR) to sub A
+npm run rail:check -- --sub B --units 5    up to 100 units, sub A or B
+```
+
+Sends a tiny real `ft_transfer` from the governor with the same code and memo format as a cycle. It is a check, not a governor decision, and a cycle never calls it. The rule stays: **no memory, no money.** It refuses unless the newest memory commit on-chain matches a record on this machine that still recomputes to its own `decision_hash` and sits inside its own limits. The memo is that hash's first 12 characters, so the transfer can be matched to the commit that allowed it. It then prints the transaction, whether the token echoed the memo in its own transfer log, and the sub's balance before and after.
 
 ## 3. Your limits (`PUT /limits`, the dashboard's "Your Limits" panel)
 
@@ -55,4 +64,4 @@ Today the owner proves who they are with the admin token. The file already recor
 - Balances are real; losses are not. There is no trading.
 - Top-ups are one-way (see rule 3).
 - A single owner, one governor. No per-user accounts yet.
-- Not yet run live on testnet at the time of writing: see HANDOFF.md for the proof entry once it is.
+- Real balances, the stepped ALLOCATE log, the on-chain REFUSE and the limits panel have run live on testnet. The `ft_transfer` top-up is proven by `npm run rail:check`: see HANDOFF.md for the transaction once it has run.
