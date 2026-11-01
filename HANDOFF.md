@@ -2,6 +2,20 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-01 — Real balances, real top-ups, owner-editable limits (built, offline-tested, LIVE RUN PENDING)
+
+Full description: `docs/BALANCES_AND_LIMITS.md`. Nothing here is on by default.
+
+- **`src/swarmState.ts`**: `SWARM_STATE=onchain` reads each sub's real wNEAR balance (`ft_balance_of`) as its capital, in units (`CAPITAL_UNIT_YOCTO`, default 1e19 = 0.00001 wNEAR). Unreadable balance = cycle stops, no fallback. Losses stay the labelled `SWARM_SCENARIO` simulation.
+- **`src/allocate/index.ts`** (ALLOCATE moved out of `cycle.ts`): `assertMemoryGate()` (committed + matches its own `decision_hash` + inside its own `max_total_exposure`, else nothing moves), `ALLOCATE_MODE=wnear` real `ft_transfer` top-ups from the governor for INCREASE only, capped by the committed target and `ALLOCATE_MAX_UNITS` (default 1000 units = 0.01 wNEAR), memo = first 12 hex of the decision hash. One-way by design: sub keys are report-only, so CUT moves nothing and the log says what stays in the sub account. Other rails (e.g. a cross-chain one) should call `assertMemoryGate()` and `memoryTargets()` from this file.
+- **`src/tools/swarmSetup.ts`** (`npm run swarm:setup [-- --seed 800]`): idempotent: registers governor + subs with `wrap.testnet`, wraps NEAR for the governor if short, funds subs up to the seed.
+- **`src/limits/index.ts`**: owner's risk limits with hard bounds in code, atomic `data/runtime/limits.json`, fail-closed reads, 20-entry history. `cycle.ts` loads them, passes them to the policy guard, and writes the full envelope into `swarm_risk` (extra optional fields, so older records still verify). Server: `GET /limits` (public), `PUT /limits` and `POST /limits/reset` (`ADMIN_TOKEN`; 503 without one; 429 after 10 wrong tokens in a minute).
+- **Run log** (`<cycle>.run.json`) gained `swarm_source`, `allocate_mode`, `allocations`, `limits_source`. Dashboard: on-chain balance on each sub card, `REAL BALANCES · SIMULATED LOSSES` tag, ALLOCATE step from the run log, and a **Your Limits** panel (edit with the admin token; nothing stored in the browser).
+- 38 new tests (95 total) incl. "allocate without memory is rejected", the gate against a tampered record, the cap, one-way CUT, fail-closed balance reads, and the limits API. Checked in a real browser: edit / wrong token / out-of-bounds / save / refresh-during-edit / cancel / two-step reset, no sideways scroll at 360-1920 px.
+- **Not yet proven live.** To prove it on the Windows machine: `npm run swarm:setup -- --seed 800`, then `set SWARM_STATE=onchain`, `set ALLOCATE_MODE=wnear`, `set SWARM_SCENARIO=recovery`, `npm run cycle`; expect a `ft_transfer` tx whose memo carries the decision-hash prefix. Record the tx here.
+
+---
+
 ## 2026-10-31 — Read-only dashboard (`/dashboard`)
 
 Built to `MNEMOSYNE_UI_SPEC.md`: a read-only page served by the existing API (`npm run server`, then open `http://localhost:8402/dashboard`). It cannot sign, pay or run a cycle.

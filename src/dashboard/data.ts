@@ -15,6 +15,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { KeyPair } from "near-api-js";
 import { SUB_AGENTS, subAccountId, subPrivateKey } from "../subAgents.js";
+import { capitalUnitYocto, fmtWnear, ftBalance, swarmAsset, swarmSource, yoctoToUnits } from "../swarmState.js";
 
 const RPC_URL = process.env.NEAR_RPC_URL ?? "https://rpc.testnet.near.org";
 const MAX_CYCLES = 30;
@@ -102,18 +103,54 @@ export interface DashboardDeps {
 
 let keyCache: { at: number; value: Record<string, SubKeyInfo> } | null = null;
 
+export interface SwarmInfo {
+  /** "onchain": balances below are real wNEAR; "simulated": the swarm is a fixed scenario */
+  source: "simulated" | "onchain";
+  asset: string;
+  unit_yocto: string;
+  balances: Record<string, { account: string; yocto: string; units: number; wnear: string }> | null;
+  error?: string;
+}
+
+let balanceCache: { at: number; value: SwarmInfo } | null = null;
+
+/** Live wNEAR balance of each sub (only in on-chain mode). Cached for 15 s. */
+export async function readSwarmInfo(): Promise<SwarmInfo> {
+  const source = swarmSource();
+  const unit = capitalUnitYocto();
+  const base = { source, asset: swarmAsset(), unit_yocto: unit.toString() };
+  if (source === "simulated") return { ...base, balances: null };
+  if (balanceCache && Date.now() - balanceCache.at < 15_000) return balanceCache.value;
+  const balances: NonNullable<SwarmInfo["balances"]> = {};
+  let value: SwarmInfo;
+  try {
+    for (const s of SUB_AGENTS) {
+      const account = subAccountId(s.id);
+      const y = await ftBalance(account);
+      balances[s.id] = { account, yocto: y.toString(), units: yoctoToUnits(y, unit), wnear: fmtWnear(y) };
+    }
+    value = { ...base, balances };
+  } catch (err) {
+    value = { ...base, balances: null, error: (err as Error).message };
+  }
+  balanceCache = { at: Date.now(), value };
+  return value;
+}
+
 export async function buildDashboard(d: DashboardDeps) {
-  const [head, keys] = await Promise.all([
+  const [head, keys, swarm] = await Promise.all([
     d.readHead().then((h) => ({ ok: true as const, ...h })).catch((err) => ({ ok: false as const, error: (err as Error).message })),
     keyCache && Date.now() - keyCache.at < 60_000
       ? Promise.resolve(keyCache.value)
       : readSubKeys().then((v) => { keyCache = { at: Date.now(), value: v }; return v; }),
+    readSwarmInfo(),
   ]);
   return {
     generated_at: new Date().toISOString(),
     network: "testnet",
     contract: d.contract,
     chain: head,
+    swarm,
     cycles: readCycles(d.dataDir),
     subs: SUB_AGENTS.map((s) => ({ id: s.id, mandate: s.mandate, description: s.description, keys: keys[s.id] })),
   };

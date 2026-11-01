@@ -10,6 +10,9 @@
  *   POST /cycle/run              admin  run one governor cycle
  *   GET  /dashboard              free   read-only dashboard page
  *   GET  /dashboard.json         free   its data (public records + chain + keys)
+ *   GET  /limits                 free   the owner's risk limits + their hard bounds
+ *   PUT  /limits                 admin  change limits (validated; applies from the next cycle)
+ *   POST /limits/reset           admin  back to the built-in defaults
  *
  * x402 flow for /memory/check:
  *   no PAYMENT-SIGNATURE  -> 402 + PAYMENT-REQUIRED (price, payTo, network)
@@ -61,6 +64,12 @@ export interface ServerConfig {
   dashboardData?: () => Promise<Record<string, unknown>>;
   /** Static files under /dashboard/fonts/<name> (woff2 only). */
   dashboardFonts?: Record<string, Buffer>;
+  /** The owner's risk limits (src/limits). Reads are public, writes need the admin token. */
+  limits?: {
+    get: () => unknown;
+    set: (changes: unknown, by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
+    reset: (by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
+  };
 }
 
 export interface Receipt {
@@ -172,6 +181,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
   }
   const requirements: WireRequirements = rail.requirements;
   const isMock = rail.mock;
+  const adminFailures: number[] = [];
 
   const paymentRequired = (error: string, checkUrl: string) => ({
     x402Version: X402_VERSION,
@@ -260,9 +270,13 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     const method = req.method ?? "GET";
     const admin = () => {
       if (!cfg.adminToken) throw new HttpError(503, "admin routes disabled (set ADMIN_TOKEN)");
+      // too many wrong tokens in a minute: stop answering for a while
+      const now = Date.now();
+      while (adminFailures.length && now - adminFailures[0] > 60_000) adminFailures.shift();
+      if (adminFailures.length >= 10) throw new HttpError(429, "too many wrong tokens; wait a minute");
       const auth = req.headers.authorization ?? "";
       const given = auth.startsWith("Bearer ") ? auth.slice(7) : undefined;
-      if (!tokenOk(given, cfg.adminToken)) throw new HttpError(401, "admin token required");
+      if (!tokenOk(given, cfg.adminToken)) { adminFailures.push(now); throw new HttpError(401, "admin token required"); }
     };
 
     if (method === "GET" && path === "/" && cfg.dashboardHtml && String(req.headers.accept ?? "").includes("text/html")) {
@@ -294,6 +308,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       const all = Object.values(receipts.get().receipts).sort((a, b) => b.created_at.localeCompare(a.created_at));
       return send(res, 200, {
         ...data,
+        limits: cfg.limits ? cfg.limits.get() : null,
         x402: {
           payment_rail: rail.mode,
           mock_settlement: isMock,
@@ -321,6 +336,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
           "POST /memory/confess": "admin",
           "POST /cycle/run": "admin",
           ...(cfg.dashboardHtml ? { "GET /dashboard": "free -- read-only dashboard", "GET /dashboard.json": "free" } : {}),
+          ...(cfg.limits ? { "GET /limits": "free", "PUT /limits": "admin", "POST /limits/reset": "admin" } : {}),
         },
       });
     }
@@ -384,6 +400,25 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       if (!ok) throw new HttpError(400, "need category, keywords (3-30 lowercase words), public_summary (10-500 chars), private_detail");
       const id = memory.confess({ category: b.category, keywords: b.keywords, public_summary: b.public_summary, private_detail: b.private_detail });
       return send(res, 201, { citation_id: id });
+    }
+
+    if (method === "GET" && path === "/limits") {
+      if (!cfg.limits) throw new HttpError(404, "limits not configured");
+      return send(res, 200, cfg.limits.get());
+    }
+    if (method === "PUT" && path === "/limits") {
+      admin();
+      if (!cfg.limits) throw new HttpError(404, "limits not configured");
+      const r = cfg.limits.set(await readJson(req), "owner-token");
+      if (!r.ok) return send(res, 400, { error: "invalid limits", errors: r.errors });
+      return send(res, 200, r.view);
+    }
+    if (method === "POST" && path === "/limits/reset") {
+      admin();
+      if (!cfg.limits) throw new HttpError(404, "limits not configured");
+      const r = cfg.limits.reset("owner-token");
+      if (!r.ok) return send(res, 400, { error: "invalid limits", errors: r.errors });
+      return send(res, 200, r.view);
     }
 
     if (method === "POST" && path === "/cycle/run") {

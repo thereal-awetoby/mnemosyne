@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark" />
 <meta name="theme-color" content="#1b1b1d" />
 <title>Mnemosyne — Governor Dashboard</title>
-<meta name="description" content="Live, read-only view of the Mnemosyne governor on NEAR testnet: memory chain, sealed decisions, sub-agents and paid memory checks." />
+<meta name="description" content="Live view of the Mnemosyne governor on NEAR testnet: memory chain, sealed decisions, sub-agents, the owner's risk limits and paid memory checks." />
 <style>
   /* Fonts ship with the repo (web/fonts, SIL Open Font License): no CDN, works offline. */
   @font-face { font-family: "IBM Plex Sans"; src: url("/dashboard/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
@@ -527,6 +527,63 @@
 
   .x402-table { border-top: 1px solid var(--border); padding: 20px; }
 
+  /* ---------- swarm balance line ---------- */
+
+  .sub-balance {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 9px 12px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border-lo);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .sub-balance .k { color: var(--text-faint); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .sub-balance .v { color: var(--text); overflow-wrap: anywhere; }
+
+  /* ---------- your limits ---------- */
+
+  .limits-intro { margin: 0 0 6px; font-size: 13px; color: var(--text-dim); max-width: 74ch; }
+  .limits-intro + .limits-intro { margin-top: 0; color: var(--text-faint); font-size: 12.5px; }
+  .limits-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 36px; margin-top: 14px; }
+  .limit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 3px 16px;
+    align-items: baseline;
+    padding: 14px 0;
+    border-top: 1px solid var(--border-lo);
+  }
+  .limit .name { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+  .limit .val { font-family: var(--mono); font-size: 18px; font-weight: 500; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .limit .val small { font-size: 12px; font-weight: 400; color: var(--text-dim); margin-left: 4px; }
+  .limit .help { grid-column: 1 / -1; font-size: 12px; color: var(--text-faint); }
+  .limit .help .range { display: inline-block; margin-left: 8px; font-family: var(--mono); font-size: 11px; }
+  .limit.changed .val { color: var(--accent); }
+  .limit input, .token-row input {
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--text);
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 8px;
+  }
+  .limit input { width: 10ch; text-align: right; }
+  .limit input[aria-invalid="true"] { border-color: var(--refuse); }
+  .limits-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px; padding-top: 18px; border-top: 1px solid var(--border); }
+  .token-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1 1 100%; font-size: 12.5px; color: var(--text-dim); margin-bottom: 4px; }
+  .token-row input { width: 24ch; max-width: 100%; }
+  .limits-msg { margin: 14px 0 0; font-size: 13px; }
+  .limits-msg.err { color: var(--refuse); }
+  .limits-msg.good { color: var(--ok); }
+  .limits-msg ul { margin: 4px 0 0; padding-left: 18px; }
+  .limits-hist { margin: 16px 0 0; padding: 12px 0 0; border-top: 1px dashed var(--border); list-style: none; font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); display: grid; gap: 4px; }
+  button.block-btn.primary { border-color: var(--accent-lo); color: var(--accent); }
+  button.block-btn.primary:hover { border-color: var(--accent); }
+
   /* ---------- buttons: flat, no shine ---------- */
 
   button.block-btn, a.block-btn {
@@ -565,6 +622,7 @@
 
   @media (max-width: 900px) {
     .swarm-grid { grid-template-columns: 1fr; }
+    .limits-grid { grid-template-columns: 1fr; }
     .stats { grid-template-columns: 1fr 1fr; }
     .stats > div:nth-child(3) { border-left: 0; }
     .stats > div:nth-child(n+3) { border-top: 1px solid var(--border); }
@@ -625,6 +683,8 @@
     .log-head .st { order: 1; }
     .log-head .d { order: 2; flex: 0 0 100%; margin-top: 2px; }
     .legend li { grid-template-columns: 44px 1fr; }
+    .limit .val { font-size: 17px; }
+    .limits-actions .block-btn { flex: 1 1 auto; text-align: center; }
   }
 </style>
 </head>
@@ -682,10 +742,19 @@
     <section>
       <div class="section-title">
         <h2>Sub-Agent Swarm</h2>
-        <span class="tag" title="Capital and losses are simulated; keys, directives and on-chain reports are real.">SIMULATED BALANCES</span>
+        <span class="tag" id="swarmTag" title="Capital and losses are simulated; keys, directives and on-chain reports are real.">SIMULATED BALANCES</span>
       </div>
 
       <div class="swarm-grid" id="swarmGrid"></div>
+    </section>
+
+    <!-- ================= YOUR LIMITS ================= -->
+    <section>
+      <div class="section-title">
+        <h2>Your Limits</h2>
+        <span class="note" id="limitsNote"></span>
+      </div>
+      <div class="panel panel-pad" id="limitsBox"></div>
     </section>
 
     <!-- ================= CYCLE LOG ================= -->
@@ -712,7 +781,7 @@
 
     <footer>
       <span>mnemosyne — NEAR hackathon build</span>
-      <span id="updated">read-only · live from NEAR testnet</span>
+      <span id="updated">live from NEAR testnet</span>
     </footer>
 
   </div>
@@ -735,6 +804,8 @@ function h(tag, attrs, ...kids) {
   for (const k of kids.flat()) if (k != null && k !== false) n.append(k instanceof Node ? k : String(k));
   return n;
 }
+/* replaceChildren(null) writes the text "null" into the page, so empty slots are dropped first */
+const fill = (node, ...kids) => node.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
 function short(s, a = 10, b = 6) { s = String(s ?? ""); return s.length > a + b + 1 ? `${s.slice(0, a)}…${s.slice(-b)}` : s; }
 const txUrl = (hash) => (TX.test(hash || "") ? `${EXPLORER}/txns/${hash}` : null);
 const ext = (href, text) => h("a", { href, target: "_blank", rel: "noopener" }, text);
@@ -812,7 +883,7 @@ function renderChain(d) {
 
   // a plain-words key to what the colour and the tick mean, shown only for what is on screen
   const key = (sym, text) => h("li", {}, sym, h("span", {}, text));
-  $("chainLegend").replaceChildren(
+  fill($("chainLegend"),
     seen.head ? key(h("span", { class: "head-tag", style: "margin:0" }, "HEAD"), "The newest entry, in gold. This is the hash the contract is holding on NEAR right now.") : null,
     seen.linked ? key(h("span", { class: "sym ok" }, "✓"), `A tick on a prev hash means it matches the decision hash of the entry below it, so the two are chained.${seen.unlinked ? " No tick: the entry it follows isn't stored on this machine." : ""}`) : null,
     seen.noTx ? key(h("span", { class: "sym faint" }, "—"), "No transaction link was saved for this entry on this machine.") : null);
@@ -856,7 +927,8 @@ function renderDecision(d) {
   const right = h("div", {}, h("h3", { class: "sub-title" }, "Checked before the commit"), checkList(r));
   const reported = run?.reports?.filter((x) => x.status === "reported").length || 0;
   const st = ["done", "done", committed === false ? "stop" : committed ? "done" : "", committed ? "done" : "", committed ? "done" : "", committed ? "done" : ""];
-  const names = [["READ", "simulated swarm"], ["DECIDE", isTee(r) ? "sealed in TEE" : "local rule"], ["COMMIT", "memory on NEAR"], ["ALLOCATE", "print-only"], ["SUB-AGENTS", `${reported} reported on-chain`], ["PUBLISH", "public record"]];
+  const moved = (run?.allocations || []).filter((e) => e.kind === "transfer" && e.tx).length;
+  const names = [["READ", run?.swarm_source === "onchain" ? "real balances" : "simulated swarm"], ["DECIDE", isTee(r) ? "sealed in TEE" : "local rule"], ["COMMIT", "memory on NEAR"], ["ALLOCATE", run?.allocate_mode === "wnear" ? `${moved} transfer${moved === 1 ? "" : "s"}` : "print-only"], ["SUB-AGENTS", `${reported} reported on-chain`], ["PUBLISH", "public record"]];
   const steps = h("ol", { class: "steps", "aria-label": "Cycle steps" }, names.map(([n, s], i) =>
     h("li", { class: st[i] }, h("span", { class: "n" }, `${i + 1}/6`), n, h("span", { class: "s" }, st[i] === "stop" ? "stopped here" : st[i] ? s : "not run"))));
   box.replaceChildren(h("div", { class: "panel" }, h("div", { class: "decision" }, left, right), steps));
@@ -865,6 +937,11 @@ function renderDecision(d) {
 /* ---------- sub-agent swarm ---------- */
 function renderSwarm(d) {
   const latest = d.cycles[0];
+  const real = d.swarm?.source === "onchain";
+  $("swarmTag").textContent = real ? "REAL BALANCES · SIMULATED LOSSES" : "SIMULATED BALANCES";
+  $("swarmTag").title = real
+    ? "Balances are real wNEAR on NEAR testnet. Mnemosyne does not trade, so losses are a labelled simulation. Keys, directives and on-chain reports are real."
+    : "Capital and losses are simulated; keys, directives and on-chain reports are real.";
   const grid = h("div", { class: "swarm-grid" });
   for (const s of d.subs) {
     const dec = latest?.record?.decisions?.find((x) => x.sub === s.id);
@@ -895,6 +972,7 @@ function renderSwarm(d) {
     grid.append(h("article", { class: "sub-card" },
       h("div", { class: "sub-head" }, h("span", { class: "sub-id" }, `SUB ${s.id}`), h("span", { class: "status-pill " + pillCls }, pill)),
       h("div", { class: "sub-mandate" }, s.mandate),
+      d.swarm?.balances?.[s.id] ? h("div", { class: "sub-balance", title: `${d.swarm.balances[s.id].account} on ${d.swarm.asset}` }, h("span", { class: "k" }, "On-chain balance"), h("span", { class: "v" }, `${d.swarm.balances[s.id].units} units · ${d.swarm.balances[s.id].wnear} wNEAR`)) : null,
       h("div", { class: "sub-stats" },
         h("div", {}, h("span", { class: "k" }, "Directive"), h("span", { class: "v" }, dec ? dec.action : "–")),
         h("div", {}, h("span", { class: "k" }, "Target"), h("span", { class: "v" }, active ? dec.target_capital : "–")),
@@ -915,7 +993,7 @@ function logSteps(c) {
   const add = (s, cls, ...parts) => s.lines.push({ cls, parts });
   const stopped = !run || run.committed === false;   // nothing after the commit ran, or we can't tell
 
-  const read = step("READ", "reading swarm state (simulated)");
+  const read = step("READ", `reading swarm state (${run?.swarm_source === "onchain" ? "real wNEAR balances, simulated losses" : "simulated"})`);
   add(read, "faint", `prev_memory_hash: ${r.prev_memory_hash ?? "(none — first cycle)"}`);
 
   let decide;
@@ -939,11 +1017,17 @@ function logSteps(c) {
     if (txUrl(run.commit_tx)) add(commit, "faint", "tx: ", ext(txUrl(run.commit_tx), txUrl(run.commit_tx)));
   }
 
-  const alloc = step("ALLOCATE", "applying decisions (print-only — no real transfers)", stopped ? "skip" : "done");
+  const alloc = step("ALLOCATE", run?.allocate_mode === "wnear" ? "real wNEAR top-ups on testnet, tiny amounts" : "applying decisions (print-only — no real transfers)", stopped ? "skip" : "done");
   const window = step("SUB-AGENT WINDOW", "mandate checks + on-chain report()", stopped ? "skip" : "done");
   const publish = step("PUBLIC LOG", "cycle complete", stopped ? "skip" : "done");
   if (!stopped) {
-    for (const x of r.decisions || []) {
+    if (run.allocations && run.allocations.length) {
+      for (const e of run.allocations) {
+        add(alloc, e.kind === "transfer" ? "ok" : e.kind === "none" ? "" : "refuse", `sub ${e.sub}: ${e.note}`);
+        if (e.tx && txUrl(e.tx)) add(alloc, "faint", "  tx: ", ext(txUrl(e.tx), txUrl(e.tx)));
+        if (e.kind === "failed") alloc.state = "failed";
+      }
+    } else for (const x of r.decisions || []) {
       add(alloc, "", x.action === "PAUSE" ? `sub ${x.sub}: PAUSE (${x.reason_code})` : `sub ${x.sub}: ${x.action} -> target_capital=${x.target_capital}, max_position=${x.max_position}, max_loss_cycle=${x.max_loss_cycle}, mandate=${x.mandate}`);
     }
     for (const x of r.decisions || []) {
@@ -980,6 +1064,135 @@ function renderLog(d) {
       const parts = indent ? [first.slice(indent), ...l.parts.slice(1)] : l.parts;
       return h("div", { class: "ln " + l.cls, style: indent ? `padding-left:${indent}ch` : null }, ...parts);
     })) : null)));
+}
+
+/* ---------- your limits ---------- */
+// Everything here is the owner's rails. The per-cycle numbers (target, max position, max loss) are
+// the governor's decision and are committed on-chain, so they are not editable.
+let limitsEditing = false;
+let lastLimits = null;
+let adminToken = "";            // kept only in this tab's memory; gone on reload
+let resetArmed = false;
+
+const showLimit = (s, v) => (s.unit === "%" ? String(+(v * 100).toFixed(2)) : String(v));
+const unitWord = (s) => (s.unit === "%" ? "%" : s.unit === "x" ? "×" : "units");
+const rangeWord = (s) => `${showLimit(s, s.min)}–${showLimit(s, s.max)}${s.unit === "units" ? "" : unitWord(s)}`;
+
+function renderLimits(d) {
+  const L = d.limits;
+  if (!L) { $("limitsNote").textContent = ""; $("limitsBox").replaceChildren(emptyBox("Limits are not configured on this server.")); return; }
+  lastLimits = L;
+  $("limitsNote").textContent = L.source === "owner" ? `set by the owner · ${ago(L.updated_at)}` : "built-in defaults";
+  if (limitsEditing) return;       // never wipe what someone is in the middle of typing
+  drawLimits(L, null);
+}
+
+function limitMsg(box, kind, ...kids) {
+  box.querySelector(".limits-msg")?.remove();
+  box.append(h("div", { class: "limits-msg " + kind, role: kind === "err" ? "alert" : "status" }, ...kids));
+}
+
+function drawLimits(L, msg) {
+  const box = $("limitsBox");
+  const editing = limitsEditing;
+  const label = Object.fromEntries(L.specs.map((s) => [s.key, s.label]));
+  const grid = h("div", { class: "limits-grid" }, L.specs.map((s) => {
+    const v = L.limits[s.key], def = L.defaults[s.key], changed = v !== def;
+    const unit = h("small", {}, unitWord(s));
+    const val = editing
+      ? h("span", { class: "val" }, h("input", { id: "lim-" + s.key, type: "number", inputmode: "decimal", min: showLimit(s, s.min), max: showLimit(s, s.max), step: s.kind === "int" ? "1" : s.unit === "%" ? "0.5" : "0.05", value: showLimit(s, v), "aria-label": s.label }), unit)
+      : h("span", { class: "val" }, showLimit(s, v), unit);
+    return h("div", { class: "limit" + (changed && !editing ? " changed" : "") },
+      h("span", { class: "name" }, s.label), val,
+      h("span", { class: "help" }, s.help, h("span", { class: "range" }, rangeWord(s)), changed && !editing ? h("span", { class: "range" }, `default ${showLimit(s, def)}`) : null));
+  }));
+
+  const actions = h("div", { class: "limits-actions" });
+  if (!editing) {
+    actions.append(h("button", { class: "block-btn", type: "button", id: "limEdit" }, "EDIT LIMITS"));
+    actions.lastChild.addEventListener("click", () => { limitsEditing = true; resetArmed = false; drawLimits(lastLimits, null); $("lim-" + L.specs[0].key)?.focus(); });
+  } else {
+    actions.append(
+      h("label", { class: "token-row", for: "lim-token" }, "Admin token",
+        h("input", { id: "lim-token", type: "password", autocomplete: "off", value: adminToken, placeholder: "ADMIN_TOKEN from your .env" })),
+      h("button", { class: "block-btn primary", type: "button", id: "limSave" }, "SAVE"),
+      h("button", { class: "block-btn", type: "button", id: "limCancel" }, "CANCEL"),
+      h("button", { class: "block-btn", type: "button", id: "limReset" }, resetArmed ? "CLICK AGAIN TO RESET" : "RESET TO DEFAULTS"));
+    actions.querySelector("#limSave").addEventListener("click", () => saveLimits(L));
+    actions.querySelector("#limCancel").addEventListener("click", () => { limitsEditing = false; resetArmed = false; drawLimits(lastLimits, null); });
+    actions.querySelector("#limReset").addEventListener("click", () => resetLimits(L));
+  }
+
+  const hist = (L.history || []).slice(-3).reverse();
+  fill(box,
+    h("p", { class: "limits-intro" }, "The rails the governor works inside. Every cycle writes the limits it used into its on-chain memory record, so you can see which rules applied to which decision."),
+    h("p", { class: "limits-intro" }, "Each sub's target, max position and max loss stay the governor's call. Their hash is committed on-chain, so they can't be edited by hand. Sub-agents also keep their own hard ceilings and will refuse, on-chain, anything past them."),
+    grid, actions,
+    hist.length ? h("ul", { class: "limits-hist", "aria-label": "Recent changes" }, hist.map((c) => h("li", {}, `${ago(c.at)} · ` + Object.entries(c.changes).map(([k, x]) => { const sp = L.specs.find((q) => q.key === k); return `${label[k] || k} ${sp ? showLimit(sp, x.from) : x.from} → ${sp ? showLimit(sp, x.to) : x.to}`; }).join(", ")))) : null);
+  if (msg) limitMsg(box, msg.kind, ...msg.parts);
+}
+
+async function sendLimits(method, path, body, token) {
+  const r = await fetch(path, { method, cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined });
+  let j = null; try { j = await r.json(); } catch {}
+  return { status: r.status, body: j };
+}
+
+function explainLimitsError(res) {
+  if (res.status === 401) return ["That token isn't right."];
+  if (res.status === 429) return ["Too many wrong tokens. Wait a minute and try again."];
+  if (res.status === 503) return ["Editing is switched off on this server. Set ADMIN_TOKEN in .env, restart npm run server, then try again."];
+  if (res.status === 400 && Array.isArray(res.body?.errors)) return res.body.errors;
+  return [res.body?.error || `The server answered ${res.status}.`];
+}
+
+async function saveLimits(L) {
+  const box = $("limitsBox");
+  const body = {}, problems = [];
+  for (const s of L.specs) {
+    const el = $("lim-" + s.key), n = Number(el.value.trim());
+    el.removeAttribute("aria-invalid");
+    if (el.value.trim() === "" || !Number.isFinite(n)) { el.setAttribute("aria-invalid", "true"); problems.push(`${s.label}: enter a number`); continue; }
+    body[s.key] = s.unit === "%" ? Math.round(n * 100) / 10000 : n;   // 20 (%) -> 0.2
+  }
+  const token = $("lim-token").value;
+  if (!token) problems.push("Enter the admin token to save.");
+  if (problems.length) return limitMsg(box, "err", "Not saved:", h("ul", {}, problems.map((p) => h("li", {}, p))));
+  const btn = $("limSave"); btn.disabled = true; btn.textContent = "SAVING…";
+  try {
+    const res = await sendLimits("PUT", "/limits", body, token);
+    if (res.status === 200) {
+      adminToken = token; limitsEditing = false;
+      lastLimits = res.body;
+      $("limitsNote").textContent = res.body.source === "owner" ? "set by the owner · just now" : "built-in defaults";
+      return drawLimits(res.body, { kind: "good", parts: ["Saved. The next cycle uses these limits, and its memory record will carry them on-chain."] });
+    }
+    limitMsg(box, "err", "Not saved:", h("ul", {}, explainLimitsError(res).map((p) => h("li", {}, p))));
+  } catch (err) {
+    limitMsg(box, "err", `Couldn't reach the server: ${err.message}`);
+  } finally {
+    const b = $("limSave"); if (b) { b.disabled = false; b.textContent = "SAVE"; }
+  }
+}
+
+async function resetLimits(L) {
+  const box = $("limitsBox");
+  if (!resetArmed) { resetArmed = true; $("limReset").textContent = "CLICK AGAIN TO RESET"; return; }
+  resetArmed = false;
+  const token = $("lim-token").value;
+  if (!token) { $("limReset").textContent = "RESET TO DEFAULTS"; return limitMsg(box, "err", "Enter the admin token to reset."); }
+  try {
+    const res = await sendLimits("POST", "/limits/reset", null, token);
+    if (res.status === 200) {
+      adminToken = token; limitsEditing = false; lastLimits = res.body;
+      $("limitsNote").textContent = "built-in defaults";
+      return drawLimits(res.body, { kind: "good", parts: ["Back to the built-in defaults. The next cycle uses them."] });
+    }
+    $("limReset").textContent = "RESET TO DEFAULTS";
+    limitMsg(box, "err", "Not reset:", h("ul", {}, explainLimitsError(res).map((p) => h("li", {}, p))));
+  } catch (err) {
+    limitMsg(box, "err", `Couldn't reach the server: ${err.message}`);
+  }
 }
 
 /* ---------- x402 ---------- */
@@ -1022,12 +1235,13 @@ async function load() {
     const problems = [];
     if (!d.chain.ok) problems.push(`Couldn't read the chain (${d.chain.error}). Showing records stored on this machine.`);
     if (d.subs.some((s) => s.keys?.error)) problems.push("Couldn't read the sub-agents' keys from NEAR.");
+    if (d.swarm?.error) problems.push(`Couldn't read the sub-agents' wNEAR balances (${d.swarm.error}).`);
     $("problem").hidden = !problems.length;
     $("problem").textContent = problems.join(" ");
     $("netDot").classList.toggle("down", !d.chain.ok);
     $("governorBadge").replaceChildren(accLink(d.contract));
-    renderStats(d); renderChain(d); renderDecision(d); renderSwarm(d); renderLog(d); renderX402(d);
-    $("updated").textContent = `read-only · live from NEAR testnet · updated ${new Date(d.generated_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+    renderStats(d); renderChain(d); renderDecision(d); renderSwarm(d); renderLimits(d); renderLog(d); renderX402(d);
+    $("updated").textContent = `live from NEAR testnet · updated ${new Date(d.generated_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
   } catch (err) {
     $("problem").hidden = false;
     $("problem").textContent = `Couldn't load the dashboard data: ${err.message}. Is npm run server still running?`;

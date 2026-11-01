@@ -16,10 +16,11 @@
     "sub:check": "tsx src/tools/subKeyCheck.ts",
     "server": "tsx src/serve.ts",
     "x402:demo": "tsx src/tools/x402Demo.ts",
-    "test": "tsx --test src/x402/*.test.ts src/private/*.test.ts src/dashboard/*.test.ts",
+    "test": "tsx --test src/x402/*.test.ts src/private/*.test.ts src/dashboard/*.test.ts src/allocate/*.test.ts src/limits/*.test.ts",
     "x402:setup": "tsx src/tools/x402Setup.ts",
     "x402:demo:real": "tsx src/tools/x402RealDemo.ts",
-    "tee:check": "tsx src/tools/teeCheck.ts"
+    "tee:check": "tsx src/tools/teeCheck.ts",
+    "swarm:setup": "tsx src/tools/swarmSetup.ts"
   },
   "dependencies": {
     "@fastnear/x402": "2.5.0",

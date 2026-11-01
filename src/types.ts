@@ -29,6 +29,13 @@ export interface SubDecision {
 export interface SwarmRisk {
   max_total_exposure: string;
   max_daily_loss: string;
+  /** The rest of the owner's limits for this cycle (see src/limits). Optional:
+   *  records written before limits were editable carry only the two above. */
+  per_sub_max_capital?: string;
+  pause_loss_threshold?: string;
+  max_growth?: string;
+  max_position_pct?: string;
+  max_loss_pct?: string;
 }
 
 /** The PUBLIC part of a decision — this is what will eventually go

@@ -8,7 +8,7 @@ Build progress / what's been done in each step: [`HANDOFF.md`](HANDOFF.md).
 
 ## Current status: Phases 1–6 proven on NEAR testnet, including real x402 payments in wNEAR and private decisions verified in a NEAR AI Cloud TEE
 
-One cycle runs: read -> decide -> **on-chain memory commit** (mnemosyne-gov.testnet, hash-chained, fail-closed) -> allocate (print-only) -> **sub-agent window**: each sub checks the directive against its own mandate and writes ACT/REFUSE on-chain with its own report-only function-call key. Sub C (defensive, reduce-only) refuses directives above its tighter ceiling.
+One cycle runs: read -> decide -> **on-chain memory commit** (mnemosyne-gov.testnet, hash-chained, fail-closed) -> allocate (print-only by default; optional real wNEAR top-ups) -> **sub-agent window**: each sub checks the directive against its own mandate and writes ACT/REFUSE on-chain with its own report-only function-call key. Sub C (defensive, reduce-only) refuses directives above its tighter ceiling.
 
 Proven on testnet 2026-10-30 (see HANDOFF.md): a full cycle committed memory, then sub A and B reported ACT and sub C reported REFUSE on-chain, each signing with its own report-only key. Every sub key passes `npm run sub:check`: it can call `report`, and NEAR itself rejects `commit` and transfers. The sub accounts' FullAccess keys stay in the operator's keychain and are never given to the agent.
 
@@ -20,7 +20,9 @@ Proven on testnet 2026-10-30 (see HANDOFF.md): a full cycle committed memory, th
 
 Proven 2026-10-31: a cycle decided in the TEE (signature, nonce binding, Intel TDX `UpToDate`, NVIDIA GPU all verified) committed memory in [`BNv6Kg1R...`](https://testnet.nearblocks.io/txns/BNv6Kg1RwT8FuogbJoDXx19tKn5ozr95kjkGKtXm9Cii), then sub A and B reported ACT on-chain and sub C stayed paused. Its public record re-verified independently with `npm run tee:check -- --record`.
 
-Still simulated, and labeled as such: swarm state (`SWARM_SCENARIO`), ALLOCATE (no real transfers), and x402 settlement in the default mock rail.
+**Real balances and the owner's limits:** by default the swarm state and ALLOCATE are simulated and labelled as such. With `SWARM_STATE=onchain` READ uses each sub's real wNEAR balance, and with `ALLOCATE_MODE=wnear` the governor tops a sub up with a tiny real transfer, only after the memory commit and never above the committed target (no committed memory, no allocation). Losses stay a labelled simulation, because Mnemosyne doesn't trade. The owner can change the risk limits from the dashboard (admin token); each cycle writes the limits it used into its on-chain record. The per-cycle targets are the governor's decision and are not hand-editable. Details: [`docs/BALANCES_AND_LIMITS.md`](docs/BALANCES_AND_LIMITS.md).
+
+Still simulated by default, and labeled as such: swarm losses (`SWARM_SCENARIO`), and x402 settlement in the default mock rail.
 
 Sub-agent key setup: [`docs/PHASE3_KEYS.md`](docs/PHASE3_KEYS.md). Copy `.env.example` to `.env`.
 
@@ -35,6 +37,7 @@ npm run verify:contract       (deployed wasm == local build, read-only)
 npm run server                (x402 memory API + read-only dashboard at http://localhost:8402/dashboard)
 npm run x402:demo             (an external agent pays for a memory check)
 npm run tee:check             (one verified private decision in the NEAR AI TEE, nothing on-chain)
+npm run swarm:setup           (one-time: fund the subs with tiny testnet wNEAR for real balances)
 npm test                      (x402 + private-decision tests, no network needed)
 ```
 

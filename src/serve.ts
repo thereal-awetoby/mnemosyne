@@ -11,7 +11,8 @@
  *   X402_FACILITATOR_API_KEY  bearer token for that facilitator
  *   X402_VERIFY_NAMED_PAYERS  "1": mock facilitator accepts named payer accounts
  *                             (e.g. agent.testnet) after checking the key on NEAR
- *   ADMIN_TOKEN               enables POST /memory/confess and POST /cycle/run
+ *   ADMIN_TOKEN               enables POST /memory/confess, POST /cycle/run and changing the
+ *                             risk limits (PUT /limits, the dashboard's Your limits panel)
  *   DATA_DIR                  default data/runtime (gitignored)
  *
  * Real settlement (testnet only):
@@ -27,6 +28,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMnemosyneServer } from "./x402/server.js";
+import { limitsView, resetLimits, saveLimits } from "./limits/index.js";
 import { HttpFacilitator, MockFacilitator, type Facilitator } from "./x402/facilitator.js";
 import { createNearExactRail, type PaymentRail } from "./x402/rails.js";
 
@@ -115,6 +117,11 @@ const { server, memory } = createMnemosyneServer({
     const { getChainHead } = await import("./memory.js");
     return buildDashboard({ dataDir: DATA_DIR, contract: GOVERNOR, readHead: () => getChainHead(GOVERNOR) });
   },
+  limits: {
+    get: () => limitsView(DATA_DIR),
+    set: (changes, by) => saveLimits(DATA_DIR, changes, by),
+    reset: (by) => resetLimits(DATA_DIR, by),
+  },
   runCycle: async () => {
     const { runCycle } = await import("./cycle.js");
     const r = await runCycle();
@@ -145,7 +152,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  memory entries: ${memory.size}   payTo: ${GOVERNOR}   data: ${DATA_DIR}`);
   console.log(`  facilitator: ${rail ? `REAL near:testnet -- ${rail.requirements.amount} ${rail.requirements.asset} per check, relayer pays gas` : realFacilitatorUrl ? realFacilitatorUrl : "MOCK (verifies everything, settles to a local ledger)"}`);
   console.log(`  admin routes: ${process.env.ADMIN_TOKEN ? "enabled" : "disabled (set ADMIN_TOKEN)"}`);
-  console.log(`  dashboard:    http://localhost:${actualPort}/dashboard  (read-only)`);
+  console.log(`  dashboard:    http://localhost:${actualPort}/dashboard  (read-only${process.env.ADMIN_TOKEN ? "; limits can be changed with the admin token" : "; set ADMIN_TOKEN to be able to change limits"})`);
 });
 
 // Close cleanly on container / terminal shutdown; synchronous stores have no

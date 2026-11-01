@@ -92,6 +92,9 @@ test("the page script parses and carries the chain key and the stepped log", asy
   assert.doesNotThrow(() => new vm.Script(js), "dashboard script must be valid JavaScript");
   assert.match(html, /id="chainLegend"/);
   assert.match(js, /function logSteps/);
+  // Node.replaceChildren(null) writes the word "null" into the page: slots that can be empty go through fill()
+  assert.match(js, /const fill = /);
+  assert.doesNotMatch(js, /\.replaceChildren\([^;]*:\s*null/, "a possibly-empty slot passed straight to replaceChildren");
   assert.doesNotMatch(js, /\.innerHTML|insertAdjacentHTML|document\.write/, "all DOM is built with createElement/textContent");
 });
 
