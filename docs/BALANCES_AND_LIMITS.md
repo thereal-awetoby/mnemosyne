@@ -53,6 +53,7 @@ What is deliberately *not* editable by hand: each sub's per-cycle target, max po
 
 - Hard bounds are in code (`LIMIT_SPECS` in `src/limits/index.ts`). The page and the API cannot go outside them. Contradictions (per-sub ceiling above total exposure) are rejected.
 - Reading is public (`GET /limits`, and inside `/dashboard.json`). Changing needs `ADMIN_TOKEN` (`PUT /limits`, `POST /limits/reset`). With no `ADMIN_TOKEN` the server answers 503 and nothing can be changed. Ten wrong tokens in a minute get a 429.
+- The dashboard hides **Run cycle** and **Edit limits** from everyone until the browser is unlocked: there is an *Operator* link at the foot of the sidebar (or open `/dashboard?operator=1`), and the token is checked against `GET /admin/check` before anything is shown. "Stay unlocked on this computer" keeps the token in that browser's local storage so the operator types it once; **Lock** clears it. `/dashboard.json` carries `operator.enabled` so the link is hidden on a server with no `ADMIN_TOKEN`, and it never carries the token itself.
 - The token is typed into the page, sent as a Bearer header, and kept only in that tab's memory. It is never put in browser storage.
 - Fail-closed: a corrupt or out-of-bounds `limits.json` stops the cycle instead of silently using defaults.
 - The last 20 changes are kept (who, when, from, to).

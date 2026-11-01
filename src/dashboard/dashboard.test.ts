@@ -98,6 +98,15 @@ test("the page script parses and carries the chain key and the stepped log", asy
   assert.doesNotMatch(js, /\.innerHTML|insertAdjacentHTML|document\.write/, "all DOM is built with createElement/textContent");
 });
 
+test("with no admin token the page is offered no operator controls at all", async () => {
+  const html = await (await fetch(`${base}/dashboard`)).text();
+  // the button ships hidden; only an unlocked operator is shown it
+  assert.match(html, /id="btnCycle"[^>]*\shidden/, "Run cycle starts hidden");
+  const data: any = await (await fetch(`${base}/dashboard.json`)).json();
+  assert.equal(data.operator.enabled, false, "this server has no ADMIN_TOKEN");
+  assert.equal((await fetch(`${base}/admin/check`)).status, 503, "nothing to unlock");
+});
+
 test("dashboard routes are read-only", async () => {
   for (const p of ["/dashboard", "/dashboard.json"]) {
     assert.equal((await fetch(`${base}${p}`, { method: "POST" })).status, 404, p);

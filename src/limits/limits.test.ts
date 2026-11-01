@@ -154,6 +154,21 @@ describe("the API", () => {
     assert.equal((await (await call("/dashboard.json")).json() as any).limits.limits.max_total_exposure, 3000);
   });
 
+  it("/admin/check tells the operator whether the token is right, and changes nothing", async () => {
+    assert.equal((await call("/admin/check")).status, 401, "no token");
+    assert.equal((await call("/admin/check", { token: "wrong" })).status, 401, "wrong token");
+    const ok = await call("/admin/check", { token: TOKEN });
+    assert.equal(ok.status, 200);
+    assert.deepEqual(await ok.json(), { ok: true });
+    assert.equal(limitsView(apiDir).source, "default", "checking the token changes nothing");
+  });
+
+  it("the dashboard data says an operator exists here, but never carries the token", async () => {
+    const body = await (await call("/dashboard.json")).text();
+    assert.equal((JSON.parse(body) as any).operator.enabled, true);
+    assert.ok(!body.includes(TOKEN), "the admin token never reaches the page");
+  });
+
   it("changing them needs the admin token", async () => {
     const body = JSON.stringify({ max_total_exposure: 2500 });
     assert.equal((await call("/limits", { method: "PUT", body })).status, 401);

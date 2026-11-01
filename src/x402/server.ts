@@ -308,12 +308,18 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       res.writeHead(200, { "content-type": "font/woff2", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" });
       return res.end(font);
     }
+    if (method === "GET" && path === "/admin/check") {
+      admin();
+      return send(res, 200, { ok: true });
+    }
     if (method === "GET" && path === "/dashboard.json") {
       if (!cfg.dashboardData) throw new HttpError(404, "dashboard not configured");
       const data = await cfg.dashboardData();
       const all = Object.values(receipts.get().receipts).sort((a, b) => b.created_at.localeCompare(a.created_at));
       return send(res, 200, {
         ...data,
+        // the page hides the operator controls unless this is true; it never carries the token
+        operator: { enabled: !!cfg.adminToken },
         limits: cfg.limits ? cfg.limits.get() : null,
         x402: {
           payment_rail: rail.mode,
@@ -342,6 +348,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
           "POST /memory/confess": "admin",
           "POST /cycle/run": "admin",
           ...(cfg.dashboardHtml ? { "GET /dashboard": "free -- read-only dashboard", "GET /dashboard.json": "free" } : {}),
+          ...(cfg.adminToken ? { "GET /admin/check": "admin token -- says whether the token is right, changes nothing" } : {}),
           ...(cfg.limits ? { "GET /limits": "free", "PUT /limits": "admin", "POST /limits/reset": "admin" } : {}),
           ...(auth ? { "GET /login": "sign in / sign up with a NEAR wallet", "GET /me": "session", "PUT /me/guardrails": "session", "GET /me/receipts": "session" } : {}),
         },

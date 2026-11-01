@@ -78,6 +78,13 @@ code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
 .user-menu button, .user-menu a { background: none; border: none; color: var(--muted); font: inherit; font-size: 12px; text-align: left; padding: 7px 10px; border-radius: 5px; cursor: pointer; text-decoration: none; }
 .user-menu button:hover, .user-menu a:hover { background: var(--panel-2); color: var(--text); }
 .side-note { font-size: 11px; color: var(--dim); padding: 0 8px; line-height: 1.5; }
+.op-link { background: none; border: none; color: var(--dim); font: inherit; font-size: 11px; padding: 4px 8px; cursor: pointer; text-align: left; border-radius: 5px; }
+.op-link:hover { color: var(--muted); background: var(--panel); }
+.op-form { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.op-form .ttl { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--dim); }
+.op-form .keep { display: flex; gap: 8px; align-items: flex-start; font-size: 11px; color: var(--muted); cursor: pointer; text-transform: none; letter-spacing: 0; }
+.op-form .keep input { width: auto; accent-color: var(--accent); margin-top: 2px; flex: none; }
+.op-on { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); padding: 4px 8px; }
 .side-note a { color: var(--dim); text-decoration: none; border-bottom: 1px solid var(--line); }
 .side-note a:hover { color: var(--muted); }
 .main { padding: 26px 30px 48px; min-width: 0; }
@@ -277,7 +284,7 @@ input[aria-invalid=true] { border-color: var(--bad); }
   <div class="top-right">
     <span class="pill" id="pillTee">Checking…</span>
     <span class="pill" id="pillGate">Memory gate</span>
-    <button class="btn primary" type="button" id="btnCycle" aria-expanded="false" aria-controls="cyclePop">Run cycle</button>
+    <button class="btn primary" type="button" id="btnCycle" aria-expanded="false" aria-controls="cyclePop" hidden>Run cycle</button>
   </div>
 </header>
 
@@ -285,7 +292,7 @@ input[aria-invalid=true] { border-color: var(--bad); }
   <div class="pop-in">
     <p>One full cycle on testnet. Takes a minute or two. Operator only.</p>
     <div class="pop-row">
-      <input type="password" id="cycTok" autocomplete="off" placeholder="Admin token" aria-label="Admin token">
+      <span id="cycTokWrap" style="flex:1 1 220px"><input type="password" id="cycTok" autocomplete="off" placeholder="Admin token" aria-label="Admin token"></span>
       <button class="btn primary" type="button" id="cycGo">Run now</button>
       <button class="btn" type="button" id="cycCancel">Cancel</button>
     </div>
@@ -308,6 +315,7 @@ input[aria-invalid=true] { border-color: var(--bad); }
     <div class="side-foot">
       <div class="side-note">Governor <span id="governorBadge">…</span><br><span id="updated">Connecting…</span></div>
       <div id="acctSlot"></div>
+      <div id="operatorSlot"></div>
     </div>
   </aside>
 
@@ -530,9 +538,82 @@ let DATA = null;          // last /dashboard.json
 let ME = null;            // last /me, or null when signed out
 let RECEIPTS = [];        // my paid checks
 let LOGIN_OFF = false;    // server runs with LOGIN=0
-let ADMIN = "";           // admin token: kept only in this tab's memory, gone on reload
+let ADMIN = "";           // admin token for this tab (and this browser, if the operator asked)
+let OPERATOR = false;     // this browser has been unlocked as the operator
+let OP_FORM = false;      // the unlock box is open
+let ADMIN_POSSIBLE = false; // the server has an ADMIN_TOKEN set at all
 const LOCAL_FEED = [];    // things done from this tab
 const addFeed = (what, detail) => { LOCAL_FEED.unshift({ at: new Date().toISOString(), what, detail }); LOCAL_FEED.length = Math.min(LOCAL_FEED.length, 6); if (DATA) renderFeed(DATA); };
+
+/* ---------- operator mode ----------
+   Running a cycle spends the governor's own key, so it is never offered to a
+   visitor. The controls stay hidden until this browser is unlocked with the
+   admin token. "Stay unlocked" keeps the token in this browser only; it is
+   never sent anywhere except to this server, in the Authorization header. */
+const OP_KEY = "mn_operator_token";
+function readStoredToken() {
+  try { return localStorage.getItem(OP_KEY) || ""; } catch { return ""; }
+}
+function storeToken(token) {
+  try { if (token) localStorage.setItem(OP_KEY, token); else localStorage.removeItem(OP_KEY); } catch { /* private window: this tab only */ }
+}
+function setOperator(on, token, remember) {
+  OPERATOR = on;
+  ADMIN = on ? (token ?? ADMIN) : "";
+  if (!on) storeToken("");
+  else if (remember === true) storeToken(ADMIN);
+  else if (remember === false) storeToken("");
+  OP_FORM = false;
+  applyOperator();
+}
+function applyOperator() {
+  const show = OPERATOR && ADMIN_POSSIBLE;
+  $("btnCycle").hidden = !show;
+  if (!show) togglePop(false);
+  $("cycTokWrap").hidden = !!ADMIN;
+  renderOperatorSlot();
+  const L = lastLimits || DATA?.limits;
+  if (L && !limitsEditing) drawLimits(L, null);
+}
+
+function renderOperatorSlot() {
+  const box = $("operatorSlot");
+  if (!ADMIN_POSSIBLE) return fill(box);
+  if (OPERATOR) {
+    const lock = h("button", { class: "op-link", type: "button" }, "Lock");
+    lock.addEventListener("click", () => { setOperator(false); flash("", "Operator controls hidden again."); });
+    return fill(box, h("div", { class: "op-on" }, h("span", {}, "Operator \u00b7 unlocked"), lock));
+  }
+  if (!OP_FORM) {
+    const open = h("button", { class: "op-link", type: "button" }, "Operator");
+    open.addEventListener("click", () => { OP_FORM = true; renderOperatorSlot(); $("opTok")?.focus(); });
+    return fill(box, open);
+  }
+  const input = h("input", { type: "password", id: "opTok", autocomplete: "off", placeholder: "Admin token", "aria-label": "Admin token" });
+  const keep = h("input", { type: "checkbox", id: "opKeep", checked: true });
+  const go = h("button", { class: "btn primary", type: "button" }, "Unlock");
+  const cancel = h("button", { class: "op-link", type: "button" }, "Cancel");
+  cancel.addEventListener("click", () => { OP_FORM = false; renderOperatorSlot(); });
+  const submit = async () => {
+    const token = input.value.trim();
+    if (!token) return msgBox($("operatorSlot"), "err", "Enter the admin token.");
+    go.disabled = true; go.textContent = "Checking…";
+    try {
+      const res = await api("GET", "/admin/check", undefined, token);
+      if (res.status === 200) { setOperator(true, token, keep.checked); return flash("good", "Operator controls are on for this browser."); }
+      msgBox($("operatorSlot"), "err", explainAdminError(res).join(" "));
+    } catch (err) {
+      msgBox($("operatorSlot"), "err", `Couldn't reach the server: ${err.message}`);
+    } finally { go.disabled = false; go.textContent = "Unlock"; }
+  };
+  go.addEventListener("click", submit);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") { OP_FORM = false; renderOperatorSlot(); } });
+  fill(box, h("div", { class: "op-form" },
+    h("div", { class: "ttl" }, "Operator only"),
+    input,
+    h("label", { class: "keep", for: "opKeep" }, keep, h("span", {}, "Stay unlocked on this computer")),
+    h("div", { class: "btnrow" }, go, cancel)));
+}
 
 /* ---------- messages ---------- */
 function flash(kind, text) {
@@ -685,7 +766,7 @@ function renderDesk(d) {
 
 function renderSpine(d) {
   const c = d.cycles[0], box = $("spine");
-  if (!c) { fill($("spineTag")); return fill(box, emptyBox("No cycle has run on this machine yet. Press Run cycle to start one.")); }
+  if (!c) { fill($("spineTag")); return fill(box, emptyBox(OPERATOR ? "No cycle has run yet. Press Run cycle to start one." : "No cycle has run yet.")); }
   const r = c.record, run = c.run, committed = run ? run.committed : null;
   const reported = (run?.reports || []).filter((x) => x.status === "reported").length;
   const moved = (run?.allocations || []).filter((e) => e.kind === "transfer" && e.tx).length;
@@ -1258,12 +1339,14 @@ function drawLimits(L, msg) {
 
   const actions = h("div", { class: "limits-actions" });
   if (!editing) {
-    const edit = h("button", { class: "btn", type: "button", id: "limEdit" }, "Edit limits");
-    edit.addEventListener("click", () => { limitsEditing = true; resetArmed = false; drawLimits(lastLimits, null); $("lim-" + L.specs[0].key)?.focus(); });
-    actions.append(edit);
+    if (OPERATOR && ADMIN_POSSIBLE) {
+      const edit = h("button", { class: "btn", type: "button", id: "limEdit" }, "Edit limits");
+      edit.addEventListener("click", () => { limitsEditing = true; resetArmed = false; drawLimits(lastLimits, null); $("lim-" + L.specs[0].key)?.focus(); });
+      actions.append(edit);
+    }
   } else {
     actions.append(
-      h("label", { class: "token-row", for: "lim-token" }, "Admin token",
+      h("label", { class: "token-row", for: "lim-token", hidden: !!ADMIN }, "Admin token",
         h("input", { id: "lim-token", type: "password", autocomplete: "off", value: ADMIN, placeholder: "Admin token" })),
       h("button", { class: "btn primary", type: "button", id: "limSave" }, "Save"),
       h("button", { class: "btn", type: "button", id: "limCancel" }, "Cancel"),
@@ -1341,12 +1424,12 @@ let cycleBusy = false;
 function togglePop(open) {
   $("cyclePop").hidden = !open;
   $("btnCycle").setAttribute("aria-expanded", String(open));
-  if (open) { $("cycTok").value = ADMIN; $("cycTok").focus(); }
+  if (open) { $("cycTok").value = ADMIN; $("cycTokWrap").hidden = !!ADMIN; if (!ADMIN) $("cycTok").focus(); }
 }
 
 async function runCycleNow() {
   if (cycleBusy) return;
-  const token = $("cycTok").value;
+  const token = $("cycTok").value || ADMIN;
   if (!token) return flash("err", "Enter the admin token to run a cycle.");
   cycleBusy = true;
   const endBusy = () => { cycleBusy = false; $("btnCycle").disabled = false; $("btnCycle").textContent = "Run cycle"; $("cycGo").disabled = false; };
@@ -1365,6 +1448,7 @@ async function runCycleNow() {
       await load();
     } else {
       flash("err", `The cycle did not run. ${explainAdminError(res).join(" ")}`);
+      if (res.status === 401) { setOperator(false); OP_FORM = true; renderOperatorSlot(); }
     }
   } catch (err) {
     flash("err", `Couldn't reach the server: ${err.message}`);
@@ -1389,6 +1473,14 @@ async function load() {
     $("problem").hidden = !problems.length;
     $("problem").textContent = problems.join(" ");
     $("problem").title = [d.chain.error, d.swarm?.error].filter(Boolean).join(" · ");
+    ADMIN_POSSIBLE = d.operator ? !!d.operator.enabled : true;
+    if (!OPERATOR && ADMIN_POSSIBLE) {
+      const saved = readStoredToken();
+      const asked = new URLSearchParams(location.search).get("operator");
+      if (saved) { OPERATOR = true; ADMIN = saved; }
+      else if (asked === "1" && !OP_FORM) OP_FORM = true;
+    }
+    applyOperator();
     fill($("governorBadge"), accLink(d.contract));
     renderTop(d); renderDesk(d); renderChain(d); renderDecision(d); renderSwarm(d); renderX402(d); renderLimits(d); renderLog(d); renderFeed(d);
     // never wipe a box someone is typing in
