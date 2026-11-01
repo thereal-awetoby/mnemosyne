@@ -164,7 +164,9 @@ export function planCrossChain(ctx: AllocationContext, cfg: CrossChainConfig, un
   const destination = DESTINATIONS[cfg.dest];
   if (!destination) return refuse(`destination "${cfg.dest}" is not allowlisted (allowed: ${Object.keys(DESTINATIONS).join(", ")})`);
   if (!cfg.recipient) return refuse(`CROSS_CHAIN_RECIPIENT is not set: give it an address you own on ${destination.chain_label}`);
-  if (!/^0x[0-9a-fA-F]{40}$/.test(cfg.recipient)) return refuse(`CROSS_CHAIN_RECIPIENT is not a valid ${destination.chain_label} address`);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(cfg.recipient)) {
+    return refuse(`CROSS_CHAIN_RECIPIENT is not a valid ${destination.chain_label} address: it must be "0x" followed by 40 hex characters (0-9 and a-f), for example 0x1234567890abcdef1234567890abcdef12345678. Use an address you own, not a placeholder word. You gave: ${JSON.stringify(cfg.recipient.slice(0, 60))}`);
+  }
   if (!cfg.sender) return refuse("no sender account: set CROSS_CHAIN_SENDER (or GOVERNOR_ACCOUNT_ID)");
 
   return {

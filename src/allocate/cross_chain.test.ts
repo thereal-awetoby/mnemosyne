@@ -107,7 +107,7 @@ describe("what the memory record allows", () => {
   it("only an allowlisted destination, with a valid recipient and a sender", () => {
     assert.throws(() => planCrossChain(ctx(GOOD()), { ...CFG, dest: "solana:USDC" }, UNIT), /not allowlisted/);
     assert.throws(() => planCrossChain(ctx(GOOD()), { ...CFG, recipient: null }, UNIT), /CROSS_CHAIN_RECIPIENT is not set/);
-    assert.throws(() => planCrossChain(ctx(GOOD()), { ...CFG, recipient: "alice.near" }, UNIT), /not a valid Base address/);
+    assert.throws(() => planCrossChain(ctx(GOOD()), { ...CFG, recipient: "alice.near" }, UNIT), /not a valid Base address.*"0x" followed by 40 hex characters.*You gave: "alice\.near"/);
     assert.throws(() => planCrossChain(ctx(GOOD()), { ...CFG, sender: "" }, UNIT), /no sender/);
   });
 });

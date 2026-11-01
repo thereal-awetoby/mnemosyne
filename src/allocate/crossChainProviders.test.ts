@@ -25,11 +25,11 @@ const oneClickAnswer = (over: Record<string, unknown> = {}) => ({
 describe("1Click provider", () => {
   it("sends a dry EXACT_INPUT quote request with the plan's assets, and nothing secret when there is no key", async () => {
     let seen: { url: string; init: RequestInit } | null = null;
-    const p = oneClickProvider({ now: () => NOW, apiKey: "", fetch: (async (url: string, init: RequestInit) => { seen = { url, init }; return json(200, oneClickAnswer()); }) as any });
+    const p = oneClickProvider({ now: () => NOW, jwt: "", fetch: (async (url: string, init: RequestInit) => { seen = { url, init }; return json(200, oneClickAnswer()); }) as any });
     await p.quote(plan);
     assert.equal(seen!.url, "https://1click.chaindefuser.com/v0/quote");
     assert.equal(seen!.init.method, "POST");
-    assert.equal((seen!.init.headers as Record<string, string>)["x-api-key"], undefined);
+    assert.equal((seen!.init.headers as Record<string, string>).authorization, undefined);
     const body = JSON.parse(String(seen!.init.body));
     assert.deepEqual(body, {
       dry: true, swapType: "EXACT_INPUT", slippageTolerance: 50,
@@ -41,11 +41,12 @@ describe("1Click provider", () => {
     });
   });
 
-  it("sends the API key as x-api-key only when one is set", async () => {
+  it("sends the JWT as 'Authorization: Bearer' only when one is set", async () => {
     let headers: Record<string, string> = {};
-    const p = oneClickProvider({ now: () => NOW, apiKey: "K-123", fetch: (async (_u: string, init: RequestInit) => { headers = init.headers as Record<string, string>; return json(200, oneClickAnswer()); }) as any });
+    const p = oneClickProvider({ now: () => NOW, jwt: "K-123", fetch: (async (_u: string, init: RequestInit) => { headers = init.headers as Record<string, string>; return json(200, oneClickAnswer()); }) as any });
     await p.quote(plan);
-    assert.equal(headers["x-api-key"], "K-123");
+    assert.equal(headers.authorization, "Bearer K-123");
+    assert.equal(headers["x-api-key"], undefined);
   });
 
   it("maps the answer: correlation id, amounts, a local expiry, no deposit address", async () => {
@@ -59,7 +60,7 @@ describe("1Click provider", () => {
   });
 
   it("turns failures into ProviderError and never leaks the key", async () => {
-    const mk = (f: () => Promise<Response>) => oneClickProvider({ now: () => NOW, apiKey: "SECRET-KEY", fetch: f as any });
+    const mk = (f: () => Promise<Response>) => oneClickProvider({ now: () => NOW, jwt: "SECRET-KEY", fetch: f as any });
     await assert.rejects(mk(async () => json(401, { message: "Unauthorized" })).quote(plan), (e: Error) => e instanceof ProviderError && /1Click answered 401: Unauthorized/.test(e.message) && !e.message.includes("SECRET-KEY"));
     await assert.rejects(mk(async () => json(400, { message: "Amount is too low" })).quote(plan), /400: Amount is too low/);
     await assert.rejects(mk(async () => new Response("<html>bad gateway</html>", { status: 502 })).quote(plan), /502: <html>bad gateway/);

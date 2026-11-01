@@ -4,8 +4,9 @@
  * Both are QUOTE-ONLY. Neither one sends, signs or deposits anything.
  *
  *   oneclick  NEAR Intents' 1Click API, POST /v0/quote with dry:true. A dry quote has
- *             no deposit address by design. Works without a key (a key only
- *             removes the 0.1% fee); set ONECLICK_API_KEY if you have one.
+ *             no deposit address by design. Works without a token (a JWT only
+ *             removes a small extra fee); set ONECLICK_JWT if you have one. It is
+ *             sent as "Authorization: Bearer <jwt>", as the 1Click docs show.
  *   rhea      Rhea's RHEA X Chain SDK (@rhea-finance/cross-chain-aggregation-dex),
  *             SwapClient.quote(). Needs an API key from https://boss.rhea.finance
  *             (RHEA_API_KEY). Rhea routes through several routers, NEAR Intents
@@ -61,35 +62,48 @@ const digits = (v: unknown): v is string => typeof v === "string" && /^\d+$/.tes
 export interface OneClickOptions {
   fetch?: typeof fetch;
   baseUrl?: string;
-  apiKey?: string;
+  /** 1Click JWT. Optional: without one the quote still works, with a small extra fee. */
+  jwt?: string;
   now?: () => number;
 }
 
+/** The exact JSON body POSTed to /v0/quote. Exported so the probe tool sends the same shape. */
+export function oneClickRequestBody(plan: AllocationPlan, nowMs: number): Record<string, unknown> {
+  return {
+    dry: true, // quote only: no deposit address, nothing to send
+    swapType: "EXACT_INPUT",
+    slippageTolerance: plan.slippage_bps,
+    originAsset: plan.origin.oneClickId,
+    depositType: "ORIGIN_CHAIN",
+    destinationAsset: plan.destination.oneClickId,
+    amount: plan.amount_in,
+    refundTo: plan.sender,
+    refundType: "ORIGIN_CHAIN",
+    recipient: plan.recipient,
+    recipientType: "DESTINATION_CHAIN",
+    deadline: new Date(nowMs + 10 * 60_000).toISOString(),
+  };
+}
+
+export function oneClickHeaders(jwt?: string): Record<string, string> {
+  const h: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
+  if (jwt) h.authorization = `Bearer ${jwt}`;
+  return h;
+}
+
+export const ONECLICK_DEFAULT_URL = "https://1click.chaindefuser.com";
+
 export function oneClickProvider(opts: OneClickOptions = {}): QuoteProvider {
   const doFetch = opts.fetch ?? fetch;
-  const base = (opts.baseUrl ?? process.env.ONECLICK_URL ?? "https://1click.chaindefuser.com").replace(/\/+$/, "");
-  const apiKey = opts.apiKey ?? (process.env.ONECLICK_API_KEY || undefined);
+  const base = (opts.baseUrl ?? process.env.ONECLICK_URL ?? ONECLICK_DEFAULT_URL).replace(/\/+$/, "");
+  const jwt = opts.jwt ?? (process.env.ONECLICK_JWT || process.env.ONECLICK_API_KEY || undefined);
   const now = opts.now ?? Date.now;
 
   return {
     name: "oneclick",
     async quote(plan) {
-      const body = {
-        dry: true, // quote only: no deposit address, nothing to send
-        swapType: "EXACT_INPUT",
-        slippageTolerance: plan.slippage_bps,
-        originAsset: plan.origin.oneClickId,
-        depositType: "ORIGIN_CHAIN",
-        destinationAsset: plan.destination.oneClickId,
-        amount: plan.amount_in,
-        refundTo: plan.sender,
-        refundType: "ORIGIN_CHAIN",
-        recipient: plan.recipient,
-        recipientType: "DESTINATION_CHAIN",
-        deadline: new Date(now() + 10 * 60_000).toISOString(),
-      };
-      const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
-      if (apiKey) headers["x-api-key"] = apiKey;
+      const body = oneClickRequestBody(plan, now());
+      const headers = oneClickHeaders(jwt);
 
       let res: Response;
       try {

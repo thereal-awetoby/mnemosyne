@@ -22,7 +22,8 @@
     "tee:check": "tsx src/tools/teeCheck.ts",
     "swarm:setup": "tsx src/tools/swarmSetup.ts",
     "rail:check": "tsx src/tools/railCheck.ts",
-    "crosschain:check": "tsx src/tools/crossChainCheck.ts"
+    "crosschain:check": "tsx src/tools/crossChainCheck.ts",
+    "crosschain:probe": "tsx src/tools/crossChainProbe.ts"
   },
   "dependencies": {
     "@fastnear/x402": "2.5.0",

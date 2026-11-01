@@ -24,7 +24,7 @@ Order stays fixed: READ -> DECIDE (TEE) -> MEMORY COMMIT -> ALLOCATE (same-chain
 | `CROSS_CHAIN_PROVIDER` | what | key |
 | --- | --- | --- |
 | `rhea` | Rhea's RHEA X Chain SDK, `@rhea-finance/cross-chain-aggregation-dex` (pinned 2.1.9), `SwapClient.quote()`. Rhea chooses among several routers (NEAR Intents is one) and the router that won is recorded. | `RHEA_API_KEY` from <https://boss.rhea.finance> |
-| `oneclick` | NEAR Intents' 1Click API, `POST /v0/quote` with `dry:true`. A dry quote has no deposit address by design. | none needed (`ONECLICK_API_KEY` only removes the 0.1% fee) |
+| `oneclick` | NEAR Intents' 1Click API, `POST /v0/quote` with `dry:true`. A dry quote has no deposit address by design. | none needed. A 1Click JWT (`ONECLICK_JWT`, sent as `Authorization: Bearer`) only removes a small extra fee |
 
 Default: `rhea` if `RHEA_API_KEY` is set, otherwise `oneclick`.
 
@@ -33,12 +33,12 @@ Default: `rhea` if `RHEA_API_KEY` is set, otherwise `oneclick`.
 | variable | default | meaning |
 | --- | --- | --- |
 | `CROSS_CHAIN_ALLOCATE` | off | `1` to run this step in a cycle. Any other value except `0` is an error, never a guess. |
-| `CROSS_CHAIN_RECIPIENT` | none | an address **you own** on Base (`0x...`). Required. Nothing is sent to it. |
+| `CROSS_CHAIN_RECIPIENT` | none | an address **you own** on Base: `0x` followed by 40 hex characters (0-9, a-f), for example `0x1234567890abcdef1234567890abcdef12345678`. Required. Nothing is sent to it. Typing a word instead of an address is refused. |
 | `CROSS_CHAIN_SUB` | `A` | which sub's allocation this is for |
 | `CROSS_CHAIN_UNITS` | `100` | capital units to quote (1 to 1000). At the default unit, 100 units = 0.001 wNEAR |
 | `CROSS_CHAIN_MAX_UNITS` | `100` | cap on the above (the code ceiling is 1000 whatever this says) |
 | `CROSS_CHAIN_SLIPPAGE_BPS` | `50` | slippage tolerance, 1 to 300 |
-| `CROSS_CHAIN_SENDER` | `GOVERNOR_ACCOUNT_ID` | origin-side account named on the quote (refund address). A testnet name may be rejected by a mainnet quote API: if so, set any mainnet account you own. It is only a label while nothing executes. |
+| `CROSS_CHAIN_SENDER` | `GOVERNOR_ACCOUNT_ID` | origin-side account named on the quote (refund address). A testnet name may be rejected by a mainnet quote API: if so, `npm run crosschain:probe` prints your governor key's own mainnet-style account (64 hex characters) to use here. It is only a label while nothing executes. |
 | `RHEA_API_URL` / `ONECLICK_URL` | the official hosts | only for testing against a stub |
 
 ## Run it (Windows cmd)
@@ -47,14 +47,16 @@ Quote for the newest committed record, without a whole cycle (no private key nee
 
 ```
 npm install
-set CROSS_CHAIN_RECIPIENT=0xYourBaseAddress
+set CROSS_CHAIN_RECIPIENT=0x1234567890abcdef1234567890abcdef12345678
 npm run crosschain:check
 ```
+
+(That example address is only the right shape. Put an address you own, `0x` and 40 hex characters. Use no quotes and no space before or after the `=`.)
 
 Or as part of a real cycle:
 
 ```
-set CROSS_CHAIN_RECIPIENT=0xYourBaseAddress
+set CROSS_CHAIN_RECIPIENT=0x1234567890abcdef1234567890abcdef12345678
 set CROSS_CHAIN_ALLOCATE=1
 npm run cycle
 ```
@@ -62,6 +64,16 @@ npm run cycle
 For Rhea, also `set RHEA_API_KEY=...` (in that same window; `set` only lasts for the window you type it in).
 
 You should see one line like `sub A: CROSS-CHAIN QUOTE via near-intents: 0.00100 wNEAR -> about 0.0031 USDC on Base (at least 0.003), quote <id>; quote only, nothing was sent`, followed by the memory commit that allowed it.
+
+### If 1Click answers 400 (for example "Internal server error")
+
+1Click was reached but refused the request, and its message does not say why. Run the probe:
+
+```
+npm run crosschain:probe
+```
+
+It sends six price-only requests that each change one thing from the one before (your exact config; a mainnet-style refund account instead of the `.testnet` name; a 0.1 wNEAR amount instead of 0.001; both; a different recipient; and a control using the 1Click docs' own wNEAR to ARB example), and it checks 1Click's token list for our two asset ids. It then says in plain words which change made the difference and which `set` lines to use. It is a diagnostic: it does not read a memory record, the cycle never calls it, and it sends, signs and deposits nothing.
 
 ### If the quote says "amount too low"
 

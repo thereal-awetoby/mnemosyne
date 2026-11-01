@@ -42,6 +42,7 @@ npm run tee:check             (one verified private decision in the NEAR AI TEE,
 npm run swarm:setup           (one-time: fund the subs with tiny testnet wNEAR for real balances)
 npm run rail:check            (send 1 unit of real testnet wNEAR to a sub, only if the newest memory commit checks out)
 npm run crosschain:check      (Phase 7: a cross-chain price for the newest committed record; quote only, nothing is sent)
+npm run crosschain:probe      (Phase 7: if 1Click refuses a price request, find out why; prices only)
 npm test                      (x402 + private-decision tests, no network needed)
 ```
 

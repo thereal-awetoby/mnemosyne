@@ -38,6 +38,14 @@ export function base58Decode(s: string): Buffer {
   return Buffer.concat([Buffer.alloc(z), Buffer.from(hex, "hex")]);
 }
 
+/** The implicit account id of a NEAR "ed25519:..." secret key: the lowercase hex of its 32-byte public
+ *  key. It is a valid mainnet-format account (64 hex characters) that whoever holds the key controls,
+ *  even before anything has been sent to it. Used as a refund label on cross-chain price checks. */
+export function implicitAccountId(secretKey: string): string {
+  const pub = publicKeyFromSecret(secretKey);
+  return base58Decode(pub.slice("ed25519:".length)).toString("hex");
+}
+
 /** Public key for a NEAR "ed25519:<b58 seed||pub>" secret key, without any
  *  library call -- the last 32 bytes ARE the public key. Lets the user match
  *  the key in .env against `near account list-keys` output. */

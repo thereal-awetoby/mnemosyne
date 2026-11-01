@@ -3,7 +3,7 @@
  * memory record, without running a whole cycle. QUOTE ONLY: nothing is sent,
  * signed or deposited, and no private key is needed.
  *
- *   set CROSS_CHAIN_RECIPIENT=0xYourBaseAddress
+ *   set CROSS_CHAIN_RECIPIENT=0x1234567890abcdef1234567890abcdef12345678   (an address you own)
  *   npm run crosschain:check
  *
  * Same gate as the cycle: it needs the newest on-chain memory commit to match
@@ -41,7 +41,9 @@ async function main() {
     console.log(`  quote id       ${s.provider_quote_id ?? "(provider gave none)"}   ref ${s.quote_ref}`);
     console.log(`\n  ${s.note}\n\nQUOTE OK\n`);
   } else {
-    console.log(`\nNO QUOTE (${s.status}). Nothing was sent.\n`);
+    console.log(`\nNO QUOTE (${s.status}). Nothing was sent.`);
+    if (s.status === "unavailable") console.log(`If the provider refused the request (for example 1Click 400), run: npm run crosschain:probe\n`);
+    else console.log("");
     process.exitCode = 1;
   }
 }

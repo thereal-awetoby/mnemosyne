@@ -2,6 +2,19 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-01 — Phase 7 follow-up: first live 1Click call answered 400; probe tool and an auth-header fix
+
+First real `npm run crosschain:check` on the Windows machine: the provider reached 1Click (no key needed to reach it) and 1Click answered `400: Internal server error` for sub A, 100 units, with the memory commit `sha256:9bc88d03...` (tx `B7Npf7hhmH8E6Q72tRMp5rGUAbtYLe5kGbihD9FvuuoP`) correctly gating the attempt. **No quote yet.** The fail-closed path behaved as designed: "CROSS-CHAIN quote unavailable ... (nothing was sent)", exit code 1.
+
+- **`npm run crosschain:probe`** (`src/allocate/crossChainProbe.ts`, `src/tools/crossChainProbe.ts`): price-only diagnostic. Checks 1Click's `GET /v0/tokens` for `nep141:wrap.near` and our Base USDC id (and lists the real Base USDC ids if ours is missing), then sends six dry requests that each change one thing: A your exact config, B a mainnet-style refund account (the governor key's implicit account, 64 hex characters) instead of `mnemosyne-gov.testnet`, C 0.1 wNEAR instead of 0.001, D both, E a different recipient, F a control using the 1Click docs' own wNEAR to ARB pair. It prints each answer and what to set. Not an allocation: reads no memory record, never called by the cycle, logs nothing as a quote.
+- **Bug fixed:** the optional 1Click token was sent as `x-api-key`; the docs show `Authorization: Bearer <JWT>`. It is now `ONECLICK_JWT` (the old `ONECLICK_API_KEY` name still works as an alias). It did not affect the 400, since no token was set.
+- **Clearer recipient error:** a non-address now says it must be `0x` plus 40 hex characters and shows what was given. Doc and `.env.example` placeholders replaced with a real-shaped example.
+- `implicitAccountId()` in `src/nearTx.ts` (hex of the key's 32-byte public key).
+- 21 new tests (154 total), all offline.
+- **Open:** run the probe on the Windows machine, apply what it says, get one live quote, then record the quote id here. Causes still untested: refund account format, amount too small, Base USDC asset id, a transient fault on 1Click's side.
+
+---
+
 ## 2026-11-01 — Phase 7: cross-chain allocation via Rhea / NEAR Intents (QUOTE ONLY; built, offline-tested, LIVE QUOTE PENDING)
 
 Full description: `docs/CROSS_CHAIN.md`. Off by default (`CROSS_CHAIN_ALLOCATE=1`). The order is unchanged: READ, DECIDE (TEE), MEMORY COMMIT, ALLOCATE, SUB WINDOW; if the commit fails nothing in ALLOCATE runs.
