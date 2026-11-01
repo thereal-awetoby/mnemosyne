@@ -62,8 +62,11 @@ export function buildProbeVariants(i: ProbeInput): ProbeVariant[] {
     mk("C", "bigger amount (0.1 wNEAR)", { sender: i.sender, amount: PROBE_BIG_AMOUNT, recipient: i.recipient }),
   ];
   if (i.implicit) {
-    out.push(mk("B", "mainnet-style refund account", { sender: i.implicit, amount: i.amount, recipient: i.recipient }));
-    out.push(mk("D", "refund account + bigger amount", { sender: i.implicit, amount: PROBE_BIG_AMOUNT, recipient: i.recipient }));
+    // when the configured refund account already is the implicit one, B and D would repeat A and C
+    if (i.implicit !== i.sender) {
+      out.push(mk("B", "mainnet-style refund account", { sender: i.implicit, amount: i.amount, recipient: i.recipient }));
+      out.push(mk("D", "refund account + bigger amount", { sender: i.implicit, amount: PROBE_BIG_AMOUNT, recipient: i.recipient }));
+    }
     if (i.recipient.toLowerCase() !== PROBE_BURN_RECIPIENT.toLowerCase()) {
       out.push(mk("E", "... and a different recipient", { sender: i.implicit, amount: PROBE_BIG_AMOUNT, recipient: PROBE_BURN_RECIPIENT }));
     }

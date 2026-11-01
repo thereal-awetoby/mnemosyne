@@ -5,14 +5,16 @@
 
 import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { ed25519 } from "@noble/curves/ed25519.js";
 import { hashDecision } from "../memory.js";
+import { base58Encode } from "../nearTx.js";
 import { DEFAULT_ENVELOPE } from "../private/decide.js";
 import { envelopeToSwarmRisk } from "../limits/index.js";
 import type { MemoryRecord, SubDecision } from "../types.js";
 import { AllocationGateError, type AllocationContext } from "./index.js";
 import {
   CrossChainRefusal, DESTINATIONS, HARD_MAX_UNITS, checkQuote, crossChainEnabled, executeAllocation, fmtUnits,
-  loadCrossChainConfig, planCrossChain, quoteAllocation, runCrossChainAllocate, type AllocationExecutor, type CrossChainConfig,
+  loadCrossChainConfig, planCrossChain, quoteAllocation, refundAccount, runCrossChainAllocate, type AllocationExecutor, type CrossChainConfig,
 } from "./cross_chain.js";
 import { ProviderError, type ProviderQuote, type QuoteProvider } from "./crossChainProviders.js";
 
@@ -218,6 +220,23 @@ describe("configuration", () => {
     assert.deepEqual(c, { provider: "oneclick", sub: "A", dest: "base:USDC", recipient: null, sender: "mnemosyne-gov.testnet", units: 100, maxUnits: 100, slippageBps: 50 });
     assert.equal(loadCrossChainConfig({ RHEA_API_KEY: "k" }).provider, "rhea");
     assert.equal(loadCrossChainConfig({ RHEA_API_KEY: "k", CROSS_CHAIN_PROVIDER: "oneclick" }).provider, "oneclick");
+  });
+
+  it("names the governor key's own mainnet-style account as the refund label (1Click refuses a .testnet name)", () => {
+    const seed = ed25519.utils.randomSecretKey();
+    const pub = ed25519.getPublicKey(seed);
+    const key = "ed25519:" + base58Encode(Uint8Array.from([...seed, ...pub]));
+    const implicit = Buffer.from(pub).toString("hex");
+    const env = { GOVERNOR_ACCOUNT_ID: "mnemosyne-gov.testnet", GOVERNOR_PRIVATE_KEY: key };
+    assert.equal(refundAccount(env), implicit);
+    assert.equal(loadCrossChainConfig(env).sender, implicit);
+    assert.match(implicit, /^[0-9a-f]{64}$/);
+  });
+
+  it("CROSS_CHAIN_SENDER overrides it, and an unusable key falls back to the account name", () => {
+    assert.equal(refundAccount({ CROSS_CHAIN_SENDER: "me.near", GOVERNOR_PRIVATE_KEY: "ed25519:abc", GOVERNOR_ACCOUNT_ID: "g.testnet" }), "me.near");
+    assert.equal(refundAccount({ GOVERNOR_PRIVATE_KEY: "not-a-key", GOVERNOR_ACCOUNT_ID: "g.testnet" }), "g.testnet");
+    assert.equal(refundAccount({}), "");
   });
 
   it("rejects anything out of range or unknown", () => {

@@ -38,7 +38,7 @@ Default: `rhea` if `RHEA_API_KEY` is set, otherwise `oneclick`.
 | `CROSS_CHAIN_UNITS` | `100` | capital units to quote (1 to 1000). At the default unit, 100 units = 0.001 wNEAR |
 | `CROSS_CHAIN_MAX_UNITS` | `100` | cap on the above (the code ceiling is 1000 whatever this says) |
 | `CROSS_CHAIN_SLIPPAGE_BPS` | `50` | slippage tolerance, 1 to 300 |
-| `CROSS_CHAIN_SENDER` | `GOVERNOR_ACCOUNT_ID` | origin-side account named on the quote (refund address). A testnet name may be rejected by a mainnet quote API: if so, `npm run crosschain:probe` prints your governor key's own mainnet-style account (64 hex characters) to use here. It is only a label while nothing executes. |
+| `CROSS_CHAIN_SENDER` | the governor key's own account (64 hex characters, worked out from `GOVERNOR_PRIVATE_KEY`; falls back to `GOVERNOR_ACCOUNT_ID` if there is no usable key) | origin-side account named on the quote as the refund address. **1Click refuses a `.testnet` name** (it answers `400: Internal server error`), which is why the default is a mainnet-style account. It is only a label while nothing executes. |
 | `RHEA_API_URL` / `ONECLICK_URL` | the official hosts | only for testing against a stub |
 
 ## Run it (Windows cmd)
@@ -63,11 +63,13 @@ npm run cycle
 
 For Rhea, also `set RHEA_API_KEY=...` (in that same window; `set` only lasts for the window you type it in).
 
-You should see one line like `sub A: CROSS-CHAIN QUOTE via near-intents: 0.00100 wNEAR -> about 0.0031 USDC on Base (at least 0.003), quote <id>; quote only, nothing was sent`, followed by the memory commit that allowed it.
+You should see one line like `CROSS-CHAIN QUOTE via near-intents: 0.00100 wNEAR -> about 0.001989 USDC on Base (at least 0.001979), quote <id>; quote only, nothing was sent`, followed by the memory commit that allowed it.
+
+At fractions of a cent the rate is poor (0.001 wNEAR priced at about 2 USDC per NEAR, against about 4.4 for 0.1 wNEAR on the same day), because fixed costs weigh more on a tiny amount. It is still a real, valid price; it only means a tiny quote is a bad guide to the rate a larger one would get.
 
 ### If 1Click answers 400 (for example "Internal server error")
 
-1Click was reached but refused the request, and its message does not say why. Run the probe:
+1Click was reached but refused the request, and its message does not say why. (This is what a `.testnet` refund account used to cause, found with the probe below and now avoided by default. If you set `CROSS_CHAIN_SENDER` to a testnet name yourself, expect it again.) Run the probe:
 
 ```
 npm run crosschain:probe
@@ -87,5 +89,5 @@ It sends six price-only requests that each change one thing from the one before 
 
 - Quote, never fill. No intent is created and no swap happens.
 - Mainnet prices, testnet project: the quote is real market data about assets the project does not hold.
-- The `rhea` and `oneclick` providers were written against the published docs and the SDK's own type definitions. They are tested offline against fakes. See HANDOFF.md for the live run.
+- The `oneclick` provider is proven live (a price only, 2026-11-01; see HANDOFF.md). The `rhea` provider was written against the SDK's published type definitions and is tested offline against fakes only: it needs a `RHEA_API_KEY` from boss.rhea.finance and has not been run live.
 - Operator-side only. A future per-user layer ([`MULTIUSER_PLAN.md`](MULTIUSER_PLAN.md)) must never be able to reach this rail.

@@ -13,6 +13,7 @@
  */
 
 import "dotenv/config";
+import { refundAccount } from "../allocate/cross_chain.js";
 import { PROBE_BURN_RECIPIENT, runProbe, type ProbeInput } from "../allocate/crossChainProbe.js";
 import { implicitAccountId } from "../nearTx.js";
 import { capitalUnitYocto, fmtWnear, unitsToYocto } from "../swarmState.js";
@@ -20,8 +21,7 @@ import { capitalUnitYocto, fmtWnear, unitsToYocto } from "../swarmState.js";
 const fmtNear = (yocto: string) => `${fmtWnear(BigInt(yocto))} wNEAR`;
 
 async function main() {
-  const gov = (process.env.GOVERNOR_ACCOUNT_ID ?? "").trim();
-  const sender = (process.env.CROSS_CHAIN_SENDER ?? gov).trim();
+  const sender = refundAccount(process.env);
   if (!sender) throw new Error("set GOVERNOR_ACCOUNT_ID in .env (or CROSS_CHAIN_SENDER)");
   const recipient = (process.env.CROSS_CHAIN_RECIPIENT ?? "").trim() || PROBE_BURN_RECIPIENT;
   if (!/^0x[0-9a-fA-F]{40}$/.test(recipient)) throw new Error(`CROSS_CHAIN_RECIPIENT must be "0x" followed by 40 hex characters (0-9, a-f), for example 0x1234567890abcdef1234567890abcdef12345678. You gave: ${recipient}`);

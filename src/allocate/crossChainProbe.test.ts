@@ -68,6 +68,11 @@ describe("probe variants", () => {
     assert.deepEqual(k, ["A", "C", "F"]);
   });
 
+  it("skips the repeats B and D when the configured refund account already is the implicit one", () => {
+    const k = buildProbeVariants({ ...INPUT, sender: IMPLICIT }).map((v) => v.key);
+    assert.deepEqual(k, ["A", "C", "E", "F"]);
+  });
+
   it("skips the different-recipient variant when the recipient already is the burn address", () => {
     const k = buildProbeVariants({ ...INPUT, recipient: PROBE_BURN_RECIPIENT.toLowerCase() }).map((v) => v.key);
     assert.deepEqual(k, ["A", "B", "C", "D", "F"]);

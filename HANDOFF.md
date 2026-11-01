@@ -2,20 +2,32 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
-## 2026-11-01 — Phase 7 follow-up: first live 1Click call answered 400; probe tool and an auth-header fix
+## 2026-11-01 — Phase 7 follow-up: live 1Click quote PROVEN (price only); cause of the first 400 found with a probe, fixed
 
-First real `npm run crosschain:check` on the Windows machine: the provider reached 1Click (no key needed to reach it) and 1Click answered `400: Internal server error` for sub A, 100 units, with the memory commit `sha256:9bc88d03...` (tx `B7Npf7hhmH8E6Q72tRMp5rGUAbtYLe5kGbihD9FvuuoP`) correctly gating the attempt. **No quote yet.** The fail-closed path behaved as designed: "CROSS-CHAIN quote unavailable ... (nothing was sent)", exit code 1.
+First real `npm run crosschain:check` on the Windows machine reached 1Click and got `400: Internal server error` (sub A, 100 units, gated by memory commit `sha256:9bc88d03...`). The fail-closed path behaved as designed: "quote unavailable ... (nothing was sent)", exit code 1.
+
+**Cause, found with `npm run crosschain:probe`:** 1Click refuses a `.testnet` refund account. Variants A and C (refund `mnemosyne-gov.testnet`) failed with that 400 at both 0.001 and 0.1 wNEAR; B and D (refund = the governor key's implicit account, `0aee9268ab...2b1f7a`) quoted at both amounts; the docs' own wNEAR to ARB control quoted; 1Click's token list (210 tokens) holds both our ids, including `nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near` as USDC on Base. The recipient was accepted; the burn address I tried as a different recipient was refused ("recipient is not valid"), which is irrelevant to the rail. So the amount was never the problem.
+
+**Fix:** the refund label now defaults to the governor key's own implicit account (`refundAccount()` in `src/allocate/cross_chain.ts`; `CROSS_CHAIN_SENDER` still overrides, falling back to `GOVERNOR_ACCOUNT_ID` only with no usable key). It is only a label while nothing executes.
+
+**Live proof (2026-11-01, `CROSS_CHAIN_SENDER` set to that account, then `npm run crosschain:check`):**
+- provider `oneclick`, sub A, 100 units, destination Base USDC, recipient `0x1234567890abcdef1234567890abcdef12345678` (placeholder-shaped: fine for a price, and nothing is sent to it)
+- `CROSS-CHAIN QUOTE via near-intents: 0.00100 wNEAR -> about 0.001989 USDC on Base (at least 0.001979)`
+- quote id `5390e7af-7921-45a0-bc6d-8601974d99ad`, local `quote_ref` `342df4cbbd4751fa`
+- allowed by memory commit `sha256:9bc88d03d09cda8fd7b6f32c8258cbecddf119ebf2c521451173b0a857143f6e`, tx [`B7Npf7hh...`](https://testnet.nearblocks.io/txns/B7Npf7hhmH8E6Q72tRMp5rGUAbtYLe5kGbihD9FvuuoP)
+- `QUOTE OK`. A quote is a price, not a fill: nothing was sent, signed or deposited; the networks quoted are mainnet.
+- The tiny amount prices poorly (about 2 USDC per NEAR vs about 4.4 at 0.1 wNEAR the same day): fixed costs weigh on a tiny amount. Valid price, bad guide to a larger one.
 
 - **`npm run crosschain:probe`** (`src/allocate/crossChainProbe.ts`, `src/tools/crossChainProbe.ts`): price-only diagnostic. Checks 1Click's `GET /v0/tokens` for `nep141:wrap.near` and our Base USDC id (and lists the real Base USDC ids if ours is missing), then sends six dry requests that each change one thing: A your exact config, B a mainnet-style refund account (the governor key's implicit account, 64 hex characters) instead of `mnemosyne-gov.testnet`, C 0.1 wNEAR instead of 0.001, D both, E a different recipient, F a control using the 1Click docs' own wNEAR to ARB pair. It prints each answer and what to set. Not an allocation: reads no memory record, never called by the cycle, logs nothing as a quote.
 - **Bug fixed:** the optional 1Click token was sent as `x-api-key`; the docs show `Authorization: Bearer <JWT>`. It is now `ONECLICK_JWT` (the old `ONECLICK_API_KEY` name still works as an alias). It did not affect the 400, since no token was set.
 - **Clearer recipient error:** a non-address now says it must be `0x` plus 40 hex characters and shows what was given. Doc and `.env.example` placeholders replaced with a real-shaped example.
 - `implicitAccountId()` in `src/nearTx.ts` (hex of the key's 32-byte public key).
-- 21 new tests (154 total), all offline.
-- **Open:** run the probe on the Windows machine, apply what it says, get one live quote, then record the quote id here. Causes still untested: refund account format, amount too small, Base USDC asset id, a transient fault on 1Click's side.
+- `refundAccount()` default and 3 more tests; 21 earlier new tests in this follow-up. 157 total, all offline.
+- **Still open:** a full `npm run cycle` with `CROSS_CHAIN_ALLOCATE=1` (so the quote lands in the run log and dashboard), and the `rhea` provider live (needs `RHEA_API_KEY` from boss.rhea.finance).
 
 ---
 
-## 2026-11-01 — Phase 7: cross-chain allocation via Rhea / NEAR Intents (QUOTE ONLY; built, offline-tested, LIVE QUOTE PENDING)
+## 2026-11-01 — Phase 7: cross-chain allocation via Rhea / NEAR Intents (QUOTE ONLY; built, offline-tested; live 1Click quote proven, see the follow-up entry above)
 
 Full description: `docs/CROSS_CHAIN.md`. Off by default (`CROSS_CHAIN_ALLOCATE=1`). The order is unchanged: READ, DECIDE (TEE), MEMORY COMMIT, ALLOCATE, SUB WINDOW; if the commit fails nothing in ALLOCATE runs.
 
@@ -24,7 +36,7 @@ Full description: `docs/CROSS_CHAIN.md`. Off by default (`CROSS_CHAIN_ALLOCATE=1
 - **Logging**: each quote carries the decision hash, the memory tx link, the provider's quote id (Rhea `quote.id` / 1Click `correlationId`) and a local `quote_ref`. It is stored in the cycle's run log (`cross_chain`) and as an ALLOCATE entry (`kind: "quote"`); the dashboard shows it with a link to the memory commit.
 - **`npm run crosschain:check`**: quote for the newest committed record without a whole cycle, no private key needed.
 - 31 new tests (133 total), including "allocate without memory is rejected", the tampered record, every envelope refusal, the refusal to execute, and both providers' request and answer shapes. A real cycle with the step on and no governor key fails closed at the commit with no allocation.
-- **Not yet proven live** (the sandbox cannot reach either API). On the Windows machine: `npm install`, `set CROSS_CHAIN_RECIPIENT=0x<a Base address you own>`, `npm run crosschain:check`, then a cycle with `set CROSS_CHAIN_ALLOCATE=1`. If it answers "amount too low", see the note in `docs/CROSS_CHAIN.md`. Record the memory tx and quote id here.
+- **Proven live for 1Click** (price only, see the follow-up entry above). Not yet run live: the `rhea` provider, and a full cycle with the step on.
 - Dependency added: `@rhea-finance/cross-chain-aggregation-dex` 2.1.9 (MIT, one dependency `zod`, published 2026-10-14, no install scripts), pinned exactly.
 - **Next, planned (not started): the per-user NEAR-login layer.** See `docs/MULTIUSER_PLAN.md`. Rule: login is identity plus personal policy, never root. Phase 7 is operator-side and must stay unreachable from it.
 

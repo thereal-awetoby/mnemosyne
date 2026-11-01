@@ -27,6 +27,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { implicitAccountId } from "../nearTx.js";
 import { SUB_AGENTS } from "../subAgents.js";
 import { capitalUnitYocto, fmtWnear, unitsToYocto } from "../swarmState.js";
 import type { SubAction, SubId } from "../types.js";
@@ -88,6 +89,24 @@ function intEnv(env: NodeJS.ProcessEnv, name: string, fallback: number, min: num
   return n;
 }
 
+/**
+ * The origin-side account named on a price request as the refund address.
+ * 1Click answers "400: Internal server error" to a .testnet name (found with
+ * crosschain:probe), so unless CROSS_CHAIN_SENDER says otherwise this is the
+ * governor key's own implicit account: 64 hex characters, a valid mainnet-style
+ * account that whoever holds the key controls. It is only a label while nothing
+ * executes. Falls back to GOVERNOR_ACCOUNT_ID if there is no usable key.
+ */
+export function refundAccount(env: NodeJS.ProcessEnv = process.env): string {
+  const explicit = (env.CROSS_CHAIN_SENDER ?? "").trim();
+  if (explicit) return explicit;
+  const key = (env.GOVERNOR_PRIVATE_KEY ?? "").trim();
+  if (key) {
+    try { return implicitAccountId(key); } catch { /* an unusable key falls through to the account name */ }
+  }
+  return (env.GOVERNOR_ACCOUNT_ID ?? "").trim();
+}
+
 export function loadCrossChainConfig(env: NodeJS.ProcessEnv = process.env): CrossChainConfig {
   const wanted = (env.CROSS_CHAIN_PROVIDER ?? "").trim().toLowerCase();
   const provider = wanted === "" ? (env.RHEA_API_KEY ? "rhea" : "oneclick") : wanted;
@@ -101,7 +120,7 @@ export function loadCrossChainConfig(env: NodeJS.ProcessEnv = process.env): Cros
     sub: sub as SubId,
     dest: (env.CROSS_CHAIN_DEST ?? "base:USDC").trim(),
     recipient: (env.CROSS_CHAIN_RECIPIENT ?? "").trim() || null,
-    sender: (env.CROSS_CHAIN_SENDER ?? env.GOVERNOR_ACCOUNT_ID ?? "").trim(),
+    sender: refundAccount(env),
     units: intEnv(env, "CROSS_CHAIN_UNITS", 100, 1, HARD_MAX_UNITS),
     maxUnits: intEnv(env, "CROSS_CHAIN_MAX_UNITS", 100, 0, HARD_MAX_UNITS),
     slippageBps: intEnv(env, "CROSS_CHAIN_SLIPPAGE_BPS", 50, 1, 300),
