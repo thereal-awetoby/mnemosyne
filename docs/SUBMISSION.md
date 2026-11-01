@@ -14,7 +14,7 @@ Run `npm run server` with `ADMIN_TOKEN` set in `.env`, open `http://localhost:84
 | 4 | **Memory.** Show the chain and the gold HEAD tag. | "Each entry points at the one before it." | real |
 | 5 | **Sub-agents.** Show ACT / REFUSE and the report links. | "Each sub signs with a key that can only call report(). One refuses a directive over its ceiling, on-chain." | real txs |
 | 6 | **x402 checks.** Press Request check (402 and the price), then Pay & retry. | "Another agent pays per query and gets a citation and one line of advice, never the private detail." | the in-page payer is a labelled demo agent on the mock rail. For the real wNEAR payment run `npm run x402:demo:real` in a terminal and show its transaction link |
-| 7 | **Connect NEAR**, sign in, create the account, set Max queries to 1 or press Pause, then Request check. | "Login is identity, never root. My own limits stop the request before the server even quotes a price." | **check this live on your machine first**: it needs a browser wallet |
+| 7 | **Connect NEAR**, sign in, create the account, set Max queries to 1 or press Pause, then Request check. | "Login is identity, never root. My own limits stop the request before the server even quotes a price." | sign-in and sign-up proven live with a real wallet; try the pause once yourself before recording |
 | 8 | **Guardrails, Governor limits.** Show the owner's rails. | "A human sets the limits; every cycle writes the ones it used into its on-chain record." | real |
 
 Say plainly at the end: it does not trade (losses are a labelled simulation), cross-chain is a price quote only, everything is testnet.
@@ -67,10 +67,10 @@ All on NEAR testnet, from `HANDOFF.md`:
 - [ ] `git ls-files` shows no `.env`, no key files and no `data/runtime` (the repo must hold no keys or secrets).
 - [ ] `npm test` and `npm run typecheck` pass on the machine you will record on.
 - [ ] The README's "Run it" and "Try the x402 memory API" sections work from a fresh clone (do X, see Y).
-- [ ] You ran step 7 (wallet sign-in) at least once for real. If it does not work, cut step 7 from the video and the login sentences from the idea text.
+- [ ] You ran the pause or Max queries part of step 7 once for real (sign-in and sign-up already worked). If it does not behave, cut that part from the video.
 - [ ] The repository is public, the X post is up, and the post link is in `demoUrl`.
 - [ ] One submission per team. Read the form once more before sending.
 
 ## What is and is not live
 
-Proven live on testnet: private decisions in the TEE, the fail-closed memory commit, report-only sub-agents, x402 payments in wNEAR, real balances and tiny top-ups, owner limits, and the 1Click price quote. Built and tested offline, not live: the Rhea quote provider (tried live without a key on 2026-11-01 and Rhea refused it, so it needs a key from Rhea's portal, which could not be obtained; 1Click covers the same step) and the wallet sign-in against a real wallet.
+Proven live on testnet: private decisions in the TEE, the fail-closed memory commit, report-only sub-agents, x402 payments in wNEAR, real balances and tiny top-ups, owner limits, the 1Click price quote, wallet sign-in and sign-up, and running a full cycle from the desk (13:45 UTC, memory commit `BRKrneuo...`). Built and tested offline, not live: the Rhea quote provider (tried live without a key on 2026-11-01 and Rhea refused it, so it needs a key from Rhea's portal, which could not be obtained; 1Click covers the same step) and the wallet sign-in against a real wallet.

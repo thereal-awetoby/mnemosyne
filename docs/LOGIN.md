@@ -51,7 +51,7 @@ npm run server
 # open http://localhost:8402/login
 ```
 
-Not testable without a real wallet in a browser: the wallet list itself (it comes from the connector's manifest on GitHub). The server side is covered by tests that sign real NEP-413 challenges with ed25519 keys.
+Proven live on 2026-11-01 (Windows machine): sign-in and sign-up with a real NEAR wallet, then Run cycle from the desk. The server side is also covered by tests that sign real NEP-413 challenges with ed25519 keys. Not yet reported live: personal guardrails (pause, caps) on a real signed-in account.
 
 ## Not built
 

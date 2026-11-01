@@ -612,7 +612,7 @@ function renderSpine(d) {
     ["Read", `${run?.swarm_source === "onchain" ? "real wNEAR balances" : "simulated swarm"} · prev memory ${r.prev_memory_hash ? head(bare(r.prev_memory_hash), 10) : "none (first cycle)"}`, "done", "ok"],
     ["Decide · private", isTee(r) ? `NEAR AI Cloud TEE${r.private_commitment ? ` · commitment ${head(r.private_commitment, 17)}` : ""}` : r.decision_path === "local-policy" ? "fixed local rule, labelled as such on-chain" : "stub logic (before private decisions)", isTee(r) ? "tee" : "local", isTee(r) ? "ok" : "warn"],
     ["Memory commit", committed === false ? `FAIL-CLOSED · ${run.error || "commit failed"}` : "on-chain · chained to prev · required gate", committed === false ? "failed" : committed == null ? "unknown" : "committed", committed === false ? "bad" : committed ? "ok" : ""],
-    ["Allocate", `${real ? `${moved} wNEAR transfer${moved === 1 ? "" : "s"}, tiny amounts` : "print-only, no real transfers"}${quoted ? " · cross-chain price quote" : ""}`, real ? "transfers" : quoted ? "quoted" : "simulated", real || quoted ? "ok" : "warn"],
+    ["Allocate", `${real ? `${moved} wNEAR transfer${moved === 1 ? "" : "s"}, tiny amounts` : "print-only, no real transfers"}${quoted ? " · cross-chain price quote" : ""}`, moved ? "transfers" : quoted ? "quoted" : real ? "no top-ups" : "simulated", real || quoted ? "ok" : "warn"],
     ["Sub window", `${reported} reported on-chain · report-only function-call keys`, "reported", reported ? "ok" : "warn"],
     ["Publish", "public record, private reasoning stays local", "done", "ok"],
   ];
@@ -1274,6 +1274,7 @@ async function runCycleNow() {
   const token = $("cycTok").value;
   if (!token) return flash("err", "Enter the admin token to run a cycle.");
   cycleBusy = true;
+  const endBusy = () => { cycleBusy = false; $("btnCycle").disabled = false; $("btnCycle").textContent = "Run cycle"; $("cycGo").disabled = false; };
   $("btnCycle").disabled = true; $("btnCycle").textContent = "Running…"; $("cycGo").disabled = true;
   flash("", "Cycle running: private decision in the TEE, memory commit on NEAR, then the sub-agents report. This can take a minute or two.");
   try {
@@ -1285,6 +1286,7 @@ async function runCycleNow() {
         ? `Cycle ${cycleLabel(r.cycle_id)} committed to NEAR (${head(bare(r.decision_hash), 12)}).`
         : `Cycle ${cycleLabel(r.cycle_id)} did not commit, so nothing moved. See Audit.`);
       addFeed(r.committed ? "Cycle committed" : "Cycle stopped at commit", head(bare(r.decision_hash), 12));
+      endBusy();                // the cycle is over; re-reading the chain below can take a few seconds
       await load();
     } else {
       flash("err", `The cycle did not run: ${explainAdminError(res).join(" ")}`);
@@ -1292,8 +1294,7 @@ async function runCycleNow() {
   } catch (err) {
     flash("err", `Couldn't reach the server: ${err.message}`);
   } finally {
-    cycleBusy = false;
-    $("btnCycle").disabled = false; $("btnCycle").textContent = "Run cycle"; $("cycGo").disabled = false;
+    endBusy();
   }
 }
 
