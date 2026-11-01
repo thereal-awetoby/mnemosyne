@@ -2,6 +2,22 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-01 — NEAR wallet login and sign-up, and the new desk UI
+
+**Login (`docs/LOGIN.md`).** `/login` signs in or signs up with a NEAR wallet. NEP-413 challenge (one-time, 5 minutes), ed25519 verification, the key must be a FullAccess key of the account (RPC `view_access_key`; implicit accounts offline), `HttpOnly` `SameSite=Strict` cookie `mn_session` (7 days, only the SHA-256 stored). After the first login a person confirms "login is not root" and creates a profile with default guardrails: pause switch, max queries per day (0 to 1000, default 50), max spend per day (0 to 1 NEAR, default 0.05). Enforced before the 402 for a signed-in browser session (403 / 429) and for the verified payer after `verify`, before settle (so an agent's own account limits work too). `GET /me`, `GET /me/receipts` (filtered by payer), `PUT /me`, `PUT /me/guardrails`, `DELETE /me`. Wallet connector `@hot-labs/near-connect` 0.12.0 bundled with esbuild into `web/vendor/near-connect.js` (`npm run build:wallet`), served by this server, no CDN. `/login` has its own relaxed CSP; `/dashboard` keeps the strict one. `LOGIN=0` switches it off.
+- **Login is never root**, enforced by tests: nothing under `src/auth` may import the cycle, allocation, memory, limits or sub-agent modules or mention the operator secrets; an admin route with a valid session cookie still answers 401; cross-site writes are refused; rate limits per IP and per account.
+- New `src/http.ts` (shared body reader and responder), `src/auth/{nep413,accounts,rateLimit,service,http}.ts`, `web/login.html`, `scripts/build-wallet.mjs`.
+- **Not testable offline:** the real wallet list and signing (it needs a browser wallet and the connector's manifest from GitHub). The server side is tested with real ed25519 NEP-413 signatures; the page was driven in Chromium with a real signed session. **First live check on the Windows machine:** `npm run server`, open `http://localhost:8402/login`, pick a wallet, sign, create the account.
+
+**New desk UI (`web/dashboard.html`, replaces the old page; one file, system fonts, strict CSP unchanged).** Built from `mnemosyne-desk-ui.html` and wired to live data. Views by hash: Desk (cards, stats, the 6-step cycle spine, sub-agent table), Memory (chain with HEAD and ticks, latest decision and its TEE checks), Sub-agents (real balances, report txs, key badges), x402 checks, Guardrails, Audit (the cycle log for any recorded cycle). Right rail: activity feed and personal guardrails. Every old feature is kept.
+- **Run cycle** calls `POST /cycle/run` and needs the typed `ADMIN_TOKEN` (held only in the tab's memory). A session never authorizes it. It can take a minute or two.
+- **Governor limits** (owner editor) unchanged in behaviour: `PUT /limits`, `POST /limits/reset` with the admin token.
+- **x402 box:** "Request check" is a real unpaid `POST /memory/check` and shows the 402 terms. "Pay & retry" on the **mock rail** is a clearly labelled demo agent with a throwaway Ed25519 key in the tab (WebCrypto), which only pays what the server quoted, never above the listed price. On the **real rail** it explains that a tab holds no wNEAR and points to `npm run x402:demo:real`. A browser wallet paying x402 directly is not built (see `docs/LOGIN.md`).
+- Checked in Chromium at 1280 and 390 wide: no sideways scroll, no script errors. Driven end to end against a running server: unpaid 402, paid retry on the mock rail, wrong and right admin tokens, limits save and reset, sign-up with a real signed session, personal guardrails, pause blocking before the 402, sign-out.
+- 35 new tests (194 total).
+
+---
+
 ## 2026-11-01 — Phase 7 follow-up: live 1Click quote PROVEN (price only); cause of the first 400 found with a probe, fixed
 
 First real `npm run crosschain:check` on the Windows machine reached 1Click and got `400: Internal server error` (sub A, 100 units, gated by memory commit `sha256:9bc88d03...`). The fail-closed path behaved as designed: "quote unavailable ... (nothing was sent)", exit code 1.

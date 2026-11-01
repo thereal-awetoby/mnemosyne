@@ -13,6 +13,7 @@
  *   GET  /limits                 free   the owner's risk limits + their hard bounds
  *   PUT  /limits                 admin  change limits (validated; applies from the next cycle)
  *   POST /limits/reset           admin  back to the built-in defaults
+ *   GET  /login, /me, ...        session  NEAR wallet login, sign-up, personal guardrails (src/auth/http.ts)
  *
  * x402 flow for /memory/check:
  *   no PAYMENT-SIGNATURE  -> 402 + PAYMENT-REQUIRED (price, payTo, network)
@@ -25,6 +26,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { join } from "node:path";
+import { HttpError, readJson, send } from "../http.js";
+import { createAuthRoutes, type AuthRoutes } from "../auth/http.js";
+import { AuthService } from "../auth/service.js";
 import { JsonStore } from "./jsonStore.js";
 import { MemoryStore, MAX_QUERY_CHARS, type CheckResult } from "./memoryStore.js";
 import { b64json, canonicalJson, fromB64json, sha256Hex } from "./crypto.js";
@@ -64,6 +68,14 @@ export interface ServerConfig {
   dashboardData?: () => Promise<Record<string, unknown>>;
   /** Static files under /dashboard/fonts/<name> (woff2 only). */
   dashboardFonts?: Record<string, Buffer>;
+  /** Per-user NEAR login, sign-up and personal guardrails (src/auth). Off unless configured. */
+  auth?: {
+    rpcUrl: string;
+    loginHtml?: string;
+    loginScript?: Buffer;
+    /** tests only */
+    fetch?: typeof fetch;
+  };
   /** The owner's risk limits (src/limits). Reads are public, writes need the admin token. */
   limits?: {
     get: () => unknown;
@@ -93,41 +105,7 @@ export interface Receipt {
   citation_id: string | null;
 }
 
-const MAX_BODY_BYTES = 16 * 1024;
 const RECEIPT_ID = /^R-[0-9a-f]{24}$/;
-
-class HttpError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
-
-async function readJson(req: IncomingMessage): Promise<any> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const chunk of req) {
-    size += (chunk as Buffer).length;
-    if (size > MAX_BODY_BYTES) throw new HttpError(413, "body too large");
-    chunks.push(chunk as Buffer);
-  }
-  if (size === 0) return {};
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  } catch {
-    throw new HttpError(400, "body must be JSON");
-  }
-}
-
-function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
-  const text = JSON.stringify(body, null, 2);
-  res.writeHead(status, {
-    "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
-    "access-control-expose-headers": "PAYMENT-REQUIRED, PAYMENT-RESPONSE",
-    ...headers,
-  });
-  res.end(text);
-}
 
 function tokenOk(given: string | undefined, expected: string | undefined): boolean {
   if (!expected || !given) return false;
@@ -180,6 +158,30 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     rail = createMockRail(cfg.facilitator, mockRequirements, cfg.mockSettlement);
   }
   const requirements: WireRequirements = rail.requirements;
+
+  // Per-user login, sign-up and guardrails. Identity and personal policy only; see src/auth/service.ts.
+  let auth: AuthRoutes | undefined;
+  if (cfg.auth) {
+    const service = new AuthService({
+      dataDir: cfg.dataDir,
+      rpcUrl: cfg.auth.rpcUrl,
+      fetch: cfg.auth.fetch,
+      paidChecks: (payer) => Object.values(receipts.get().receipts).filter((r) => r.payer === payer).map((r) => ({ at: r.created_at, amount: r.amount })),
+    });
+    auth = createAuthRoutes({
+      service,
+      publicUrl: cfg.publicUrl,
+      price: () => BigInt(requirements.amount),
+      loginHtml: cfg.auth.loginHtml,
+      loginScript: cfg.auth.loginScript,
+      receiptsFor: (payer, limit) =>
+        Object.values(receipts.get().receipts)
+          .filter((r) => r.payer === payer)
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))
+          .slice(0, limit)
+          .map((r) => ({ receipt_id: r.receipt_id, at: r.created_at, amount: r.amount, match: r.match, citation_id: r.citation_id, settlement: r.settlement, explorer: r.explorer ?? null, mock: r.mock })),
+    });
+  }
   const isMock = rail.mock;
   const adminFailures: number[] = [];
 
@@ -201,6 +203,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
 
   async function handleCheck(req: IncomingMessage, res: ServerResponse) {
     const checkUrl = checkUrlFor(req);
+    auth?.guardSession(req); // a paused or capped signed-in browser gets 403/429 before any 402
     const body = await readJson(req);
     const query = body?.query;
     if (typeof query !== "string" || query.trim().length === 0) throw new HttpError(400, 'body must be {"query": "<text>"}');
@@ -222,6 +225,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     if (!v?.isValid) return require402(res, v?.invalidReason ?? "invalid_payment", checkUrl);
     if (typeof v.payer !== "string" || v.payer.length === 0) throw new HttpError(502, "invalid facilitator verification");
     const verifiedPayer = v.payer;
+    auth?.guardPayer(verifiedPayer); // the paying account's own limits, before anything is settled
 
     // Compute, then settle, then release. If settlement fails, the payer
     // gets nothing and isn't charged.
@@ -278,6 +282,8 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       const given = auth.startsWith("Bearer ") ? auth.slice(7) : undefined;
       if (!tokenOk(given, cfg.adminToken)) { adminFailures.push(now); throw new HttpError(401, "admin token required"); }
     };
+
+    if (auth && (await auth.handle(req, res, path, method))) return;
 
     if (method === "GET" && path === "/" && cfg.dashboardHtml && String(req.headers.accept ?? "").includes("text/html")) {
       res.writeHead(302, { location: "/dashboard" });
@@ -337,6 +343,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
           "POST /cycle/run": "admin",
           ...(cfg.dashboardHtml ? { "GET /dashboard": "free -- read-only dashboard", "GET /dashboard.json": "free" } : {}),
           ...(cfg.limits ? { "GET /limits": "free", "PUT /limits": "admin", "POST /limits/reset": "admin" } : {}),
+          ...(auth ? { "GET /login": "sign in / sign up with a NEAR wallet", "GET /me": "session", "PUT /me/guardrails": "session", "GET /me/receipts": "session" } : {}),
         },
       });
     }

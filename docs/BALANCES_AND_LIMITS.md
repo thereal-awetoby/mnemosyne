@@ -45,7 +45,7 @@ npm run rail:check -- --sub B --units 5    up to 100 units, sub A or B
 
 Sends a tiny real `ft_transfer` from the governor with the same code and memo format as a cycle. It is a check, not a governor decision, and a cycle never calls it. The rule stays: **no memory, no money.** It refuses unless the newest memory commit on-chain matches a record on this machine that still recomputes to its own `decision_hash` and sits inside its own limits. The memo is that hash's first 12 characters, so the transfer can be matched to the commit that allowed it. It then prints the transaction, whether the token echoed the memo in its own transfer log, and the sub's balance before and after.
 
-## 3. Your limits (`PUT /limits`, the dashboard's "Your Limits" panel)
+## 3. Your limits (`PUT /limits`, the dashboard's "Governor limits" panel under Guardrails)
 
 The owner controls the *rails* the governor works inside: total exposure, per-sub ceiling, daily loss, the loss that pauses a sub, growth per cycle, and the max-position / max-loss shares. They are stored in `data/runtime/limits.json`, read by every cycle, used by the policy guard, and **written into the public memory record** (`swarm_risk`), so the limits that applied to a decision are on-chain with it.
 

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Mnemosyne · Sign in</title>
+<style>
+:root {
+  --bg: #0c0c0c; --panel: #141414; --panel-2: #1a1a1a; --line: #2a2a2a; --line-soft: #222;
+  --text: #e8e8e6; --muted: #8a8a86; --dim: #5c5c58;
+  --ok: #6f9f7a; --warn: #c4a35a; --bad: #c45c4a; --accent: #d4d0c8;
+  --mono: "SF Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; }
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 16px 28px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-size: 15px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.brand span { color: var(--muted); font-size: 12px; }
+.top a { color: var(--muted); font-size: 12px; text-decoration: none; border-bottom: 1px solid var(--line); }
+.top a:hover { color: var(--text); }
+main { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding: 48px 16px 40px; }
+.card { width: 100%; max-width: 440px; background: var(--panel); border: 1px solid var(--line); }
+.card-h { padding: 14px 20px; border-bottom: 1px solid var(--line-soft); font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.card-b { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+h2 { font-size: 20px; font-weight: 500; letter-spacing: -.01em; }
+p { color: var(--muted); font-size: 13px; }
+p.small, .small { font-size: 12px; color: var(--dim); }
+label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 6px; }
+input[type=text] { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); padding: 9px 10px; font-size: 14px; font-family: inherit; width: 100%; }
+input[type=text]:focus { outline: none; border-color: #555; }
+.btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); padding: 10px 14px; font-size: 13px; cursor: pointer; font-family: inherit; width: 100%; }
+.btn:hover:not(:disabled) { border-color: #555; }
+.btn.primary { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.link { background: none; border: none; color: var(--muted); padding: 4px 0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; width: auto; align-self: flex-start; }
+.btn.link:hover { color: var(--text); }
+.acct { font-family: var(--mono); font-size: 13px; color: var(--text); word-break: break-all; padding: 10px; background: var(--panel-2); border: 1px solid var(--line); }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); cursor: pointer; text-transform: none; letter-spacing: 0; margin: 0; }
+.check input { margin-top: 3px; accent-color: var(--accent); flex: none; }
+.rule { height: 1px; background: var(--line-soft); }
+.steps { list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--muted); }
+.steps li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; }
+.steps b { font-family: var(--mono); font-weight: 400; color: var(--dim); }
+.msg { font-size: 12px; padding: 10px 12px; border: 1px solid var(--line); color: var(--muted); }
+.msg.err { color: var(--bad); border-color: #3a2a28; }
+.msg.good { color: var(--ok); border-color: #2a3a2c; }
+.msg[hidden] { display: none; }
+[hidden] { display: none !important; }
+code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+@media (max-width: 560px) { .top { padding: 14px 16px; } main { padding-top: 24px; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><h1>Mnemosyne</h1><span>governor · testnet</span></div>
+  <a href="/dashboard">← Back to the desk</a>
+</header>
+
+<main>
+  <div class="card">
+    <div class="card-h" id="cardTitle">Sign in or create an account</div>
+    <div class="card-b">
+
+      <!-- 1. connect -->
+      <section id="viewConnect" class="card-b" style="padding:0">
+        <h2>Use your NEAR wallet</h2>
+        <p>One button for both. If this is your first time, you will be asked to create your account in the next step.</p>
+        <button class="btn primary" id="btnConnect" type="button">Continue with NEAR wallet</button>
+        <div class="msg" id="status" role="status" hidden></div>
+        <div class="rule"></div>
+        <ul class="steps">
+          <li><b>1</b><span>Pick a wallet from the list. No wallet yet? Choose one there and create a testnet account in it, then come back to this page.</span></li>
+          <li><b>2</b><span>You sign a short message. It is not a transaction, costs nothing, and moves no funds.</span></li>
+          <li><b>3</b><span>Signing in gives you your own settings only: personal limits for paid memory checks. It never gives access to the governor, its keys, or any capital.</span></li>
+        </ul>
+        <p class="small">Testnet only. The wallet connector is served from this site, not a third-party host.</p>
+      </section>
+
+      <!-- 2. sign up -->
+      <section id="viewSignup" class="card-b" style="padding:0" hidden>
+        <h2>Create your account</h2>
+        <div>
+          <label>Signed in as</label>
+          <div class="acct" id="signupAcct"></div>
+        </div>
+        <div>
+          <label for="displayName">Display name (optional)</label>
+          <input type="text" id="displayName" maxlength="32" autocomplete="nickname" placeholder="2 to 32 letters, numbers, spaces">
+        </div>
+        <label class="check" for="accept">
+          <input type="checkbox" id="accept">
+          <span>I understand that this login only gives me my own settings. It never gives access to the governor, its keys or any capital, and the memory gate stays mandatory.</span>
+        </label>
+        <p class="small">You start with the default limits: 50 queries a day, 0.05 NEAR a day. You can lower or raise them on the desk, inside the protocol's hard maximums.</p>
+        <button class="btn primary" id="btnSignup" type="button" disabled>Create account</button>
+        <div class="msg" id="signupMsg" role="status" hidden></div>
+        <button class="btn link" id="btnOther" type="button">Use a different account</button>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="/login/near-connect.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+function say(el, kind, text) {
+  el.hidden = !text;
+  el.className = "msg" + (kind ? " " + kind : "");
+  el.textContent = text || "";
+}
+const setStatus = (kind, text) => say($("status"), kind, text);
+
+function bytesFromB64(b64) {
+  const s = atob(b64), out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
+}
+
+async function call(method, path, body) {
+  const r = await fetch(path, {
+    method, cache: "no-store", credentials: "same-origin",
+    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  let j = null; try { j = await r.json(); } catch {}
+  return { ok: r.ok, status: r.status, body: j };
+}
+const errText = (res) =>
+  (Array.isArray(res.body?.errors) && res.body.errors.join(" ")) || res.body?.error || `The server answered ${res.status}.`;
+
+function show(view) {
+  $("viewConnect").hidden = view !== "connect";
+  $("viewSignup").hidden = view !== "signup";
+  $("cardTitle").textContent = view === "signup" ? "Create your account" : "Sign in or create an account";
+}
+
+function showSignup(account) {
+  $("signupAcct").textContent = account;
+  show("signup");
+  $("displayName").focus();
+}
+
+/* ---- sign in ---- */
+let connector = null;
+let wallet = null;
+
+async function signIn() {
+  const btn = $("btnConnect");
+  btn.disabled = true;
+  setStatus("", "Opening the wallet list…");
+  try {
+    if (typeof window.NearConnector !== "function") throw new Error("The wallet connector did not load. Reload this page, and check that nothing blocks scripts from this site.");
+    connector ||= new window.NearConnector({ network: "testnet", features: { signMessage: true, testnet: true } });
+
+    try { wallet = await connector.connect(); }
+    catch (e) { throw new Error("The wallet was closed before it connected. Try again when you are ready."); }
+    if (!wallet) throw new Error("No wallet was chosen.");
+
+    setStatus("", "Getting a one-time message to sign…");
+    const ch = await call("POST", "/auth/challenge", {});
+    if (!ch.ok) throw new Error(errText(ch));
+
+    setStatus("", "Approve the signature in your wallet. It is not a transaction and it costs nothing.");
+    let signed;
+    try {
+      signed = await wallet.signMessage({ message: ch.body.message, recipient: ch.body.recipient, nonce: bytesFromB64(ch.body.nonce) });
+    } catch (e) { throw new Error("The signature was not approved, so nothing was sent. Try again if that was a mistake."); }
+    if (Array.isArray(signed)) signed = signed[0];
+    if (!signed || !signed.accountId || !signed.publicKey || !signed.signature) throw new Error("The wallet did not return a signature. Try another wallet.");
+
+    setStatus("", "Checking the signature…");
+    const v = await call("POST", "/auth/verify", {
+      account_id: signed.accountId, public_key: signed.publicKey, signature: signed.signature, nonce: ch.body.nonce,
+    });
+    if (!v.ok) throw new Error(errText(v));
+
+    setStatus("", null);
+    if (v.body.signed_up) return location.assign("/dashboard");
+    showSignup(v.body.account_id);
+  } catch (err) {
+    setStatus("err", err.message || String(err));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ---- sign up ---- */
+function syncSignupButton() { $("btnSignup").disabled = !$("accept").checked; }
+
+async function signUp() {
+  const btn = $("btnSignup");
+  btn.disabled = true;
+  say($("signupMsg"), "", "Creating your account…");
+  const name = $("displayName").value.trim();
+  const res = await call("POST", "/me/signup", { accepted: $("accept").checked, display_name: name || undefined });
+  if (res.ok || res.status === 409) return location.assign("/dashboard");   // 409: already has a profile
+  say($("signupMsg"), "err", errText(res));
+  syncSignupButton();
+}
+
+async function useOther() {
+  await call("POST", "/auth/logout", {});
+  try { if (connector && wallet) await connector.disconnect(wallet); } catch {}
+  wallet = null;
+  say($("signupMsg"), "", null);
+  show("connect");
+  setStatus("", null);
+}
+
+$("btnConnect").addEventListener("click", signIn);
+$("accept").addEventListener("change", syncSignupButton);
+$("btnSignup").addEventListener("click", signUp);
+$("btnOther").addEventListener("click", useOther);
+$("displayName").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("btnSignup").disabled) signUp(); });
+
+/* already signed in? skip ahead */
+(async () => {
+  try {
+    const me = await call("GET", "/me");
+    if (!me.ok) return;
+    if (me.body.signed_up) location.replace("/dashboard"); else showSignup(me.body.account_id);
+  } catch {}
+})();
+</script>
+</body>
+</html>

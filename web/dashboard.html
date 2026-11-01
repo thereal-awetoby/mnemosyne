@@ -1,796 +1,400 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="color-scheme" content="dark" />
-<meta name="theme-color" content="#1b1b1d" />
-<title>Mnemosyne — Governor Dashboard</title>
-<meta name="description" content="Live view of the Mnemosyne governor on NEAR testnet: memory chain, sealed decisions, sub-agents, the owner's risk limits and paid memory checks." />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Mnemosyne</title>
 <style>
-  /* Fonts ship with the repo (web/fonts, SIL Open Font License): no CDN, works offline. */
-  @font-face { font-family: "IBM Plex Sans"; src: url("/dashboard/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
-  @font-face { font-family: "IBM Plex Sans"; src: url("/dashboard/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-display: swap; }
-  @font-face { font-family: "IBM Plex Sans"; src: url("/dashboard/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-display: swap; }
-  @font-face { font-family: "IBM Plex Mono"; src: url("/dashboard/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
-  @font-face { font-family: "IBM Plex Mono"; src: url("/dashboard/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-display: swap; }
-  @font-face { font-family: "IBM Plex Mono"; src: url("/dashboard/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-display: swap; }
-
-  :root{
-    --bg:        #1b1b1d;
-    --panel:     #212123;
-    --panel-alt: #19191a;
-    --border:    #38383b;
-    --border-lo: #2a2a2c;
-    --text:      #e9e7e2;
-    --text-dim:  #9a9a96;
-    --text-faint:#6b6b68;
-    --accent:    #c9a227;
-    --accent-lo: #7d6a24;
-    --ok:        #5f9e6f;
-    --refuse:    #b8564f;
-    --radius:    3px;
-    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
-    --sans: 'IBM Plex Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
-  }
-
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 15px;
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-  .wrap {
-    max-width: 1040px;
-    margin: 0 auto;
-    padding: 0 24px 80px;
-  }
-
-  .ok { color: var(--ok); }
-  .refuse { color: var(--refuse); }
-  .faint { color: var(--text-faint); }
-  .dim { color: var(--text-dim); }
-
-  /* ---------- header ---------- */
-
-  header.topbar {
-    border-bottom: 1px solid var(--border);
-    padding: 28px 0 18px;
-    margin-bottom: 32px;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-
-  .brand h1 {
-    margin: 0;
-    font-size: 21px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-  }
-
-  .brand p {
-    margin: 4px 0 0;
-    font-size: 13px;
-    color: var(--text-dim);
-    font-family: var(--mono);
-  }
-
-  .topbar-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    font-family: var(--mono);
-    font-size: 11.5px;
-    letter-spacing: 0.03em;
-    color: var(--text-dim);
-    background: var(--panel);
-  }
-  a.badge:hover { text-decoration: none; border-color: var(--text-dim); }
-
-  .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--ok);
-  }
-  .dot.down { background: var(--refuse); }
-
-  /* ---------- section titles ---------- */
-
-  .section-title {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 14px;
-  }
-
-  .section-title h2 {
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin: 0;
-  }
-
-  .section-title span.note {
-    font-size: 11.5px;
-    color: var(--text-faint);
-    font-family: var(--mono);
-    text-align: right;
-  }
-
-  section { margin-bottom: 44px; }
-
-  /* ---------- panel ---------- */
-
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-  }
-
-  .panel-pad { padding: 20px; }
-
-  .tag {
-    font-family: var(--mono);
-    font-size: 10.5px;
-    letter-spacing: 0.08em;
-    color: var(--accent);
-    border: 1px solid var(--accent-lo);
-    border-radius: var(--radius);
-    padding: 2px 7px;
-    white-space: nowrap;
-  }
-
-  .problem {
-    margin: -12px 0 32px;
-    padding: 12px 16px;
-    border: 1px solid color-mix(in srgb, var(--refuse) 55%, transparent);
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--refuse) 9%, var(--panel));
-    color: var(--refuse);
-    font-size: 13.5px;
-  }
-
-  .empty { padding: 22px 20px; color: var(--text-dim); font-size: 13.5px; }
-  code {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--text);
-    background: var(--panel-alt);
-    border: 1px solid var(--border-lo);
-    border-radius: var(--radius);
-    padding: 1px 6px;
-  }
-
-  button.copy {
-    font: inherit;
-    color: inherit;
-    background: none;
-    border: 0;
-    padding: 0;
-    cursor: copy;
-    text-align: left;
-  }
-  button.copy:hover { color: var(--accent); }
-
-  /* ---------- overview strip ---------- */
-
-  .stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    margin-bottom: 44px;
-  }
-  .stats > div { padding: 16px 20px; }
-  .stats > div + div { border-left: 1px solid var(--border); }
-  .stats .k {
-    display: block;
-    font-family: var(--mono);
-    color: var(--text-faint);
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-  }
-  .stats .v {
-    font-family: var(--mono);
-    font-size: 22px;
-    font-weight: 500;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* ---------- memory chain / paid tables ---------- */
-
-  table.chain {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: var(--mono);
-    font-size: 12.5px;
-  }
-
-  table.chain th {
-    text-align: left;
-    font-family: var(--sans);
-    font-weight: 600;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-    padding: 0 16px 10px 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  table.chain td {
-    padding: 12px 16px 12px 0;
-    border-bottom: 1px solid var(--border-lo);
-    color: var(--text-dim);
-    vertical-align: top;
-    white-space: nowrap;
-  }
-
-  table.chain tr:last-child td { border-bottom: none; }
-  table.chain td.hash { color: var(--text); }
-  table.chain tr.head td.hash { color: var(--accent); }
-
-  .chain-footnote {
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 1px dashed var(--border);
-    font-size: 12.5px;
-    color: var(--text-dim);
-  }
-  .chain-footnote strong { color: var(--text); font-weight: 500; }
-  .chain-footnote p { margin: 0; }
-
-  /* the key to the chain table: gold hash, tick, dash */
-  .legend { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
-  .legend:empty { display: none; }
-  .legend li { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: baseline; }
-  .legend .sym { font-family: var(--mono); font-size: 12px; }
-  .head-tag {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 0 5px;
-    border: 1px solid var(--accent-lo);
-    border-radius: var(--radius);
-    font-family: var(--sans);
-    font-size: 9.5px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    line-height: 16px;
-    color: var(--accent);
-    vertical-align: 1px;
-  }
-
-  /* ---------- latest decision ---------- */
-
-  .decision {
-    display: grid;
-    grid-template-columns: 1.15fr 1fr;
-  }
-  .decision > div { padding: 20px; }
-  .decision > div + div { border-left: 1px solid var(--border); }
-
-  .sub-title {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-    margin: 0 0 12px;
-  }
-
-  dl.kv { margin: 0; font-family: var(--mono); font-size: 12px; }
-  dl.kv .r {
-    display: grid;
-    grid-template-columns: 9.5em minmax(0, 1fr);
-    gap: 14px;
-    padding: 9px 0;
-    border-bottom: 1px solid var(--border-lo);
-  }
-  dl.kv .r:first-child { padding-top: 0; }
-  dl.kv .r:last-child { border-bottom: 0; padding-bottom: 0; }
-  dl.kv dt {
-    color: var(--text-faint);
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding-top: 2px;
-  }
-  dl.kv dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
-
-  ul.checks { list-style: none; margin: 0; padding: 0; }
-  ul.checks li {
-    display: grid;
-    grid-template-columns: 18px minmax(0, 1fr);
-    gap: 8px;
-    padding: 9px 0;
-    border-bottom: 1px solid var(--border-lo);
-    font-size: 13px;
-  }
-  ul.checks li:first-child { padding-top: 0; }
-  ul.checks li:last-child { border-bottom: 0; padding-bottom: 0; }
-  ul.checks .m { font-family: var(--mono); font-weight: 600; }
-  ul.checks small { display: block; color: var(--text-faint); font-size: 12px; }
-
-  ol.steps {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    border-top: 1px solid var(--border);
-  }
-  ol.steps li { padding: 12px 16px; font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); }
-  ol.steps li + li { border-left: 1px solid var(--border-lo); }
-  ol.steps .n { display: block; color: var(--text-faint); font-size: 10.5px; letter-spacing: 0.04em; margin-bottom: 2px; }
-  ol.steps .s { display: block; color: var(--text-faint); font-size: 10.5px; margin-top: 2px; }
-  ol.steps li.done { color: var(--text); }
-  ol.steps li.done .n { color: var(--ok); }
-  ol.steps li.stop { color: var(--refuse); }
-  ol.steps li.stop .n { color: var(--refuse); }
-
-  /* ---------- swarm cards ---------- */
-
-  .swarm-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-  }
-
-  .sub-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    min-width: 0;
-  }
-
-  .sub-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .sub-id {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-  }
-
-  .status-pill {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.05em;
-    padding: 3px 8px;
-    border-radius: var(--radius);
-    border: 1px solid transparent;
-  }
-
-  .status-pill.act   { color: var(--ok);     border-color: color-mix(in srgb, var(--ok) 40%, transparent); background: color-mix(in srgb, var(--ok) 10%, transparent); }
-  .status-pill.refuse{ color: var(--refuse); border-color: color-mix(in srgb, var(--refuse) 40%, transparent); background: color-mix(in srgb, var(--refuse) 10%, transparent); }
-  .status-pill.idle  { color: var(--text-dim); border-color: var(--border); background: var(--panel-alt); }
-
-  .sub-mandate {
-    font-size: 12.5px;
-    color: var(--text-dim);
-    font-family: var(--mono);
-    overflow-wrap: anywhere;
-  }
-
-  .sub-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 14px;
-    font-family: var(--mono);
-    font-size: 12px;
-  }
-
-  .sub-stats div { min-width: 0; }
-  .sub-stats div span.k {
-    display: block;
-    color: var(--text-faint);
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    margin-bottom: 2px;
-  }
-  .sub-stats div span.v { color: var(--text); overflow-wrap: anywhere; }
-
-  .sub-reason {
-    font-size: 12px;
-    color: var(--text-dim);
-    border-top: 1px solid var(--border-lo);
-    padding-top: 12px;
-    overflow-wrap: anywhere;
-  }
-  .sub-reason b { color: var(--text); font-weight: 500; }
-  .sub-reason .tx { display: block; margin-top: 4px; font-family: var(--mono); font-size: 11.5px; }
-
-  .key-badge {
-    align-self: flex-start;
-    font-family: var(--mono);
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
-    padding: 3px 8px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-  }
-  .key-badge.scoped { color: var(--accent); border-color: var(--accent-lo); }
-  .key-badge.bad { color: var(--refuse); border-color: color-mix(in srgb, var(--refuse) 50%, transparent); }
-
-  .sub-keys {
-    margin-top: auto;
-    font-size: 11.5px;
-    color: var(--text-faint);
-    font-family: var(--mono);
-    overflow-wrap: anywhere;
-  }
-  .sub-keys a { font-family: var(--mono); }
-
-  /* ---------- log panel ---------- */
-
-  .log-box {
-    background: var(--panel-alt);
-    border-radius: var(--radius);
-    padding: 0 20px;
-    font-family: var(--mono);
-    font-size: 12.5px;
-    line-height: 1.75;
-    color: var(--text-dim);
-  }
-
-  /* one block per cycle step, a rule between them */
-  .log-step { padding: 16px 0; border-top: 1px solid var(--border); }
-  .log-step:first-child { border-top: 0; }
-
-  .log-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0 12px;
-    color: var(--text);
-  }
-  .log-head .n { color: var(--accent); font-weight: 500; }
-  .log-head .t { font-weight: 600; letter-spacing: 0.06em; }
-  .log-head .d { flex: 1 1 14ch; min-width: 0; color: var(--text-dim); overflow-wrap: anywhere; }
-  .log-head .st {
-    margin-left: auto;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ok);
-  }
-  .log-step.failed .st { color: var(--refuse); }
-  .log-step.skip .st, .log-step.unknown .st { color: var(--text-faint); }
-  .log-step.skip .log-head, .log-step.skip .log-head .d { color: var(--text-faint); }
-
-  .log-body { margin-top: 6px; padding-left: 14px; border-left: 1px solid var(--border); }
-
-  .log-box .ln { white-space: pre-wrap; overflow-wrap: anywhere; }
-  .log-box .ok     { color: var(--ok); }
-  .log-box .refuse { color: var(--refuse); }
-  .log-box .hi     { color: var(--text); }
-  .log-box .faint  { color: var(--text-faint); }
-
-  /* ---------- x402 panel ---------- */
-
-  .x402-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  .x402-copy p {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-dim);
-    max-width: 58ch;
-  }
-  .x402-copy p + p { margin-top: 6px; }
-  .x402-flow { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); }
-  .x402-flow b { color: var(--accent); font-weight: 600; margin-right: 6px; }
-
-  .x402-table { border-top: 1px solid var(--border); padding: 20px; }
-
-  /* ---------- swarm balance line ---------- */
-
-  .sub-balance {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 9px 12px;
-    background: var(--panel-alt);
-    border: 1px solid var(--border-lo);
-    border-radius: var(--radius);
-    font-family: var(--mono);
-    font-size: 12px;
-  }
-  .sub-balance .k { color: var(--text-faint); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; }
-  .sub-balance .v { color: var(--text); overflow-wrap: anywhere; }
-
-  /* ---------- your limits ---------- */
-
-  .limits-intro { margin: 0 0 6px; font-size: 13px; color: var(--text-dim); max-width: 74ch; }
-  .limits-intro + .limits-intro { margin-top: 0; color: var(--text-faint); font-size: 12.5px; }
-  .limits-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 36px; margin-top: 14px; }
-  .limit {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 3px 16px;
-    align-items: baseline;
-    padding: 14px 0;
-    border-top: 1px solid var(--border-lo);
-  }
-  .limit .name { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
-  .limit .val { font-family: var(--mono); font-size: 18px; font-weight: 500; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .limit .val small { font-size: 12px; font-weight: 400; color: var(--text-dim); margin-left: 4px; }
-  .limit .help { grid-column: 1 / -1; font-size: 12px; color: var(--text-faint); }
-  .limit .help .range { display: inline-block; margin-left: 8px; font-family: var(--mono); font-size: 11px; }
-  .limit.changed .val { color: var(--accent); }
-  .limit input, .token-row input {
-    font-family: var(--mono);
-    font-size: 15px;
-    color: var(--text);
-    background: var(--panel-alt);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 6px 8px;
-  }
-  .limit input { width: 10ch; text-align: right; }
-  .limit input[aria-invalid="true"] { border-color: var(--refuse); }
-  .limits-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px; padding-top: 18px; border-top: 1px solid var(--border); }
-  .token-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1 1 100%; font-size: 12.5px; color: var(--text-dim); margin-bottom: 4px; }
-  .token-row input { width: 24ch; max-width: 100%; }
-  .limits-msg { margin: 14px 0 0; font-size: 13px; }
-  .limits-msg.err { color: var(--refuse); }
-  .limits-msg.good { color: var(--ok); }
-  .limits-msg ul { margin: 4px 0 0; padding-left: 18px; }
-  .limits-hist { margin: 16px 0 0; padding: 12px 0 0; border-top: 1px dashed var(--border); list-style: none; font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); display: grid; gap: 4px; }
-  button.block-btn.primary { border-color: var(--accent-lo); color: var(--accent); }
-  button.block-btn.primary:hover { border-color: var(--accent); }
-
-  /* ---------- buttons: flat, no shine ---------- */
-
-  button.block-btn, a.block-btn {
-    display: inline-block;
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    color: var(--text);
-    background: var(--panel-alt);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 16px;
-    cursor: pointer;
-    transition: border-color 120ms ease, color 120ms ease;
-  }
-  a.block-btn:hover { text-decoration: none; }
-  button.block-btn:hover, a.block-btn:hover { border-color: var(--text-dim); }
-  button.block-btn:disabled { cursor: progress; color: var(--text-faint); opacity: 0.6; }
-  button.block-btn:disabled:hover { border-color: var(--border); }
-
-  /* ---------- footer ---------- */
-
-  footer {
-    border-top: 1px solid var(--border);
-    padding-top: 18px;
-    font-size: 12px;
-    color: var(--text-faint);
-    font-family: var(--mono);
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  /* ---------- fits every screen: nothing scrolls sideways ---------- */
-
-  @media (max-width: 900px) {
-    .swarm-grid { grid-template-columns: 1fr; }
-    .limits-grid { grid-template-columns: 1fr; }
-    .stats { grid-template-columns: 1fr 1fr; }
-    .stats > div:nth-child(3) { border-left: 0; }
-    .stats > div:nth-child(n+3) { border-top: 1px solid var(--border); }
-    .decision { grid-template-columns: 1fr; }
-    .decision > div + div { border-left: 0; border-top: 1px solid var(--border); }
-    ol.steps { grid-template-columns: repeat(3, 1fr); }
-    ol.steps li:nth-child(4) { border-left: 0; }
-    ol.steps li:nth-child(n+4) { border-top: 1px solid var(--border-lo); }
-  }
-
-  /* the chain table needs ~950px on one line, so it stacks a little earlier than the rest */
-  @media (max-width: 960px) {
-    /* tables become one stacked block per row */
-    table.chain, table.chain tbody, table.chain tr, table.chain td { display: block; }
-    table.chain thead { display: none; }
-    table.chain tr { padding: 12px 0; border-bottom: 1px solid var(--border-lo); }
-    table.chain tr:first-child { padding-top: 0; }
-    table.chain tr:last-child { border-bottom: 0; padding-bottom: 0; }
-    table.chain td {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 4px 0;
-      border: 0;
-      white-space: normal;
-      text-align: right;
-      overflow-wrap: anywhere;
-    }
-    table.chain td::before {
-      content: attr(data-label);
-      flex: none;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--text-faint);
-      text-align: left;
-      padding-top: 1px;
-    }
-  }
-
-  @media (max-width: 560px) {
-    .wrap { padding: 0 16px 64px; }
-    header.topbar { padding-top: 22px; }
-    .panel-pad, .decision > div, .x402-table { padding: 16px; }
-    dl.kv .r { grid-template-columns: 1fr; gap: 2px; }
-    ol.steps { grid-template-columns: 1fr 1fr; }
-    ol.steps li:nth-child(n) { border-left: 0; border-top: 1px solid var(--border-lo); }
-    ol.steps li:nth-child(2n) { border-left: 1px solid var(--border-lo); }
-    ol.steps li:nth-child(-n+2) { border-top: 0; }
-    .stats .v { font-size: 19px; }
-    .stats > div { padding: 14px 16px; }
-    .section-title { flex-wrap: wrap; }
-    .section-title span.note { text-align: left; }
-    /* log step: "3/6 TITLE ..... DONE" on one line, the description under it */
-    .log-box { padding: 0 16px; }
-    .log-head .st { order: 1; }
-    .log-head .d { order: 2; flex: 0 0 100%; margin-top: 2px; }
-    .legend li { grid-template-columns: 44px 1fr; }
-    .limit .val { font-size: 17px; }
-    .limits-actions .block-btn { flex: 1 1 auto; text-align: center; }
-  }
+:root {
+  --bg: #0c0c0c; --panel: #141414; --panel-2: #1a1a1a; --line: #2a2a2a; --line-soft: #222;
+  --text: #e8e8e6; --muted: #8a8a86; --dim: #5c5c58;
+  --ok: #6f9f7a; --warn: #c4a35a; --bad: #c45c4a; --accent: #d4d0c8;
+  --mono: "SF Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.45; min-height: 100vh; overflow-wrap: anywhere; }
+a { color: inherit; }
+code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+[hidden] { display: none !important; }
+.mono { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.faint { color: var(--dim); }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+
+/* top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-size: 15px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.brand span { color: var(--muted); font-size: 12px; }
+.top-right { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; }
+.pill { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); padding: 5px 10px; white-space: nowrap; }
+.pill.on { color: var(--ok); border-color: #2a3a2c; }
+.pill.warn { color: var(--warn); border-color: #3a3520; }
+.pill.bad { color: var(--bad); border-color: #3a2a28; }
+.acct-slot { display: flex; align-items: center; gap: 8px; }
+.chip { font-family: var(--mono); font-size: 12px; color: var(--text); border: 1px solid var(--line); padding: 6px 10px; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn { display: inline-block; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); padding: 7px 14px; font-size: 12px; cursor: pointer; font-family: inherit; text-decoration: none; line-height: 1.3; text-align: center; }
+.btn:hover:not(:disabled) { border-color: #555; }
+.btn.primary { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
+.btn.danger { color: var(--bad); border-color: #3a2a28; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, .copy:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+/* operator pop-over + banners */
+.pop { border-bottom: 1px solid var(--line); background: var(--panel); padding: 16px 28px; }
+.pop-in { max-width: 720px; margin-left: auto; display: flex; flex-direction: column; gap: 10px; }
+.pop p { font-size: 12px; color: var(--muted); }
+.pop-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pop-row input { flex: 1 1 220px; }
+.banner { padding: 10px 28px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--panel); }
+.banner.err { color: var(--bad); }
+.banner.good { color: var(--ok); }
+
+/* layout */
+.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr) 300px; min-height: calc(100vh - 57px); }
+.side { border-right: 1px solid var(--line); padding: 20px 16px; }
+.side nav a { display: block; color: var(--muted); text-decoration: none; padding: 9px 12px; font-size: 13px; border: 1px solid transparent; margin-bottom: 2px; }
+.side nav a:hover { color: var(--text); }
+.side nav a.active { color: var(--text); background: var(--panel); border-color: var(--line); }
+.side .meta { margin-top: 28px; padding: 0 12px; font-size: 11px; color: var(--dim); line-height: 1.6; }
+.side .meta strong { color: var(--muted); font-weight: 500; display: block; margin-bottom: 4px; }
+.side .meta a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+.main { padding: 24px 28px 40px; min-width: 0; }
+.rail { border-left: 1px solid var(--line); padding: 20px 18px; min-width: 0; }
+@media (max-width: 960px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .side { border-right: none; border-bottom: 1px solid var(--line); padding: 12px 16px; }
+  .side nav { display: flex; flex-wrap: wrap; gap: 4px; }
+  .side nav a { margin: 0; padding: 7px 12px; }
+  .side .meta { display: none; }
+  .rail { border-left: none; border-top: 1px solid var(--line); }
+  .top, .pop, .banner { padding-left: 16px; padding-right: 16px; }
+  .main { padding: 20px 16px 32px; }
+}
+
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+.row h2 { font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.row .right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* cards */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 20px; }
+@media (max-width: 800px) { .grid, .grid.four { grid-template-columns: minmax(0, 1fr); } .grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.card { background: var(--panel); border: 1px solid var(--line); padding: 16px 18px; min-width: 0; }
+.card .label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+.card .value { font-size: 22px; font-weight: 500; letter-spacing: -.02em; }
+.card .value.m { font-size: 16px; font-family: var(--mono); letter-spacing: 0; padding-top: 4px; }
+.card .sub { margin-top: 6px; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+.card .sub a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+.card .sub a:hover { color: var(--text); }
+.card.small { padding: 12px 14px; }
+.card.small .value { font-size: 18px; }
+
+/* panels */
+.panel { background: var(--panel); border: 1px solid var(--line); margin-bottom: 16px; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+.panel-h h3 { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.panel-b { padding: 14px 16px; }
+.panel-b > p, .intro { font-size: 13px; color: var(--muted); margin-bottom: 10px; max-width: 70ch; }
+.empty { color: var(--muted); font-size: 13px; padding: 4px 0; }
+
+.tag { display: inline-block; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.tag.ok { color: var(--ok); border-color: #2a3a2c; }
+.tag.warn { color: var(--warn); border-color: #3a3520; }
+.tag.bad { color: var(--bad); border-color: #3a2a28; }
+
+/* cycle spine */
+.step { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.step:last-child { border-bottom: none; padding-bottom: 0; }
+.step:first-child { padding-top: 0; }
+.step .n { font-family: var(--mono); font-size: 11px; color: var(--dim); padding-top: 2px; }
+.step .t { font-size: 13px; }
+.step .t small { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; font-family: var(--mono); }
+
+/* tables */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); font-weight: 500; padding: 0 12px 10px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+td[data-label="Cycle"], td[data-label="Tx"], td[data-label="Settlement"], td[data-label="Receipt"], td[data-label="Decision hash"], td[data-label="Prev hash"] { white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+tr.head td { background: #17160f; }
+tr.head td:first-child { box-shadow: inset 2px 0 0 var(--warn); padding-left: 8px; }
+.copy { background: none; border: none; color: var(--text); font-family: var(--mono); font-size: 12px; cursor: pointer; padding: 0; text-align: left; }
+.copy:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.head-tag { margin-left: 8px; font-size: 9px; letter-spacing: .08em; color: var(--warn); border: 1px solid #3a3520; padding: 1px 6px; vertical-align: 1px; }
+td a, .panel a:not(.btn) { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+td a:hover, .panel a:not(.btn):hover { color: var(--text); }
+@media (max-width: 720px) {
+  table.stack thead { display: none; }
+  table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; }
+  table.stack tr { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  table.stack tr:last-child { border-bottom: none; }
+  table.stack td { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border: none; padding: 3px 0; text-align: right; }
+  table.stack td::before { content: attr(data-label); flex: none; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); text-align: left; }
+  tr.head td:first-child { padding-left: 0; box-shadow: none; }
+  tr.head { box-shadow: inset 2px 0 0 var(--warn); padding-left: 8px; }
+}
+.legend { list-style: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--muted); }
+.legend li { display: flex; gap: 10px; align-items: baseline; }
+.legend .head-tag { margin: 0; flex: none; }
+.legend .sym { flex: none; width: 18px; text-align: center; }
+
+/* decision record */
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+@media (max-width: 800px) { .two { grid-template-columns: minmax(0, 1fr); gap: 18px; } }
+.sub-title { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); font-weight: 500; margin-bottom: 10px; }
+.kv .r { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.kv .r:last-child { border-bottom: none; }
+.kv dt { color: var(--dim); font-size: 12px; }
+.kv dd { min-width: 0; }
+.checks { list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.checks li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
+.checks small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.checks .dim { color: var(--muted); }
+
+/* sub-agent cards */
+.subs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1180px) { .subs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 800px) { .subs { grid-template-columns: minmax(0, 1fr); } }
+.sub-card { background: var(--panel-2); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sub-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.sub-id { font-size: 12px; font-weight: 600; letter-spacing: .06em; }
+.sub-mandate { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.sub-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.sub-stats .k, .sub-balance .k { display: block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.sub-stats .v, .sub-balance .v { font-family: var(--mono); font-size: 13px; }
+.sub-reason { font-size: 12px; color: var(--muted); }
+.sub-reason b { color: var(--text); font-weight: 600; }
+.sub-reason .tx { display: block; margin-top: 4px; font-family: var(--mono); font-size: 11px; }
+.sub-keys { font-size: 11px; color: var(--dim); }
+.key-badge { align-self: flex-start; }
+
+/* activity feed */
+.feed { list-style: none; }
+.feed li { padding: 11px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.feed li:last-child { border-bottom: none; }
+.feed .when { color: var(--dim); font-family: var(--mono); font-size: 11px; margin-bottom: 3px; }
+.feed .detail { color: var(--muted); margin-top: 3px; font-family: var(--mono); font-size: 11px; }
+.line { height: 1px; background: var(--line); margin: 18px 0; }
+
+/* forms */
+.guard { display: flex; flex-direction: column; gap: 9px; }
+.guard label, .lab { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+input[type=text], input[type=number], input[type=password], select { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit; width: 100%; border-radius: 0; }
+input:focus, select:focus { outline: none; border-color: #555; }
+input[readonly] { color: var(--muted); }
+input[aria-invalid=true] { border-color: var(--bad); }
+.note { margin-top: 16px; font-size: 11px; color: var(--dim); line-height: 1.5; }
+.msg { font-size: 12px; padding: 8px 10px; border: 1px solid var(--line); color: var(--muted); }
+.msg.err { color: var(--bad); border-color: #3a2a28; }
+.msg.good { color: var(--ok); border-color: #2a3a2c; }
+.msg ul { margin: 4px 0 0 16px; }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* owner limits */
+.limits-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+@media (max-width: 800px) { .limits-grid { grid-template-columns: minmax(0, 1fr); } }
+.limit { border: 1px solid var(--line-soft); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.limit.changed { border-color: #3a3520; }
+.limit .name { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--dim); }
+.limit .val { font-size: 18px; display: flex; align-items: baseline; gap: 6px; }
+.limit .val input { font-size: 15px; }
+.limit .val small { color: var(--muted); font-size: 12px; }
+.limit .help { font-size: 12px; color: var(--muted); }
+.limit .range { display: block; font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 2px; }
+.limits-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.token-row { display: flex; flex-direction: column; gap: 6px; flex: 1 1 240px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+.limits-hist { list-style: none; margin-top: 14px; font-size: 12px; color: var(--muted); font-family: var(--mono); display: flex; flex-direction: column; gap: 4px; }
+
+/* x402 */
+.flow { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.flow li { font-family: var(--mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line); padding: 4px 8px; }
+.flow b { color: var(--dim); font-weight: 400; margin-right: 6px; }
+.out { font-family: var(--mono); font-size: 12px; color: var(--muted); line-height: 1.7; border: 1px solid var(--line-soft); background: var(--bg); padding: 12px 14px; min-height: 90px; }
+.out .k { color: var(--dim); }
+.out .hd { color: var(--text); }
+
+/* cycle log */
+.log-step { border-top: 1px solid var(--line-soft); padding: 12px 0; }
+.log-step:first-child { border-top: none; padding-top: 0; }
+.log-head { display: grid; grid-template-columns: 34px 130px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
+@media (max-width: 720px) { .log-head { grid-template-columns: 34px minmax(0, 1fr) auto; } .log-head .d { grid-column: 2 / 4; order: 4; } }
+.log-head .n { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.log-head .t { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.log-head .d { font-size: 12px; color: var(--muted); }
+.log-body { margin: 8px 0 0 44px; font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+@media (max-width: 720px) { .log-body { margin-left: 0; } }
+.log-body .ln.ok { color: var(--ok); } .log-body .ln.refuse { color: var(--bad); } .log-body .ln.faint { color: var(--dim); }
+.log-body .ln { white-space: pre-wrap; }
+.select-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.select-row select { width: auto; max-width: 100%; }
 </style>
 </head>
 <body>
 
-  <div class="wrap">
+<header class="top">
+  <div class="brand"><h1>Mnemosyne</h1><span>governor · testnet</span></div>
+  <div class="top-right">
+    <span class="pill" id="pillTee">TEE …</span>
+    <span class="pill" id="pillGate">memory gated</span>
+    <span class="acct-slot" id="acctSlot"></span>
+    <button class="btn primary" type="button" id="btnCycle" aria-expanded="false" aria-controls="cyclePop">Run cycle</button>
+  </div>
+</header>
 
-    <header class="topbar">
-      <div class="brand">
-        <h1>MNEMOSYNE</h1>
-        <p>non-trading governor — private decisions, on-chain memory</p>
+<section class="pop" id="cyclePop" hidden aria-label="Run a cycle">
+  <div class="pop-in">
+    <p>Runs one governor cycle on testnet: the private decision in the TEE, the memory commit on NEAR, then allocation and the sub-agent reports. It can take a minute or two. This is the operator's button: it needs the <code>ADMIN_TOKEN</code> from your <code>.env</code>. Signing in with a wallet never allows it.</p>
+    <div class="pop-row">
+      <input type="password" id="cycTok" autocomplete="off" placeholder="ADMIN_TOKEN from your .env" aria-label="Admin token">
+      <button class="btn primary" type="button" id="cycGo">Run now</button>
+      <button class="btn" type="button" id="cycCancel">Cancel</button>
+    </div>
+  </div>
+</section>
+
+<div class="banner err" id="problem" role="alert" hidden></div>
+<div class="banner" id="flash" role="status" hidden></div>
+
+<div class="shell">
+  <aside class="side">
+    <nav aria-label="Sections">
+      <a href="#desk">Desk</a>
+      <a href="#memory">Memory</a>
+      <a href="#subs">Sub-agents</a>
+      <a href="#x402">x402 checks</a>
+      <a href="#guardrails">Guardrails</a>
+      <a href="#audit">Audit</a>
+    </nav>
+    <div class="meta">
+      <strong>Governor</strong>
+      <span id="governorBadge">…</span>
+      <br><br>
+      <strong>Rule</strong>
+      No capital move without an on-chain memory commit. Strategy stays private.
+      <br><br>
+      <span id="updated">connecting…</span>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- DESK -->
+    <section id="view-desk" aria-label="Desk">
+      <div class="row">
+        <h2>Desk</h2>
+        <div class="right"><span class="mono" id="cycleId"></span><button class="btn" type="button" id="refresh">Refresh</button></div>
       </div>
-      <div class="topbar-right">
-        <span class="badge" id="netBadge"><span class="dot" id="netDot"></span> NEAR TESTNET</span>
-        <span class="badge" id="governorBadge">mnemosyne-gov.testnet</span>
-        <button class="block-btn" id="refresh" type="button">REFRESH</button>
-      </div>
-    </header>
+      <div class="grid" id="cards"></div>
+      <div class="grid four" id="stats"></div>
 
-    <div class="problem" id="problem" hidden></div>
-
-    <!-- ================= OVERVIEW ================= -->
-    <div class="panel stats" id="stats" aria-live="polite"></div>
-
-    <!-- ================= MEMORY CHAIN ================= -->
-    <section>
-      <div class="section-title">
-        <h2>Memory Chain</h2>
-        <span class="note" id="chainNote">live</span>
-      </div>
-
-      <div class="panel panel-pad">
-        <div id="chainBox"></div>
-
-        <div class="chain-footnote">
-          <ul class="legend" id="chainLegend"></ul>
-          <p>
-            Only the <strong>hash</strong> of each decision is written on-chain. The governor's
-            private reasoning is never published — not here, not in the contract, not in a log.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================= LATEST DECISION ================= -->
-    <section>
-      <div class="section-title">
-        <h2>Latest Decision</h2>
-        <span class="note" id="decisionNote"></span>
-      </div>
-      <div id="decisionBox"></div>
-    </section>
-
-    <!-- ================= SUB-AGENT SWARM ================= -->
-    <section>
-      <div class="section-title">
-        <h2>Sub-Agent Swarm</h2>
-        <span class="tag" id="swarmTag" title="Capital and losses are simulated; keys, directives and on-chain reports are real.">SIMULATED BALANCES</span>
-      </div>
-
-      <div class="swarm-grid" id="swarmGrid"></div>
-    </section>
-
-    <!-- ================= YOUR LIMITS ================= -->
-    <section>
-      <div class="section-title">
-        <h2>Your Limits</h2>
-        <span class="note" id="limitsNote"></span>
-      </div>
-      <div class="panel panel-pad" id="limitsBox"></div>
-    </section>
-
-    <!-- ================= CYCLE LOG ================= -->
-    <section>
-      <div class="section-title">
-        <h2>Latest Cycle Log</h2>
-        <span class="note">read-only — cycles are run from the CLI</span>
+      <div class="panel">
+        <div class="panel-h"><h3>Cycle spine</h3><span id="spineTag"></span></div>
+        <div class="panel-b" id="spine"></div>
       </div>
 
       <div class="panel">
-        <div class="log-box" id="logBox"></div>
+        <div class="panel-h"><h3>Sub-agents</h3><span class="tag">function-call keys only</span></div>
+        <div class="panel-b" id="subsTable"></div>
       </div>
     </section>
 
-    <!-- ================= X402 ================= -->
-    <section>
-      <div class="section-title">
-        <h2>x402 Memory Queries</h2>
-        <span class="tag" id="railTag">…</span>
+    <!-- MEMORY -->
+    <section id="view-memory" aria-label="Memory" hidden>
+      <div class="row"><h2>Memory</h2><span class="mono" id="chainNote"></span></div>
+      <div class="panel">
+        <div class="panel-h"><h3>Memory chain</h3><span class="tag">on NEAR</span></div>
+        <div class="panel-b">
+          <div id="chainBox"></div>
+          <ul class="legend" id="chainLegend"></ul>
+        </div>
       </div>
-
-      <div class="panel" id="x402Box"></div>
+      <div class="panel">
+        <div class="panel-h"><h3>Latest decision</h3><span class="mono" id="decisionNote"></span></div>
+        <div class="panel-b" id="decisionBox"></div>
+      </div>
     </section>
 
-    <footer>
-      <span>mnemosyne — NEAR hackathon build</span>
-      <span id="updated">live from NEAR testnet</span>
-    </footer>
+    <!-- SUB-AGENTS -->
+    <section id="view-subs" aria-label="Sub-agents" hidden>
+      <div class="row"><h2>Sub-agents</h2><span class="tag" id="swarmTag"></span></div>
+      <div class="subs" id="swarmGrid"></div>
+    </section>
 
-  </div>
+    <!-- X402 -->
+    <section id="view-x402" aria-label="x402 checks" hidden>
+      <div class="row"><h2>x402 checks</h2><span class="tag" id="railTag"></span></div>
+      <div class="panel">
+        <div class="panel-h"><h3>Memory check</h3><span class="tag">pay per query</span></div>
+        <div class="panel-b">
+          <div id="x402Copy"></div>
+          <div class="guard" style="margin:14px 0">
+            <label for="q">Query</label>
+            <input type="text" id="q" value="delete the full access key" maxlength="500" autocomplete="off">
+          </div>
+          <div class="btnrow" style="margin-bottom:14px">
+            <button class="btn primary" type="button" id="btnCheck">Request check</button>
+            <button class="btn" type="button" id="btnPay">Pay &amp; retry</button>
+          </div>
+          <div class="out" id="x402Out" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h3>Recent paid checks</h3><a class="btn" href="/audit" target="_blank" rel="noopener">Open audit JSON ↗</a></div>
+        <div class="panel-b" id="x402Table"></div>
+      </div>
+      <div class="panel" id="myReceiptsPanel" hidden>
+        <div class="panel-h"><h3>Your paid checks</h3><span class="tag">your account</span></div>
+        <div class="panel-b" id="myReceipts"></div>
+      </div>
+    </section>
+
+    <!-- GUARDRAILS -->
+    <section id="view-guardrails" aria-label="Guardrails" hidden>
+      <div class="row"><h2>Guardrails</h2></div>
+      <div class="panel">
+        <div class="panel-h"><h3>Your account</h3><span class="tag" id="acctTag"></span></div>
+        <div class="panel-b" id="acctPanel"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h3>Governor limits</h3><span class="tag" id="limitsNote"></span></div>
+        <div class="panel-b" id="limitsBox"></div>
+      </div>
+    </section>
+
+    <!-- AUDIT -->
+    <section id="view-audit" aria-label="Audit" hidden>
+      <div class="row"><h2>Audit</h2><a class="btn" href="/dashboard.json" target="_blank" rel="noopener">Open dashboard JSON ↗</a></div>
+      <div class="panel">
+        <div class="panel-h">
+          <h3>Cycle log</h3>
+          <div class="select-row"><label class="lab" for="cycSel">Cycle</label><select id="cycSel"></select></div>
+        </div>
+        <div class="panel-b" id="logBox"></div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="rail">
+    <div class="row"><h2>Activity</h2></div>
+    <ul class="feed" id="feed"></ul>
+    <div class="line"></div>
+    <div id="guardrails">
+      <div class="row"><h2>Guardrails</h2></div>
+      <div id="railGuard"></div>
+      <p class="note">Login sets personal limits only. Governor keys never leave the operator environment. Memory gate stays mandatory.</p>
+    </div>
+  </aside>
+</div>
 
 <script>
 "use strict";
 const EXPLORER = "https://testnet.nearblocks.io";
 const TX = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
 const ACCOUNT = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
+const YOCTO = 10n ** 24n;
 const $ = (id) => document.getElementById(id);
 
 /* Everything is built with DOM calls and textContent, never innerHTML:
@@ -807,13 +411,15 @@ function h(tag, attrs, ...kids) {
 /* replaceChildren(null) writes the text "null" into the page, so empty slots are dropped first */
 const fill = (node, ...kids) => node.replaceChildren(...kids.flat().filter((k) => k != null && k !== false));
 function short(s, a = 10, b = 6) { s = String(s ?? ""); return s.length > a + b + 1 ? `${s.slice(0, a)}…${s.slice(-b)}` : s; }
+const head = (s, n = 8) => { s = String(s ?? ""); return s.length > n ? s.slice(0, n) + "…" : s; };
+const bare = (hash) => String(hash ?? "").replace(/^sha256:/, "");
 const txUrl = (hash) => (TX.test(hash || "") ? `${EXPLORER}/txns/${hash}` : null);
 const ext = (href, text) => h("a", { href, target: "_blank", rel: "noopener" }, text);
 const txLink = (hash, text) => (txUrl(hash) ? ext(txUrl(hash), text || "view ↗") : h("span", { class: "faint" }, "—"));
 const accLink = (id) => (ACCOUNT.test(id || "") && id.length <= 64 ? ext(`${EXPLORER}/address/${id}`, id) : h("span", {}, String(id ?? "")));
-function hashEl(full, a = 14, b = 6) {
+function hashEl(full, a = 14, b = 6, text) {
   if (!full) return h("span", { class: "faint" }, "(genesis)");
-  const btn = h("button", { class: "copy", type: "button", title: `${full}\nClick to copy` }, short(full, a, b));
+  const btn = h("button", { class: "copy", type: "button", title: `${full}\nClick to copy` }, text ?? short(full, a, b));
   btn.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(full); const t = btn.textContent; btn.textContent = "copied"; setTimeout(() => (btn.textContent = t), 1100); } catch {}
   });
@@ -830,32 +436,234 @@ function ago(iso) {
   const n = Math.floor(s / 86400); return `${n} day${n === 1 ? "" : "s"} ago`;
 }
 const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); };
-const wnear = (u) => { try { return (Number(BigInt(u) / 10n ** 18n) / 1e6).toFixed(3); } catch { return String(u); } };
 const isTee = (r) => r.decision_path === "near-ai-tee";
 const td = (label, ...kids) => h("td", { "data-label": label }, ...kids);
 const th = (...t) => h("thead", {}, h("tr", {}, t.map((x) => h("th", { scope: "col" }, x))));
 const emptyBox = (...kids) => h("div", { class: "empty" }, ...kids);
+const tag = (text, kind, title) => h("span", { class: "tag" + (kind ? " " + kind : ""), title }, text);
 
-/* ---------- overview ---------- */
-function renderStats(d) {
-  const keys = d.subs.map((s) => s.keys?.agent_key?.kind);
-  const known = keys.filter(Boolean).length;
-  const scoped = keys.filter((k) => k === "function_call").length;
-  const cell = (k, v) => h("div", {}, h("span", { class: "k" }, k), h("span", { class: "v" }, v));
-  $("stats").replaceChildren(
-    cell("Entries on-chain", d.chain.ok ? d.chain.commit_count : "–"),
-    cell("Sealed in a TEE", d.cycles.filter((c) => isTee(c.record) && c.run?.committed !== false).length),
-    cell("Report-only keys", known ? `${scoped} of ${d.subs.length}` : "–"),
-    cell("Paid checks", d.x402 ? d.x402.paid_checks_total : "–"));
+/* yoctoNEAR <-> NEAR, exact (BigInt), never through floating point */
+function yoctoToNear(y, max = 6) {
+  try {
+    const n = BigInt(y), whole = n / YOCTO;
+    const frac = (n % YOCTO).toString().padStart(24, "0").slice(0, max).replace(/0+$/, "");
+    return frac ? `${whole}.${frac}` : String(whole);
+  } catch { return String(y); }
+}
+function nearToYocto(s) {
+  s = String(s).trim();
+  if (!/^\d+(\.\d{1,24})?$/.test(s)) return null;
+  const [w, f = ""] = s.split(".");
+  return (BigInt(w) * YOCTO + BigInt(f.padEnd(24, "0"))).toString();
+}
+const assetWord = (a) => (a === "NEAR" ? "NEAR" : a === "wrap.testnet" ? "wNEAR" : String(a ?? ""));
+const money = (amount, asset) => `${yoctoToNear(amount)} ${assetWord(asset)}`;
+
+/* ---------- state ---------- */
+let DATA = null;          // last /dashboard.json
+let ME = null;            // last /me, or null when signed out
+let RECEIPTS = [];        // my paid checks
+let LOGIN_OFF = false;    // server runs with LOGIN=0
+let ADMIN = "";           // admin token: kept only in this tab's memory, gone on reload
+const LOCAL_FEED = [];    // things done from this tab
+const addFeed = (what, detail) => { LOCAL_FEED.unshift({ at: new Date().toISOString(), what, detail }); LOCAL_FEED.length = Math.min(LOCAL_FEED.length, 6); if (DATA) renderFeed(DATA); };
+
+/* ---------- messages ---------- */
+function flash(kind, text) {
+  const el = $("flash");
+  el.hidden = !text;
+  el.className = "banner" + (kind ? " " + kind : "");
+  el.textContent = text || "";
+}
+function msgBox(el, kind, ...kids) {
+  el.querySelector(".msg")?.remove();
+  if (kids.length) el.append(h("div", { class: "msg " + kind, role: kind === "err" ? "alert" : "status" }, ...kids));
 }
 
-/* ---------- memory chain ---------- */
+async function api(method, path, body, token) {
+  const headers = {};
+  if (body !== undefined && body !== null) headers["content-type"] = "application/json";
+  if (token) headers.authorization = `Bearer ${token}`;
+  const r = await fetch(path, { method, cache: "no-store", credentials: "same-origin", headers, body: body == null ? undefined : JSON.stringify(body) });
+  let j = null; try { j = await r.json(); } catch {}
+  return { status: r.status, ok: r.ok, body: j, headers: r.headers };
+}
+const errLines = (res) => (Array.isArray(res.body?.errors) && res.body.errors.length ? res.body.errors : [res.body?.error || `The server answered ${res.status}.`]);
+
+/* ---------- router ---------- */
+const VIEWS = ["desk", "memory", "subs", "x402", "guardrails", "audit"];
+function route() {
+  const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "desk";
+  for (const id of VIEWS) $("view-" + id).hidden = id !== v;
+  document.querySelectorAll(".side nav a").forEach((a) => {
+    const on = a.getAttribute("href") === "#" + v;
+    a.classList.toggle("active", on);
+    if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
+
+/* ---------- top bar ---------- */
+function teeVerified(r) {
+  const k = r.tee?.checks || {};
+  return !!(k.hashes_match && k.signature_valid && k.binds_address && k.binds_nonce &&
+    (k.tdx === "not_checked" || k.tdx?.verified) && (k.gpu === "not_checked" || (k.gpu?.verdict && k.gpu?.token_signature_valid)));
+}
+
+function renderTop(d) {
+  const c = d.cycles[0], t = $("pillTee"), g = $("pillGate");
+  if (!c) { t.className = "pill"; t.textContent = "no cycle yet"; t.title = "No decision has been recorded on this machine."; }
+  else if (isTee(c.record) && c.record.tee) {
+    const ok = teeVerified(c.record);
+    t.className = "pill " + (ok ? "on" : "bad");
+    t.textContent = ok ? "TEE live" : "TEE check failed";
+    t.title = ok ? "The latest decision was sealed in a NEAR AI Cloud TEE and every check passed." : "At least one attestation check on the latest decision failed. See Memory.";
+  } else { t.className = "pill warn"; t.textContent = "local rule"; t.title = "The latest decision came from the fixed local rule, not a TEE."; }
+  g.className = "pill " + (d.chain.ok ? "on" : "bad");
+  g.textContent = d.chain.ok ? "memory gated" : "chain unreadable";
+  g.title = d.chain.ok ? "No capital move happens without an on-chain memory commit." : `Could not read the chain: ${d.chain.error}`;
+}
+
+function renderAccountSlot() {
+  const slot = $("acctSlot");
+  if (LOGIN_OFF) return fill(slot);
+  if (!ME) return fill(slot, h("a", { class: "btn", href: "/login" }, "Connect NEAR"));
+  const label = ME.profile?.display_name || short(ME.account_id, 12, 8);
+  const out = h("button", { class: "btn", type: "button" }, "Sign out");
+  out.addEventListener("click", signOut);
+  fill(slot, h("span", { class: "chip", title: ME.account_id }, label), ME.signed_up ? null : h("a", { class: "btn", href: "/login" }, "Finish sign-up"), out);
+}
+
+async function signOut() {
+  await api("POST", "/auth/logout", {});
+  ME = null; RECEIPTS = [];
+  renderAccountAll();
+  flash("", "Signed out.");
+  setTimeout(() => { if ($("flash").textContent === "Signed out.") flash("", ""); }, 3000);
+}
+
+/* ---------- desk ---------- */
+function decisionCounts(c) {
+  const decs = c?.record?.decisions || [], ver = c?.run?.verdicts || [];
+  let act = 0, refuse = 0, pause = 0;
+  for (const x of decs) {
+    if (x.action === "PAUSE") { pause++; continue; }
+    const v = ver.find((y) => y.sub === x.sub);
+    if (v?.action === "REFUSE") refuse++; else act++;
+  }
+  return { act, refuse, pause };
+}
+
+function renderDesk(d) {
+  const c = d.cycles[0];
+  $("cycleId").textContent = c ? `cycle ${cycleLabel(c.record.cycle_id)}` : "no cycle yet";
+  if (!c) {
+    fill($("cards"),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Last decision"), h("div", { class: "value" }, "–"), h("div", { class: "sub" }, "none yet")),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Memory commit"), h("div", { class: "value m" }, "–"), h("div", { class: "sub" }, "none yet")),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Swarm"), h("div", { class: "value" }, "–"), h("div", { class: "sub" }, "none yet")));
+  } else {
+    const r = c.record, run = c.run, committed = run ? run.committed : null;
+    const k = r.tee?.checks || {};
+    const tdx = k.tdx === "not_checked" ? "TDX not checked" : k.tdx ? `TDX ${k.tdx.status}` : "";
+    const { act, refuse, pause } = decisionCounts(c);
+    const per = (r.decisions || []).map((x) => {
+      const rep = run?.reports?.find((y) => y.sub === x.sub);
+      const v = run?.verdicts?.find((y) => y.sub === x.sub);
+      const word = x.action === "PAUSE" ? String(x.reason_code || "pause") : v?.action === "REFUSE" ? "refuse" : rep?.status === "reported" ? "report" : "act";
+      return `${x.sub} ${word}`;
+    }).join(" · ");
+    fill($("cards"),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Last decision"),
+        h("div", { class: "value" }, isTee(r) ? "TEE" : r.decision_path === "local-policy" ? "Local rule" : "Stub"),
+        h("div", { class: "sub" }, isTee(r) ? [short(r.tee?.model, 14, 8), tdx].filter(Boolean).join(" · ") : "no enclave used")),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Memory commit"),
+        h("div", { class: "value m", title: r.decision_hash }, head(bare(r.decision_hash), 8)),
+        h("div", { class: "sub" }, committed === false ? h("span", { class: "bad" }, "not committed") : run ? txLink(run.commit_tx, `tx ${head(run.commit_tx, 8)}`) : "tx not recorded here")),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Swarm"),
+        h("div", { class: "value" }, `${act} ACT${refuse ? ` · ${refuse} refuse` : ""}${pause ? ` · ${pause} pause` : ""}`),
+        h("div", { class: "sub" }, per || "–")));
+  }
+
+  const keys = d.subs.map((s) => s.keys?.agent_key?.kind);
+  const known = keys.filter(Boolean).length, scoped = keys.filter((x) => x === "function_call").length;
+  const stat = (label, value) => h("div", { class: "card small" }, h("div", { class: "label" }, label), h("div", { class: "value" }, value));
+  fill($("stats"),
+    stat("On-chain entries", d.chain.ok ? d.chain.commit_count : "–"),
+    stat("Sealed in a TEE", d.cycles.filter((x) => isTee(x.record) && x.run?.committed !== false).length),
+    stat("Report-only keys", known ? `${scoped} of ${d.subs.length}` : "–"),
+    stat("Paid checks", d.x402 ? d.x402.paid_checks_total : "–"));
+
+  renderSpine(d);
+  renderSubsTable(d);
+}
+
+function renderSpine(d) {
+  const c = d.cycles[0], box = $("spine");
+  if (!c) { fill($("spineTag")); return fill(box, emptyBox("No cycle recorded on this machine yet. Press Run cycle, or run ", h("code", {}, "npm run cycle"), ".")); }
+  const r = c.record, run = c.run, committed = run ? run.committed : null;
+  const reported = (run?.reports || []).filter((x) => x.status === "reported").length;
+  const moved = (run?.allocations || []).filter((e) => e.kind === "transfer" && e.tx).length;
+  const quoted = run?.cross_chain?.status === "quoted";
+  const real = run?.allocate_mode === "wnear";
+  const st = ["done", "done", committed === false ? "stop" : committed ? "done" : "", committed ? "done" : "", committed ? "done" : "", committed ? "done" : ""];
+  const steps = [
+    ["Read", `${run?.swarm_source === "onchain" ? "real wNEAR balances" : "simulated swarm"} · prev memory ${r.prev_memory_hash ? head(bare(r.prev_memory_hash), 10) : "none (first cycle)"}`, "done", "ok"],
+    ["Decide · private", isTee(r) ? `NEAR AI Cloud TEE${r.private_commitment ? ` · commitment ${head(r.private_commitment, 17)}` : ""}` : r.decision_path === "local-policy" ? "fixed local rule, labelled as such on-chain" : "stub logic (before private decisions)", isTee(r) ? "tee" : "local", isTee(r) ? "ok" : "warn"],
+    ["Memory commit", committed === false ? `FAIL-CLOSED · ${run.error || "commit failed"}` : "on-chain · chained to prev · required gate", committed === false ? "failed" : committed == null ? "unknown" : "committed", committed === false ? "bad" : committed ? "ok" : ""],
+    ["Allocate", `${real ? `${moved} wNEAR transfer${moved === 1 ? "" : "s"}, tiny amounts` : "print-only, no real transfers"}${quoted ? " · cross-chain price quote" : ""}`, real ? "transfers" : quoted ? "quoted" : "simulated", real || quoted ? "ok" : "warn"],
+    ["Sub window", `${reported} reported on-chain · report-only function-call keys`, "reported", reported ? "ok" : "warn"],
+    ["Publish", "public record, private reasoning stays local", "done", "ok"],
+  ];
+  fill($("spineTag"), committed === false ? tag("stopped at commit", "bad") : tag("fail-closed", "ok"));
+  fill(box, steps.map(([name, small, word, kind], i) => {
+    const s = st[i];
+    return h("div", { class: "step" },
+      h("div", { class: "n" }, String(i + 1).padStart(2, "0")),
+      h("div", { class: "t" }, name, h("small", {}, s ? small : "not run")),
+      s === "stop" || (i === 2 && committed === false) ? tag("failed", "bad") : s ? tag(word, kind) : tag("not run"));
+  }));
+}
+
+/* one place that works out what a sub did in the latest cycle */
+function subOutcome(d, s) {
+  const latest = d.cycles[0];
+  const dec = latest?.record?.decisions?.find((x) => x.sub === s.id);
+  const ver = latest?.run?.verdicts?.find((x) => x.sub === s.id);
+  const rep = latest?.run?.reports?.find((x) => x.sub === s.id);
+  let pill = ["WAITING", ""], reason;
+  if (!dec) reason = h("span", {}, h("b", {}, "NO DIRECTIVE"), " — no cycle recorded yet");
+  else if (dec.action === "PAUSE") { pill = ["PAUSED", "warn"]; reason = h("span", {}, h("b", {}, "PAUSE"), ` — ${String(dec.reason_code || "paused by governor").replaceAll("_", " ")}`); }
+  else if (!ver) reason = h("span", {}, h("b", {}, dec.action), " — no answer recorded; run a fresh cycle");
+  else if (ver.action === "ACT") { pill = ["ACT", "ok"]; reason = h("span", {}, h("b", {}, "ACT"), ` — ${ver.reason}`); }
+  else { pill = ["REFUSE", "bad"]; reason = h("span", { class: "bad" }, h("b", {}, "REFUSE"), ` — ${ver.reason}`); }
+  if (rep?.status === "reported") reason.append(h("span", { class: "tx" }, "on-chain report: ", txLink(rep.txHash, short(rep.txHash, 8, 6) + " ↗")));
+  else if (rep) reason.append(h("span", { class: "tx bad" }, `report ${rep.status}${rep.error ? ": " + rep.error : ""}`));
+  return { dec, ver, rep, pill, reason };
+}
+
+function renderSubsTable(d) {
+  if (!d.subs.length) return fill($("subsTable"), emptyBox("No sub-agents configured."));
+  fill($("subsTable"), h("table", { class: "stack" },
+    th("Sub", "Mandate", "Directive", "Result"),
+    h("tbody", {}, d.subs.map((s) => {
+      const o = subOutcome(d, s), active = o.dec && o.dec.action !== "PAUSE";
+      return h("tr", {},
+        td("Sub", s.id),
+        td("Mandate", h("span", { class: "mono" }, s.mandate)),
+        td("Directive", h("span", { class: "mono" }, o.dec ? `${o.dec.action}${active ? " " + o.dec.target_capital : ""}` : "–")),
+        td("Result", tag(o.pill[0], o.pill[1])));
+    }))));
+}
+
+/* ---------- memory ---------- */
 function renderChain(d) {
   const box = $("chainBox");
   if (!d.cycles.length) {
     $("chainNote").textContent = "no entries on this machine yet";
-    box.replaceChildren(emptyBox("Nothing recorded here yet. Run ", h("code", {}, "npm run cycle"), ", then refresh."));
-    return;
+    fill($("chainLegend"));
+    return fill(box, emptyBox("Nothing recorded here yet. Run ", h("code", {}, "npm run cycle"), ", then refresh."));
   }
   const committed = d.cycles.filter((c) => c.run?.committed !== false).length;
   $("chainNote").textContent = `${committed} of ${d.cycles.length} entries on this machine committed`;
@@ -870,30 +678,26 @@ function renderChain(d) {
     if (!failed && !c.run) seen.noTx = true;
     return h("tr", { class: isHead ? "head" : "" },
       td("Cycle", cycleLabel(r.cycle_id)),
-      td("Decision Hash", h("span", { class: "hash" }, hashEl(r.decision_hash), isHead ? h("span", { class: "head-tag", title: "The hash the contract holds on NEAR right now" }, "HEAD") : null)),
-      td("Prev Hash", linked ? h("span", {}, h("span", { class: "ok", title: "Matches the decision hash of the entry below" }, "✓ "), hashEl(r.prev_memory_hash)) : hashEl(r.prev_memory_hash)),
+      td("Decision hash", hashEl(r.decision_hash, 0, 0, short(bare(r.decision_hash), 8, 6)), isHead ? h("span", { class: "head-tag", title: "The hash the contract holds on NEAR right now" }, "HEAD") : null),
+      td("Prev hash", linked ? h("span", {}, h("span", { class: "ok", title: "Matches the decision hash of the entry below" }, "✓ "), hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))) : hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))),
       td("Time", h("span", { title: cycleIso(r.cycle_id) }, ago(cycleIso(r.cycle_id)))),
       td("Decided", isTee(r) ? "TEE · sealed" : r.decision_path === "local-policy" ? "local rule" : "stub"),
-      td("Tx", failed ? h("span", { class: "refuse" }, "not committed") : c.run ? txLink(c.run.commit_tx) : h("span", { class: "faint" }, "—")));
+      td("Tx", failed ? h("span", { class: "bad" }, "not committed") : c.run ? txLink(c.run.commit_tx) : h("span", { class: "faint" }, "—")));
   });
-  // the hash cell is brighter than the others, like the original design
-  rows.forEach((tr) => tr.children[1].classList.add("hash"));
-  box.replaceChildren(h("table", { class: "chain" },
-    th("Cycle", "Decision Hash", "Prev Hash", "Time", "Decided", "Tx"), h("tbody", {}, rows)));
+  fill(box, h("table", { class: "stack" }, th("Cycle", "Decision hash", "Prev hash", "Time", "Decided", "Tx"), h("tbody", {}, rows)));
 
   // a plain-words key to what the colour and the tick mean, shown only for what is on screen
   const key = (sym, text) => h("li", {}, sym, h("span", {}, text));
   fill($("chainLegend"),
-    seen.head ? key(h("span", { class: "head-tag", style: "margin:0" }, "HEAD"), "The newest entry, in gold. This is the hash the contract is holding on NEAR right now.") : null,
+    seen.head ? key(h("span", { class: "head-tag" }, "HEAD"), "The newest entry, in gold. This is the hash the contract is holding on NEAR right now.") : null,
     seen.linked ? key(h("span", { class: "sym ok" }, "✓"), `A tick on a prev hash means it matches the decision hash of the entry below it, so the two are chained.${seen.unlinked ? " No tick: the entry it follows isn't stored on this machine." : ""}`) : null,
     seen.noTx ? key(h("span", { class: "sym faint" }, "—"), "No transaction link was saved for this entry on this machine.") : null);
 }
 
-/* ---------- latest decision ---------- */
 function checkList(r) {
   const ul = h("ul", { class: "checks" });
   const item = (st, title, detail) => ul.append(h("li", {},
-    h("span", { class: "m " + (st === "ok" ? "ok" : st === "bad" ? "refuse" : "faint") }, st === "ok" ? "✓" : st === "bad" ? "✗" : "–"),
+    h("span", { class: st === "ok" ? "ok" : st === "bad" ? "bad" : "faint" }, st === "ok" ? "✓" : st === "bad" ? "✗" : "–"),
     h("span", { class: st === "skip" ? "dim" : "" }, title, detail ? h("small", {}, detail) : null)));
   if (isTee(r) && r.tee) {
     const c = r.tee.checks || {}, s = (b) => (b ? "ok" : "bad");
@@ -911,79 +715,339 @@ function checkList(r) {
 
 function renderDecision(d) {
   const box = $("decisionBox"), c = d.cycles[0];
-  if (!c) { $("decisionNote").textContent = ""; box.replaceChildren(h("div", { class: "panel" }, emptyBox("No decision yet. Run ", h("code", {}, "npm run cycle"), "."))); return; }
+  if (!c) { $("decisionNote").textContent = ""; return fill(box, emptyBox("No decision yet. Run ", h("code", {}, "npm run cycle"), ".")); }
   const r = c.record, run = c.run, committed = run ? run.committed : null;
   $("decisionNote").textContent = `cycle ${cycleLabel(r.cycle_id)}`;
   const row = (k, v) => h("div", { class: "r" }, h("dt", {}, k), h("dd", {}, v));
-  const left = h("div", {},
-    h("h3", { class: "sub-title" }, "Record"),
-    h("dl", { class: "kv" },
-      row("Decided via", isTee(r) ? "NEAR AI Cloud TEE" : r.decision_path === "local-policy" ? "fixed local rule" : "stub"),
-      row("Decision hash", hashEl(r.decision_hash, 14, 8)),
-      row("Follows", hashEl(r.prev_memory_hash, 14, 8)),
-      row("Sealed reasoning", r.private_commitment ? hashEl(r.private_commitment, 14, 8) : h("span", { class: "faint" }, "n/a")),
-      row("Written to NEAR", committed === false ? h("span", { class: "refuse" }, `no — ${run.error || "commit failed"}`) : run ? txLink(run.commit_tx, short(run.commit_tx, 10, 6)) : h("span", { class: "faint" }, "not recorded on this machine")),
-      row("Risk limits", `exposure ≤ ${r.swarm_risk?.max_total_exposure ?? "?"}, daily loss ≤ ${r.swarm_risk?.max_daily_loss ?? "?"}`)));
-  const right = h("div", {}, h("h3", { class: "sub-title" }, "Checked before the commit"), checkList(r));
-  const reported = run?.reports?.filter((x) => x.status === "reported").length || 0;
-  const st = ["done", "done", committed === false ? "stop" : committed ? "done" : "", committed ? "done" : "", committed ? "done" : "", committed ? "done" : ""];
-  const moved = (run?.allocations || []).filter((e) => e.kind === "transfer" && e.tx).length;
-  const quoted = run?.cross_chain?.status === "quoted" ? " + price quote" : "";
-  const names = [["READ", run?.swarm_source === "onchain" ? "real balances" : "simulated swarm"], ["DECIDE", isTee(r) ? "sealed in TEE" : "local rule"], ["COMMIT", "memory on NEAR"], ["ALLOCATE", (run?.allocate_mode === "wnear" ? `${moved} transfer${moved === 1 ? "" : "s"}` : "print-only") + quoted], ["SUB-AGENTS", `${reported} reported on-chain`], ["PUBLISH", "public record"]];
-  const steps = h("ol", { class: "steps", "aria-label": "Cycle steps" }, names.map(([n, s], i) =>
-    h("li", { class: st[i] }, h("span", { class: "n" }, `${i + 1}/6`), n, h("span", { class: "s" }, st[i] === "stop" ? "stopped here" : st[i] ? s : "not run"))));
-  box.replaceChildren(h("div", { class: "panel" }, h("div", { class: "decision" }, left, right), steps));
+  fill(box, h("div", { class: "two" },
+    h("div", {}, h("h4", { class: "sub-title" }, "Record"),
+      h("dl", { class: "kv" },
+        row("Decided via", isTee(r) ? "NEAR AI Cloud TEE" : r.decision_path === "local-policy" ? "fixed local rule" : "stub"),
+        row("Decision hash", hashEl(r.decision_hash, 14, 8)),
+        row("Follows", hashEl(r.prev_memory_hash, 14, 8)),
+        row("Sealed reasoning", r.private_commitment ? hashEl(r.private_commitment, 14, 8) : h("span", { class: "faint" }, "n/a")),
+        row("Written to NEAR", committed === false ? h("span", { class: "bad" }, `no — ${run.error || "commit failed"}`) : run ? txLink(run.commit_tx, short(run.commit_tx, 10, 6)) : h("span", { class: "faint" }, "not recorded on this machine")),
+        row("Risk limits", `exposure ≤ ${r.swarm_risk?.max_total_exposure ?? "?"}, daily loss ≤ ${r.swarm_risk?.max_daily_loss ?? "?"}`))),
+    h("div", {}, h("h4", { class: "sub-title" }, "Checked before the commit"), checkList(r))));
 }
 
-/* ---------- sub-agent swarm ---------- */
+/* ---------- sub-agent cards ---------- */
 function renderSwarm(d) {
-  const latest = d.cycles[0];
   const real = d.swarm?.source === "onchain";
   $("swarmTag").textContent = real ? "REAL BALANCES · SIMULATED LOSSES" : "SIMULATED BALANCES";
   $("swarmTag").title = real
     ? "Balances are real wNEAR on NEAR testnet. Mnemosyne does not trade, so losses are a labelled simulation. Keys, directives and on-chain reports are real."
     : "Capital and losses are simulated; keys, directives and on-chain reports are real.";
-  const grid = h("div", { class: "swarm-grid" });
-  for (const s of d.subs) {
-    const dec = latest?.record?.decisions?.find((x) => x.sub === s.id);
-    const ver = latest?.run?.verdicts?.find((x) => x.sub === s.id);
-    const rep = latest?.run?.reports?.find((x) => x.sub === s.id);
-    let pillCls = "idle", pill = "WAITING", reason;
-    if (!dec) reason = h("span", {}, h("b", {}, "NO DIRECTIVE"), " — no cycle recorded yet");
-    else if (dec.action === "PAUSE") { pill = "PAUSED"; reason = h("span", {}, h("b", {}, "PAUSE"), ` — ${String(dec.reason_code || "paused by governor").replaceAll("_", " ")}`); }
-    else if (!ver) { reason = h("span", {}, h("b", {}, dec.action), " — no answer recorded; run a fresh cycle"); }
-    else if (ver.action === "ACT") { pillCls = "act"; pill = "ACT"; reason = h("span", {}, h("b", {}, "ACT"), ` — ${ver.reason}`); }
-    else { pillCls = "refuse"; pill = "REFUSE"; reason = h("span", { class: "refuse" }, h("b", {}, "REFUSE"), ` — ${ver.reason}`); }
-    if (rep?.status === "reported") reason.append(h("span", { class: "tx" }, "on-chain report: ", txLink(rep.txHash, short(rep.txHash, 8, 6) + " ↗")));
-    else if (rep && rep.status !== "reported") reason.append(h("span", { class: "tx refuse" }, `report ${rep.status}${rep.error ? ": " + rep.error : ""}`));
-
+  if (!d.subs.length) return fill($("swarmGrid"), emptyBox("No sub-agents configured."));
+  fill($("swarmGrid"), d.subs.map((s) => {
+    const o = subOutcome(d, s), dec = o.dec, active = dec && dec.action !== "PAUSE";
     const k = s.keys, a = k?.agent_key;
     let badge;
-    if (!k || k.error) badge = h("span", { class: "key-badge" }, "keys unreadable");
-    else if (!a) badge = h("span", { class: "key-badge" }, "key not set on this machine");
-    else if (a.kind === "function_call") badge = h("span", { class: "key-badge scoped", title: `Can only call ${(a.methods || []).join(", ")} on ${a.receiver}` }, "report-only (function-call)");
-    else if (a.kind === "full_access") badge = h("span", { class: "key-badge bad" }, "FullAccess — not scoped");
-    else badge = h("span", { class: "key-badge bad" }, "agent key not on the account");
-
+    if (!k || k.error) badge = tag("keys unreadable");
+    else if (!a) badge = tag("key not set on this machine");
+    else if (a.kind === "function_call") badge = tag("report-only (function-call)", "ok", `Can only call ${(a.methods || []).join(", ")} on ${a.receiver}`);
+    else if (a.kind === "full_access") badge = tag("FullAccess — not scoped", "bad");
+    else badge = tag("agent key not on the account", "bad");
     const keyNote = k && !k.error
       ? h("div", { class: "sub-keys" }, `${k.full_access_keys} full-access key${k.full_access_keys === 1 ? "" : "s"} on the account, held cold, never by the agent · `, accLink(k.account))
       : h("div", { class: "sub-keys" }, accLink(k?.account));
-
-    const active = dec && dec.action !== "PAUSE";
-    grid.append(h("article", { class: "sub-card" },
-      h("div", { class: "sub-head" }, h("span", { class: "sub-id" }, `SUB ${s.id}`), h("span", { class: "status-pill " + pillCls }, pill)),
+    const bal = d.swarm?.balances?.[s.id];
+    const stat = (k2, v) => h("div", {}, h("span", { class: "k" }, k2), h("span", { class: "v" }, v));
+    return h("article", { class: "sub-card" },
+      h("div", { class: "sub-head" }, h("span", { class: "sub-id" }, `SUB ${s.id}`), tag(o.pill[0], o.pill[1])),
       h("div", { class: "sub-mandate" }, s.mandate),
-      d.swarm?.balances?.[s.id] ? h("div", { class: "sub-balance", title: `${d.swarm.balances[s.id].account} on ${d.swarm.asset}` }, h("span", { class: "k" }, "On-chain balance"), h("span", { class: "v" }, `${d.swarm.balances[s.id].units} units · ${d.swarm.balances[s.id].wnear} wNEAR`)) : null,
+      bal ? h("div", { class: "sub-balance", title: `${bal.account} on ${d.swarm.asset}` }, h("span", { class: "k" }, "On-chain balance"), h("span", { class: "v" }, `${bal.units} units · ${bal.wnear} wNEAR`)) : null,
       h("div", { class: "sub-stats" },
-        h("div", {}, h("span", { class: "k" }, "Directive"), h("span", { class: "v" }, dec ? dec.action : "–")),
-        h("div", {}, h("span", { class: "k" }, "Target"), h("span", { class: "v" }, active ? dec.target_capital : "–")),
-        h("div", {}, h("span", { class: "k" }, "Max Position"), h("span", { class: "v" }, active ? dec.max_position : "–")),
-        h("div", {}, h("span", { class: "k" }, "Max Loss / Cycle"), h("span", { class: "v" }, active ? dec.max_loss_cycle : "–"))),
-      h("div", { class: "sub-reason" }, reason),
-      badge,
-      keyNote));
+        stat("Directive", dec ? dec.action : "–"),
+        stat("Target", active ? dec.target_capital : "–"),
+        stat("Max position", active ? dec.max_position : "–"),
+        stat("Max loss / cycle", active ? dec.max_loss_cycle : "–")),
+      h("div", { class: "sub-reason" }, o.reason),
+      h("div", { class: "key-badge" }, badge),
+      keyNote);
+  }));
+}
+
+/* ---------- x402 ---------- */
+function renderX402(d) {
+  const x = d.x402;
+  if (!x) { $("railTag").textContent = ""; fill($("x402Copy")); return fill($("x402Table"), emptyBox("The x402 service is not configured on this server.")); }
+  $("railTag").textContent = x.mock_settlement ? "MOCK RAIL" : "REAL · wNEAR TESTNET";
+  const rail = x.mock_settlement
+    ? "Mock rail: every payment is fully verified, then recorded in a local ledger instead of on-chain."
+    : `Real settlement: ${yoctoToNear(x.price)} wNEAR per check on NEAR testnet, paid to ${x.pay_to}.`;
+  fill($("x402Copy"),
+    h("p", { class: "intro" }, "Other agents pay per query over x402 to ask whether a situation matches a failure Mnemosyne has already learned from. They get a citation and one line of advice — never the private detail."),
+    h("p", { class: "intro" }, rail, ` ${x.memory_entries} lessons in memory.`),
+    h("ol", { class: "flow" }, ["POST /memory/check", "402 + price", "sign and retry", "answer + receipt"].map((t, i) => h("li", {}, h("b", {}, String(i + 1)), t))));
+  if (!x.recent.length) return fill($("x402Table"), emptyBox("No paid checks on this server yet. Press Pay & retry above on the mock rail, or run ", h("code", {}, "npm run x402:demo:real"), " against it."));
+  fill($("x402Table"), h("table", { class: "stack" },
+    th("When", "Payer", "Paid", "Answer", "Settlement", "Receipt"),
+    h("tbody", {}, x.recent.map((r) => h("tr", {},
+      td("When", when(r.at)),
+      td("Payer", h("span", { title: r.payer }, short(r.payer, 8, 6))),
+      td("Paid", r.mock ? "mock" : money(r.amount, "wrap.testnet")),
+      td("Answer", r.match ? h("span", { class: "ok" }, `matched ${r.citation_id}`) : "no match"),
+      td("Settlement", r.mock ? h("span", { class: "faint" }, "local ledger") : txLink(r.settlement, short(r.settlement, 6, 5) + " ↗")),
+      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 6, 4))))))));
+}
+
+function renderMyReceipts() {
+  const panel = $("myReceiptsPanel");
+  panel.hidden = !(ME && ME.signed_up);
+  if (panel.hidden) return;
+  if (!RECEIPTS.length) return fill($("myReceipts"), emptyBox("No paid checks from your account yet."));
+  fill($("myReceipts"), h("table", { class: "stack" },
+    th("When", "Paid", "Answer", "Settlement", "Receipt"),
+    h("tbody", {}, RECEIPTS.map((r) => h("tr", {},
+      td("When", when(r.at)),
+      td("Paid", r.mock ? "mock" : money(r.amount, "wrap.testnet")),
+      td("Answer", r.match ? h("span", { class: "ok" }, `matched ${r.citation_id}`) : "no match"),
+      td("Settlement", r.mock ? h("span", { class: "faint" }, "local ledger") : (r.explorer ? ext(r.explorer, short(r.settlement, 6, 5) + " ↗") : txLink(r.settlement, short(r.settlement, 6, 5) + " ↗"))),
+      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 6, 4))))))));
+}
+
+/* ----- the check box: a real unpaid request, then a demo agent that pays on the mock rail ----- */
+let LAST_QUOTE = null;    // { quote, query }
+let DEMO = null;          // throwaway in-tab payer for the mock rail
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function b58(bytes) {
+  let n = 0n; for (const b of bytes) n = (n << 8n) | BigInt(b);
+  let s = ""; while (n > 0n) { s = B58[Number(n % 58n)] + s; n /= 58n; }
+  for (const b of bytes) { if (b === 0) s = "1" + s; else break; }
+  return s;
+}
+const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+function canonicalJson(v) {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return "[" + v.map(canonicalJson).join(",") + "]";
+  return "{" + Object.keys(v).filter((k) => v[k] !== undefined).sort().map((k) => JSON.stringify(k) + ":" + canonicalJson(v[k])).join(",") + "}";
+}
+
+function outLines(lines) {
+  fill($("x402Out"), lines.map((l) => {
+    if (typeof l === "string") return h("div", {}, l);
+    const [k, v, cls] = l;
+    return h("div", {}, h("span", { class: "k" }, k + " · "), h("span", { class: cls || "" }, v));
+  }));
+}
+const IDLE = ["Idle. An unpaid request returns HTTP 402 with the price. A paid one returns the answer and a receipt. Answers never include the private detail."];
+const outBusy = (on) => { $("btnCheck").disabled = on; $("btnPay").disabled = on; };
+
+async function requestCheck() {
+  const q = $("q").value.trim();
+  if (!q) return outLines([["error", "Type a question first.", "bad"]]);
+  outBusy(true); outLines(["Asking /memory/check without paying…"]);
+  try {
+    const r = await api("POST", "/memory/check", { query: q });
+    if (r.status === 402 && r.body?.accepts?.[0]) {
+      const req = r.body.accepts[0];
+      LAST_QUOTE = { quote: r.body, query: q };
+      outLines([["HTTP", "402 Payment Required", "hd"], ["price", money(req.amount, req.asset)], ["payTo", req.payTo], ["network", req.network],
+        ["rail", req.extra?.mock ? "mock (local ledger)" : "real settlement"], "No answer until paid."]);
+      addFeed("x402 price requested", `${money(req.amount, req.asset)} to ${req.payTo}`);
+    } else if (r.status === 403 || r.status === 429) {
+      outLines([["HTTP", String(r.status), "bad"], ["blocked by your own guardrail", r.body?.error || "limit reached", "bad"], "Change it under Guardrails."]);
+    } else {
+      outLines([["HTTP", String(r.status), "bad"], ["error", r.body?.error || "unexpected answer", "bad"]]);
+    }
+  } catch (err) { outLines([["error", `Couldn't reach the server: ${err.message}`, "bad"]]); }
+  finally { outBusy(false); }
+}
+
+async function demoPayer() {
+  if (DEMO) return DEMO;
+  if (!globalThis.crypto?.subtle) throw new Error("this browser has no WebCrypto here (it needs https or localhost)");
+  let kp;
+  try { kp = await crypto.subtle.generateKey({ name: "Ed25519" }, false, ["sign", "verify"]); }
+  catch { throw new Error("this browser can't make Ed25519 keys yet; update it, or use npm run x402:demo"); }
+  const raw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+  DEMO = { priv: kp.privateKey, publicKey: "ed25519:" + b58(raw), account: hex(raw) };
+  return DEMO;
+}
+
+async function payAndRetry() {
+  if (!DATA?.x402) return outLines([["error", "x402 isn't configured on this server.", "bad"]]);
+  if (!DATA.x402.mock_settlement) {
+    return outLines([["real rail", "A real payment is a wNEAR transfer signed by an agent that holds wNEAR, and this tab has none.", "warn"],
+      "From your terminal run:  npm run x402:demo:real",
+      "Then press Refresh: the paid check appears in Recent paid checks, with its transaction link."]);
   }
-  $("swarmGrid").replaceChildren(...grid.children);
+  if (!LAST_QUOTE || LAST_QUOTE.query !== $("q").value.trim()) await requestCheck();
+  if (!LAST_QUOTE) return;
+  outBusy(true);
+  try {
+    const { quote, query } = LAST_QUOTE;
+    const req = quote.accepts.find((x) => x?.scheme === "exact");
+    // the demo agent only pays what this server advertises: same recipient, mock terms, never more than the listed price
+    if (!req || req.payTo !== DATA.x402.pay_to || !req.extra?.mock || req.asset !== "NEAR") throw new Error("the quoted terms aren't the mock rail's; not paying");
+    if (BigInt(req.amount) > BigInt(DATA.x402.price)) throw new Error("the price went up; not paying");
+    const resource = new URL(quote.resource.url);
+    if (resource.pathname !== "/memory/check") throw new Error("the quote is for a different resource; not paying");
+    const payer = await demoPayer();
+    const now = Math.floor(Date.now() / 1000);
+    const authorization = {
+      from: payer.account, to: req.payTo, value: req.amount, asset: req.asset, network: req.network, resource: resource.href,
+      validAfter: now - 1, validBefore: now + Math.min(req.maxTimeoutSeconds, 120), nonce: hex(crypto.getRandomValues(new Uint8Array(16))),
+    };
+    const message = new TextEncoder().encode("mnemosyne-x402-v2:" + canonicalJson(authorization));
+    const signature = "ed25519:" + b58(new Uint8Array(await crypto.subtle.sign({ name: "Ed25519" }, payer.priv, message)));
+    const payment = { x402Version: 2, accepted: req, payload: { authorization, publicKey: payer.publicKey, signature } };
+    outLines(["Signing with the demo agent and retrying…"]);
+    const res = await fetch("/memory/check", {
+      method: "POST", cache: "no-store", credentials: "same-origin",
+      headers: { "content-type": "application/json", "PAYMENT-SIGNATURE": btoa(JSON.stringify(payment)) },
+      body: JSON.stringify({ query }),
+    });
+    let j = null; try { j = await res.json(); } catch {}
+    LAST_QUOTE = null;                       // a payment is single-use
+    if (res.status === 200) {
+      outLines([["HTTP", "200", "hd"], ["match", String(j.match), j.match ? "ok" : ""], j.match ? ["citation", `${j.citation_id} · ${j.category}`] : null, j.advice ? ["advice", j.advice] : null,
+        ["receipt", j.receipt_id], ["paid by", `demo agent ${short(payer.account, 8, 6)} (throwaway key, lives in this tab)`], ["private detail", "never returned"]].filter(Boolean));
+      addFeed("x402 check settled", `${j.match ? "match · " + j.citation_id : "no match"} · ${short(j.receipt_id, 8, 4)}`);
+      load();
+    } else if (res.status === 402) {
+      outLines([["HTTP", "402", "bad"], ["payment refused", j?.error || "invalid payment", "bad"], "Nothing was charged."]);
+    } else {
+      outLines([["HTTP", String(res.status), "bad"], ["error", j?.error || "unexpected answer", "bad"]]);
+    }
+  } catch (err) { outLines([["not paid", err.message, "bad"]]); }
+  finally { outBusy(false); }
+}
+
+/* ---------- account: top bar, rail, and the Guardrails page ---------- */
+let railDirty = false;
+
+function renderRail() {
+  const box = $("railGuard");
+  const ro = (v) => h("input", { type: "text", value: v, readonly: true, "aria-label": "Account" });
+  if (LOGIN_OFF) return fill(box, h("p", { class: "mono" }, "Login is switched off on this server (LOGIN=0)."));
+  if (!ME) return fill(box, h("div", { class: "guard" }, h("label", {}, "Account"), ro("not connected"),
+    h("p", { class: "mono" }, "Connect a NEAR wallet to set your own limits for paid memory checks."), h("a", { class: "btn", href: "/login" }, "Connect NEAR")));
+  if (!ME.signed_up) return fill(box, h("div", { class: "guard" }, h("label", {}, "Account"), ro(ME.account_id),
+    h("p", { class: "mono" }, "Finish creating your account to set limits."), h("a", { class: "btn primary", href: "/login" }, "Finish sign-up")));
+  const g = ME.profile.guardrails, maxQ = ME.protocol.max_queries_per_day.max, maxS = ME.protocol.max_spend_per_day.max;
+  const dirty = () => { railDirty = true; };
+  const q = h("input", { type: "number", id: "rg-q", min: "0", max: String(maxQ), step: "1", inputmode: "numeric", value: String(g.max_queries_per_day) });
+  const s = h("input", { type: "text", id: "rg-s", inputmode: "decimal", value: yoctoToNear(g.max_spend_per_day, 24), "aria-describedby": "rg-s-help" });
+  const p = h("select", { id: "rg-p" }, h("option", { value: "false", selected: !g.pause_all }, "Off"), h("option", { value: "true", selected: g.pause_all }, "On"));
+  for (const el of [q, s, p]) { el.addEventListener("input", dirty); el.addEventListener("change", dirty); }
+  const save = h("button", { class: "btn", type: "button", id: "rg-save", style: "margin-top:4px" }, "Save");
+  save.addEventListener("click", saveRail);
+  const u = ME.usage;
+  fill(box, h("div", { class: "guard" },
+    h("label", {}, "Account"), ro(ME.account_id),
+    h("label", { for: "rg-q" }, "Max queries / day"), q,
+    h("label", { for: "rg-s" }, "Max spend / day (NEAR)"), s,
+    h("span", { class: "mono", id: "rg-s-help" }, `up to ${yoctoToNear(maxS)} NEAR`),
+    h("label", { for: "rg-p" }, "Pause memory API"), p,
+    save,
+    h("p", { class: "mono", style: "margin-top:2px" }, `last 24 h: ${u.queries} of ${g.max_queries_per_day} checks · ${yoctoToNear(u.spend)} of ${yoctoToNear(g.max_spend_per_day)} NEAR`)));
+}
+
+async function saveRail() {
+  const wrap = $("railGuard"), btn = $("rg-save");
+  const qn = Number($("rg-q").value.trim()), yocto = nearToYocto($("rg-s").value);
+  const errs = [];
+  $("rg-q").removeAttribute("aria-invalid"); $("rg-s").removeAttribute("aria-invalid");
+  if ($("rg-q").value.trim() === "" || !Number.isInteger(qn) || qn < 0) { errs.push("Queries per day: enter a whole number."); $("rg-q").setAttribute("aria-invalid", "true"); }
+  if (yocto == null) { errs.push("Spend per day: enter an amount like 0.05."); $("rg-s").setAttribute("aria-invalid", "true"); }
+  if (errs.length) return msgBox(wrap, "err", h("ul", {}, errs.map((e) => h("li", {}, e))));
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const res = await api("PUT", "/me/guardrails", { pause_all: $("rg-p").value === "true", max_queries_per_day: qn, max_spend_per_day: yocto });
+    if (res.status === 401) { ME = null; railDirty = false; renderAccountAll(); return flash("err", "You were signed out. Connect your wallet again."); }
+    if (!res.ok) return msgBox(wrap, "err", h("ul", {}, errLines(res).map((e) => h("li", {}, e))));
+    ME = res.body; railDirty = false;
+    renderAccountAll();
+    msgBox($("railGuard"), "good", "Saved. These limits apply to your next paid check.");
+    addFeed("Guardrails saved", `${ME.profile.guardrails.max_queries_per_day} queries/day · ${ME.profile.guardrails.pause_all ? "paused" : "active"}`);
+  } catch (err) { msgBox(wrap, "err", `Couldn't reach the server: ${err.message}`); }
+  finally { const b = $("rg-save"); if (b) { b.disabled = false; b.textContent = "Save"; } }
+}
+
+let deleteArmed = false;
+function renderAccountPanel() {
+  const box = $("acctPanel"), tagEl = $("acctTag");
+  if (LOGIN_OFF) { fill(tagEl); return fill(box, emptyBox("Login is switched off on this server (LOGIN=0).")); }
+  if (!ME) {
+    fill(tagEl, "signed out");
+    return fill(box, h("p", {}, "Sign in with a NEAR wallet to create an account and set your own limits for paid memory checks: a daily query cap, a daily spend cap and a pause switch. Signing in never gives access to the governor, its keys or any capital."),
+      h("a", { class: "btn primary", href: "/login" }, "Connect NEAR"));
+  }
+  fill(tagEl, ME.signed_up ? "signed in" : "sign-up not finished");
+  if (!ME.signed_up) return fill(box, h("p", {}, `You are signed in as ${ME.account_id}, but your account isn't created yet.`), h("a", { class: "btn primary", href: "/login" }, "Finish sign-up"));
+  const p = ME.profile, u = ME.usage, g = p.guardrails;
+  const name = h("input", { type: "text", id: "nameIn", maxlength: "32", value: p.display_name || "", placeholder: "no display name", "aria-label": "Display name" });
+  const saveName = h("button", { class: "btn", type: "button" }, "Save name");
+  saveName.addEventListener("click", async () => {
+    const res = await api("PUT", "/me", { display_name: name.value.trim() || null });
+    if (res.ok) { ME = res.body; renderAccountAll(); msgBox($("acctPanel"), "good", "Name saved."); }
+    else msgBox($("acctPanel"), "err", errLines(res).join(" "));
+  });
+  const del = h("button", { class: "btn danger", type: "button" }, deleteArmed ? "Click again to delete" : "Delete my account");
+  del.addEventListener("click", async () => {
+    if (!deleteArmed) { deleteArmed = true; del.textContent = "Click again to delete"; return; }
+    deleteArmed = false;
+    const res = await api("DELETE", "/me");
+    if (res.ok) { ME = null; RECEIPTS = []; renderAccountAll(); flash("", "Your account was deleted. Paid receipts stay in the public audit log; they hold no personal data."); }
+    else msgBox($("acctPanel"), "err", errLines(res).join(" "));
+  });
+  const row = (k, v) => h("div", { class: "r" }, h("dt", {}, k), h("dd", {}, v));
+  const hist = (p.history || []).slice(0, 4);
+  fill(box,
+    h("dl", { class: "kv" },
+      row("Account", ext(`${EXPLORER}/address/${ME.account_id}`, ME.account_id)),
+      row("Display name", h("div", { class: "btnrow" }, name, saveName)),
+      row("Member since", when(p.created_at)),
+      row("Last sign-in", when(p.last_login_at)),
+      row("Last 24 h", `${u.queries} of ${g.max_queries_per_day} checks · ${yoctoToNear(u.spend)} of ${yoctoToNear(g.max_spend_per_day)} NEAR`),
+      row("Price per check", `${yoctoToNear(ME.price)} NEAR`),
+      row("Memory API", g.pause_all ? h("span", { class: "warn" }, "paused by you") : "active")),
+    h("p", { class: "intro", style: "margin-top:12px" }, "Edit your limits in the panel on the right. They apply to checks paid from this account, before anything is settled. Accounts that never sign up have no personal limits."),
+    hist.length ? h("ul", { class: "limits-hist", "aria-label": "Recent changes" }, hist.map((c) => h("li", {}, `${ago(c.at)} · ${c.change}`))) : null,
+    h("div", { class: "btnrow", style: "margin-top:14px" }, del));
+}
+
+function renderAccountAll() {
+  renderAccountSlot(); renderRail(); renderAccountPanel(); renderMyReceipts();
+}
+
+async function loadMe() {
+  try {
+    const r = await api("GET", "/me");
+    if (r.status === 404) { LOGIN_OFF = true; ME = null; RECEIPTS = []; return; }
+    if (r.status === 401) { ME = null; RECEIPTS = []; return; }
+    if (!r.ok) return;
+    ME = r.body;
+    if (ME.signed_up) { const rr = await api("GET", "/me/receipts"); RECEIPTS = rr.ok ? rr.body.receipts || [] : []; } else RECEIPTS = [];
+  } catch { /* offline: leave the last state */ }
+}
+
+/* ---------- activity ---------- */
+function renderFeed(d) {
+  const items = [...LOCAL_FEED.map((x) => ({ ...x }))];
+  const c = d.cycles[0];
+  if (c) {
+    const t = cycleIso(c.record.cycle_id), run = c.run;
+    if (run?.committed === false) items.push({ at: t, what: "Memory commit failed", detail: run.error || "fail-closed, nothing moved" });
+    else if (run) items.push({ at: t, what: "Memory committed", detail: `decision_hash ${head(bare(c.record.decision_hash), 12)}` });
+    else items.push({ at: t, what: "Decision recorded", detail: `decision_hash ${head(bare(c.record.decision_hash), 12)}` });
+    if (run && run.committed !== false) {
+      for (const x of c.record.decisions || []) {
+        const rep = run.reports?.find((y) => y.sub === x.sub), v = run.verdicts?.find((y) => y.sub === x.sub);
+        const word = x.action === "PAUSE" ? "paused" : v?.action || x.action;
+        const acc = d.subs.find((s) => s.id === x.sub)?.keys?.account;
+        items.push({ at: t, what: `Sub ${x.sub} · ${word}`, detail: x.action === "PAUSE" ? String(x.reason_code || "") : rep?.status === "reported" ? (rep.accountId || acc || "reported on-chain") : (rep ? `report ${rep.status}` : v?.reason || "") });
+      }
+      if (run.cross_chain?.status === "quoted") items.push({ at: t, what: "Price quote allowed", detail: `by memory commit ${head(run.cross_chain.memory_tx, 10)}` });
+    }
+  }
+  for (const r of d.x402?.recent || []) items.push({ at: r.at, what: `x402 check · ${r.match ? "match" : "no match"}`, detail: `${r.match ? r.citation_id + " · " : ""}${short(r.receipt_id, 8, 4)}` });
+  items.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const list = items.slice(0, 10);
+  if (!list.length) return fill($("feed"), h("li", {}, h("div", { class: "detail" }, "Nothing yet.")));
+  fill($("feed"), list.map((i) => h("li", {}, h("div", { class: "when", title: i.at }, when(i.at)), h("div", {}, i.what), i.detail ? h("div", { class: "detail" }, i.detail) : null)));
 }
 
 /* ---------- cycle log (re-derived from the public record + run log) ---------- */
@@ -1000,7 +1064,7 @@ function logSteps(c) {
   let decide;
   if (isTee(r) && r.tee) {
     const k = r.tee.checks || {};
-    const okAll = k.hashes_match && k.signature_valid && k.binds_address && k.binds_nonce && (k.tdx === "not_checked" || k.tdx?.verified) && (k.gpu === "not_checked" || (k.gpu?.verdict && k.gpu?.token_signature_valid));
+    const okAll = teeVerified(r);
     decide = step("DECIDE", `private reasoning in a NEAR AI Cloud TEE (${r.tee.model})`, okAll ? "done" : "failed");
     const tdx = k.tdx === "not_checked" ? "not checked" : `${k.tdx?.verified ? "OK" : "FAIL"} (${k.tdx?.status})`;
     const gpu = k.gpu === "not_checked" ? "not checked" : k.gpu?.verdict && k.gpu?.token_signature_valid ? "OK" : "FAIL";
@@ -1048,18 +1112,22 @@ function logSteps(c) {
   return S;
 }
 
-const STEP_LABEL = { done: "done", failed: "failed", skip: "not run", unknown: "no record" };
+const STEP_STATE = { done: ["done", "ok"], failed: ["failed", "bad"], skip: ["not run", ""], unknown: ["no record", ""] };
+let auditPick = "";   // cycle_id chosen in the Audit select; empty = newest
 
 function renderLog(d) {
-  const box = $("logBox");
-  if (!d.cycles[0]) { box.replaceChildren(h("div", { class: "ln faint", style: "padding:16px 0" }, "No cycle recorded on this machine yet.")); return; }
-  const steps = logSteps(d.cycles[0]);
-  box.replaceChildren(...steps.map((s, i) => h("div", { class: "log-step " + s.state },
+  const sel = $("cycSel"), box = $("logBox");
+  if (!d.cycles.length) { fill(sel); return fill(box, emptyBox("No cycle recorded on this machine yet.")); }
+  if (!d.cycles.some((c) => c.record.cycle_id === auditPick)) auditPick = d.cycles[0].record.cycle_id;
+  fill(sel, d.cycles.map((c) => h("option", { value: c.record.cycle_id, selected: c.record.cycle_id === auditPick }, `${cycleLabel(c.record.cycle_id)}${c.run?.committed === false ? " · not committed" : ""}`)));
+  const c = d.cycles.find((x) => x.record.cycle_id === auditPick);
+  const steps = logSteps(c);
+  fill(box, steps.map((s, i) => h("div", { class: "log-step " + s.state },
     h("div", { class: "log-head" },
       h("span", { class: "n" }, `${i + 1}/${steps.length}`),
       h("span", { class: "t" }, s.name),
       h("span", { class: "d" }, s.text),
-      h("span", { class: "st" }, STEP_LABEL[s.state])),
+      tag(STEP_STATE[s.state][0], STEP_STATE[s.state][1])),
     s.lines.length ? h("div", { class: "log-body" }, s.lines.map((l) => {
       // leading spaces become a real indent, so wrapped text on a phone lines up under its own line
       const first = typeof l.parts[0] === "string" ? l.parts[0] : "";
@@ -1068,13 +1136,13 @@ function renderLog(d) {
       return h("div", { class: "ln " + l.cls, style: indent ? `padding-left:${indent}ch` : null }, ...parts);
     })) : null)));
 }
+$("cycSel").addEventListener("change", (e) => { auditPick = e.target.value; if (DATA) renderLog(DATA); });
 
-/* ---------- your limits ---------- */
-// Everything here is the owner's rails. The per-cycle numbers (target, max position, max loss) are
-// the governor's decision and are committed on-chain, so they are not editable.
+/* ---------- governor limits (the owner's rails; needs the admin token) ---------- */
+// The per-cycle numbers (target, max position, max loss) are the governor's decision and are
+// committed on-chain, so they are not editable.
 let limitsEditing = false;
 let lastLimits = null;
-let adminToken = "";            // kept only in this tab's memory; gone on reload
 let resetArmed = false;
 
 const showLimit = (s, v) => (s.unit === "%" ? String(+(v * 100).toFixed(2)) : String(v));
@@ -1083,7 +1151,7 @@ const rangeWord = (s) => `${showLimit(s, s.min)}–${showLimit(s, s.max)}${s.uni
 
 function renderLimits(d) {
   const L = d.limits;
-  if (!L) { $("limitsNote").textContent = ""; $("limitsBox").replaceChildren(emptyBox("Limits are not configured on this server.")); return; }
+  if (!L) { $("limitsNote").textContent = ""; return fill($("limitsBox"), emptyBox("Limits are not configured on this server.")); }
   lastLimits = L;
   $("limitsNote").textContent = L.source === "owner" ? `set by the owner · ${ago(L.updated_at)}` : "built-in defaults";
   if (limitsEditing) return;       // never wipe what someone is in the middle of typing
@@ -1091,8 +1159,8 @@ function renderLimits(d) {
 }
 
 function limitMsg(box, kind, ...kids) {
-  box.querySelector(".limits-msg")?.remove();
-  box.append(h("div", { class: "limits-msg " + kind, role: kind === "err" ? "alert" : "status" }, ...kids));
+  box.querySelector(".msg")?.remove();
+  box.append(h("div", { class: "msg " + kind, role: kind === "err" ? "alert" : "status", style: "margin-top:12px" }, ...kids));
 }
 
 function drawLimits(L, msg) {
@@ -1112,15 +1180,16 @@ function drawLimits(L, msg) {
 
   const actions = h("div", { class: "limits-actions" });
   if (!editing) {
-    actions.append(h("button", { class: "block-btn", type: "button", id: "limEdit" }, "EDIT LIMITS"));
-    actions.lastChild.addEventListener("click", () => { limitsEditing = true; resetArmed = false; drawLimits(lastLimits, null); $("lim-" + L.specs[0].key)?.focus(); });
+    const edit = h("button", { class: "btn", type: "button", id: "limEdit" }, "Edit limits");
+    edit.addEventListener("click", () => { limitsEditing = true; resetArmed = false; drawLimits(lastLimits, null); $("lim-" + L.specs[0].key)?.focus(); });
+    actions.append(edit);
   } else {
     actions.append(
       h("label", { class: "token-row", for: "lim-token" }, "Admin token",
-        h("input", { id: "lim-token", type: "password", autocomplete: "off", value: adminToken, placeholder: "ADMIN_TOKEN from your .env" })),
-      h("button", { class: "block-btn primary", type: "button", id: "limSave" }, "SAVE"),
-      h("button", { class: "block-btn", type: "button", id: "limCancel" }, "CANCEL"),
-      h("button", { class: "block-btn", type: "button", id: "limReset" }, resetArmed ? "CLICK AGAIN TO RESET" : "RESET TO DEFAULTS"));
+        h("input", { id: "lim-token", type: "password", autocomplete: "off", value: ADMIN, placeholder: "ADMIN_TOKEN from your .env" })),
+      h("button", { class: "btn primary", type: "button", id: "limSave" }, "Save"),
+      h("button", { class: "btn", type: "button", id: "limCancel" }, "Cancel"),
+      h("button", { class: "btn", type: "button", id: "limReset" }, resetArmed ? "Click again to reset" : "Reset to defaults"));
     actions.querySelector("#limSave").addEventListener("click", () => saveLimits(L));
     actions.querySelector("#limCancel").addEventListener("click", () => { limitsEditing = false; resetArmed = false; drawLimits(lastLimits, null); });
     actions.querySelector("#limReset").addEventListener("click", () => resetLimits(L));
@@ -1128,25 +1197,18 @@ function drawLimits(L, msg) {
 
   const hist = (L.history || []).slice(-3).reverse();
   fill(box,
-    h("p", { class: "limits-intro" }, "The rails the governor works inside. Every cycle writes the limits it used into its on-chain memory record, so you can see which rules applied to which decision."),
-    h("p", { class: "limits-intro" }, "Each sub's target, max position and max loss stay the governor's call. Their hash is committed on-chain, so they can't be edited by hand. Sub-agents also keep their own hard ceilings and will refuse, on-chain, anything past them."),
+    h("p", { class: "intro" }, "The rails the governor works inside. Every cycle writes the limits it used into its on-chain memory record, so you can see which rules applied to which decision."),
+    h("p", { class: "intro" }, "Each sub's target, max position and max loss stay the governor's call. Their hash is committed on-chain, so they can't be edited by hand. Sub-agents also keep their own hard ceilings and will refuse, on-chain, anything past them."),
     grid, actions,
     hist.length ? h("ul", { class: "limits-hist", "aria-label": "Recent changes" }, hist.map((c) => h("li", {}, `${ago(c.at)} · ` + Object.entries(c.changes).map(([k, x]) => { const sp = L.specs.find((q) => q.key === k); return `${label[k] || k} ${sp ? showLimit(sp, x.from) : x.from} → ${sp ? showLimit(sp, x.to) : x.to}`; }).join(", ")))) : null);
   if (msg) limitMsg(box, msg.kind, ...msg.parts);
 }
 
-async function sendLimits(method, path, body, token) {
-  const r = await fetch(path, { method, cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined });
-  let j = null; try { j = await r.json(); } catch {}
-  return { status: r.status, body: j };
-}
-
-function explainLimitsError(res) {
+function explainAdminError(res) {
   if (res.status === 401) return ["That token isn't right."];
   if (res.status === 429) return ["Too many wrong tokens. Wait a minute and try again."];
-  if (res.status === 503) return ["Editing is switched off on this server. Set ADMIN_TOKEN in .env, restart npm run server, then try again."];
-  if (res.status === 400 && Array.isArray(res.body?.errors)) return res.body.errors;
-  return [res.body?.error || `The server answered ${res.status}.`];
+  if (res.status === 503) return ["Admin routes are switched off on this server. Set ADMIN_TOKEN in .env, restart npm run server, then try again."];
+  return errLines(res);
 }
 
 async function saveLimits(L) {
@@ -1161,101 +1223,127 @@ async function saveLimits(L) {
   const token = $("lim-token").value;
   if (!token) problems.push("Enter the admin token to save.");
   if (problems.length) return limitMsg(box, "err", "Not saved:", h("ul", {}, problems.map((p) => h("li", {}, p))));
-  const btn = $("limSave"); btn.disabled = true; btn.textContent = "SAVING…";
+  const btn = $("limSave"); btn.disabled = true; btn.textContent = "Saving…";
   try {
-    const res = await sendLimits("PUT", "/limits", body, token);
+    const res = await api("PUT", "/limits", body, token);
     if (res.status === 200) {
-      adminToken = token; limitsEditing = false;
+      ADMIN = token; limitsEditing = false;
       lastLimits = res.body;
       $("limitsNote").textContent = res.body.source === "owner" ? "set by the owner · just now" : "built-in defaults";
+      addFeed("Governor limits saved", "next cycle uses them");
       return drawLimits(res.body, { kind: "good", parts: ["Saved. The next cycle uses these limits, and its memory record will carry them on-chain."] });
     }
-    limitMsg(box, "err", "Not saved:", h("ul", {}, explainLimitsError(res).map((p) => h("li", {}, p))));
+    limitMsg(box, "err", "Not saved:", h("ul", {}, explainAdminError(res).map((p) => h("li", {}, p))));
   } catch (err) {
     limitMsg(box, "err", `Couldn't reach the server: ${err.message}`);
   } finally {
-    const b = $("limSave"); if (b) { b.disabled = false; b.textContent = "SAVE"; }
+    const b = $("limSave"); if (b) { b.disabled = false; b.textContent = "Save"; }
   }
 }
 
 async function resetLimits(L) {
   const box = $("limitsBox");
-  if (!resetArmed) { resetArmed = true; $("limReset").textContent = "CLICK AGAIN TO RESET"; return; }
+  if (!resetArmed) { resetArmed = true; $("limReset").textContent = "Click again to reset"; return; }
   resetArmed = false;
   const token = $("lim-token").value;
-  if (!token) { $("limReset").textContent = "RESET TO DEFAULTS"; return limitMsg(box, "err", "Enter the admin token to reset."); }
+  if (!token) { $("limReset").textContent = "Reset to defaults"; return limitMsg(box, "err", "Enter the admin token to reset."); }
   try {
-    const res = await sendLimits("POST", "/limits/reset", null, token);
+    const res = await api("POST", "/limits/reset", null, token);
     if (res.status === 200) {
-      adminToken = token; limitsEditing = false; lastLimits = res.body;
+      ADMIN = token; limitsEditing = false; lastLimits = res.body;
       $("limitsNote").textContent = "built-in defaults";
       return drawLimits(res.body, { kind: "good", parts: ["Back to the built-in defaults. The next cycle uses them."] });
     }
-    $("limReset").textContent = "RESET TO DEFAULTS";
-    limitMsg(box, "err", "Not reset:", h("ul", {}, explainLimitsError(res).map((p) => h("li", {}, p))));
+    $("limReset").textContent = "Reset to defaults";
+    limitMsg(box, "err", "Not reset:", h("ul", {}, explainAdminError(res).map((p) => h("li", {}, p))));
   } catch (err) {
     limitMsg(box, "err", `Couldn't reach the server: ${err.message}`);
   }
 }
 
-/* ---------- x402 ---------- */
-function renderX402(d) {
-  const x = d.x402, box = $("x402Box");
-  if (!x) { box.replaceChildren(); return; }
-  $("railTag").textContent = x.mock_settlement ? "MOCK RAIL" : "REAL · wNEAR TESTNET";
-  const rail = x.mock_settlement
-    ? "Mock rail: every payment is fully verified, then recorded in a local ledger instead of on-chain."
-    : `Real settlement: ${wnear(x.price)} wNEAR per check on NEAR testnet, paid to ${x.pay_to}.`;
-  const top = h("div", { class: "panel-pad" }, h("div", { class: "x402-row" },
-    h("div", { class: "x402-copy" },
-      h("p", {}, "Other agents pay per query over x402 to ask whether a situation matches a failure Mnemosyne has already learned from. They get a citation and one line of advice — never the private detail."),
-      h("p", {}, rail, ` ${x.memory_entries} lessons in memory.`),
-      h("ol", { class: "x402-flow" },
-        ["POST /memory/check", "402 + price", "sign and retry", "answer + receipt"].map((t, i) => h("li", {}, h("b", {}, `${i + 1}`), t)))),
-    h("a", { class: "block-btn", href: "/audit", target: "_blank", rel: "noopener" }, "OPEN AUDIT JSON ↗")));
-  let bottom;
-  if (!x.recent.length) bottom = h("div", { class: "x402-table" }, emptyBox("No paid checks on this server yet. Run ", h("code", {}, "npm run x402:demo:real"), " against it to make one."));
-  else bottom = h("div", { class: "x402-table" }, h("table", { class: "chain" },
-    th("When", "Payer", "Paid", "Answer", "Settlement", "Receipt"),
-    h("tbody", {}, x.recent.map((r) => h("tr", {},
-      td("When", when(r.at)),
-      td("Payer", h("span", { title: r.payer }, short(r.payer, 8, 6))),
-      td("Paid", r.mock ? "mock" : `${wnear(r.amount)} wNEAR`),
-      td("Answer", r.match ? h("span", { class: "ok" }, `matched ${r.citation_id}`) : "no match"),
-      td("Settlement", r.mock ? h("span", { class: "faint" }, "local ledger") : txLink(r.settlement, short(r.settlement, 8, 6) + " ↗")),
-      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 8, 4))))))));
-  box.replaceChildren(top, bottom);
+/* ---------- run a cycle (operator only) ---------- */
+let cycleBusy = false;
+function togglePop(open) {
+  $("cyclePop").hidden = !open;
+  $("btnCycle").setAttribute("aria-expanded", String(open));
+  if (open) { $("cycTok").value = ADMIN; $("cycTok").focus(); }
+}
+
+async function runCycleNow() {
+  if (cycleBusy) return;
+  const token = $("cycTok").value;
+  if (!token) return flash("err", "Enter the admin token to run a cycle.");
+  cycleBusy = true;
+  $("btnCycle").disabled = true; $("btnCycle").textContent = "Running…"; $("cycGo").disabled = true;
+  flash("", "Cycle running: private decision in the TEE, memory commit on NEAR, then the sub-agents report. This can take a minute or two.");
+  try {
+    const res = await api("POST", "/cycle/run", null, token);
+    if (res.status === 200 && res.body?.result) {
+      ADMIN = token; togglePop(false);
+      const r = res.body.result;
+      flash(r.committed ? "good" : "err", r.committed
+        ? `Cycle ${cycleLabel(r.cycle_id)} committed to NEAR (${head(bare(r.decision_hash), 12)}).`
+        : `Cycle ${cycleLabel(r.cycle_id)} did not commit, so nothing moved. See Audit.`);
+      addFeed(r.committed ? "Cycle committed" : "Cycle stopped at commit", head(bare(r.decision_hash), 12));
+      await load();
+    } else {
+      flash("err", `The cycle did not run: ${explainAdminError(res).join(" ")}`);
+    }
+  } catch (err) {
+    flash("err", `Couldn't reach the server: ${err.message}`);
+  } finally {
+    cycleBusy = false;
+    $("btnCycle").disabled = false; $("btnCycle").textContent = "Run cycle"; $("cycGo").disabled = false;
+  }
 }
 
 /* ---------- load ---------- */
 async function load() {
   const btn = $("refresh");
-  btn.disabled = true; btn.textContent = "READING…";
+  btn.disabled = true; btn.textContent = "Reading…";
   try {
-    const r = await fetch("/dashboard.json", { cache: "no-store" });
+    const [r] = await Promise.all([fetch("/dashboard.json", { cache: "no-store" }), loadMe()]);
     if (!r.ok) throw new Error(`the server answered ${r.status}`);
     const d = await r.json();
+    DATA = d;
     const problems = [];
     if (!d.chain.ok) problems.push(`Couldn't read the chain (${d.chain.error}). Showing records stored on this machine.`);
     if (d.subs.some((s) => s.keys?.error)) problems.push("Couldn't read the sub-agents' keys from NEAR.");
     if (d.swarm?.error) problems.push(`Couldn't read the sub-agents' wNEAR balances (${d.swarm.error}).`);
     $("problem").hidden = !problems.length;
     $("problem").textContent = problems.join(" ");
-    $("netDot").classList.toggle("down", !d.chain.ok);
-    $("governorBadge").replaceChildren(accLink(d.contract));
-    renderStats(d); renderChain(d); renderDecision(d); renderSwarm(d); renderLimits(d); renderLog(d); renderX402(d);
+    fill($("governorBadge"), accLink(d.contract));
+    renderTop(d); renderDesk(d); renderChain(d); renderDecision(d); renderSwarm(d); renderX402(d); renderLimits(d); renderLog(d); renderFeed(d);
+    // never wipe a box someone is typing in
+    const typingRail = railDirty || $("railGuard").contains(document.activeElement);
+    const typingAcct = $("acctPanel").contains(document.activeElement);
+    renderAccountSlot(); renderMyReceipts();
+    if (!typingRail) renderRail();
+    if (!typingAcct) renderAccountPanel();
     $("updated").textContent = `live from NEAR testnet · updated ${new Date(d.generated_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
   } catch (err) {
     $("problem").hidden = false;
     $("problem").textContent = `Couldn't load the dashboard data: ${err.message}. Is npm run server still running?`;
-    $("netDot").classList.add("down");
+    $("pillGate").className = "pill bad"; $("pillGate").textContent = "server unreachable";
   } finally {
-    btn.disabled = false; btn.textContent = "REFRESH";
+    btn.disabled = false; btn.textContent = "Refresh";
   }
 }
+
 $("refresh").addEventListener("click", load);
+$("btnCheck").addEventListener("click", requestCheck);
+$("btnPay").addEventListener("click", payAndRetry);
+$("btnCycle").addEventListener("click", () => togglePop($("cyclePop").hidden));
+$("cycCancel").addEventListener("click", () => togglePop(false));
+$("cycGo").addEventListener("click", runCycleNow);
+$("cycTok").addEventListener("keydown", (e) => { if (e.key === "Enter") runCycleNow(); if (e.key === "Escape") togglePop(false); });
+$("q").addEventListener("input", () => { LAST_QUOTE = null; });
+$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") requestCheck(); });
+
+outLines(IDLE);
+route();
 load();
-setInterval(() => { if (!document.hidden) load(); }, 30000);
+setInterval(() => { if (!document.hidden && !cycleBusy) load(); }, 30000);
 </script>
 
 </body>

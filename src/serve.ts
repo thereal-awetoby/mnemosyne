@@ -11,6 +11,7 @@
  *   X402_FACILITATOR_API_KEY  bearer token for that facilitator
  *   X402_VERIFY_NAMED_PAYERS  "1": mock facilitator accepts named payer accounts
  *                             (e.g. agent.testnet) after checking the key on NEAR
+ *   LOGIN                     "0" turns off NEAR wallet login and sign-up (/login, /me); default on
  *   ADMIN_TOKEN               enables POST /memory/confess, POST /cycle/run and changing the
  *                             risk limits (PUT /limits, the dashboard's Your limits panel)
  *   DATA_DIR                  default data/runtime (gitignored)
@@ -112,6 +113,11 @@ const { server, memory } = createMnemosyneServer({
   dashboardFonts: Object.fromEntries(
     readdirSync(join(REPO_ROOT, "web/fonts")).filter((f) => f.endsWith(".woff2")).map((f) => [f, readFileSync(join(REPO_ROOT, "web/fonts", f))])
   ),
+  auth: process.env.LOGIN === "0" ? undefined : {
+    rpcUrl: RPC_URL,
+    loginHtml: readFileSync(join(REPO_ROOT, "web/login.html"), "utf8"),
+    loginScript: readFileSync(join(REPO_ROOT, "web/vendor/near-connect.js")),
+  },
   dashboardData: async () => {
     const { buildDashboard } = await import("./dashboard/data.js");
     const { getChainHead } = await import("./memory.js");
@@ -152,6 +158,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  memory entries: ${memory.size}   payTo: ${GOVERNOR}   data: ${DATA_DIR}`);
   console.log(`  facilitator: ${rail ? `REAL near:testnet -- ${rail.requirements.amount} ${rail.requirements.asset} per check, relayer pays gas` : realFacilitatorUrl ? realFacilitatorUrl : "MOCK (verifies everything, settles to a local ledger)"}`);
   console.log(`  admin routes: ${process.env.ADMIN_TOKEN ? "enabled" : "disabled (set ADMIN_TOKEN)"}`);
+  console.log(`  login:        ${process.env.LOGIN === "0" ? "off (LOGIN=0)" : `NEAR wallet sign-in and sign-up at http://localhost:${actualPort}/login`}`);
   console.log(`  dashboard:    http://localhost:${actualPort}/dashboard  (read-only${process.env.ADMIN_TOKEN ? "; limits can be changed with the admin token" : "; set ADMIN_TOKEN to be able to change limits"})`);
 });
 
