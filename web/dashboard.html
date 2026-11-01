@@ -928,7 +928,8 @@ function renderDecision(d) {
   const reported = run?.reports?.filter((x) => x.status === "reported").length || 0;
   const st = ["done", "done", committed === false ? "stop" : committed ? "done" : "", committed ? "done" : "", committed ? "done" : "", committed ? "done" : ""];
   const moved = (run?.allocations || []).filter((e) => e.kind === "transfer" && e.tx).length;
-  const names = [["READ", run?.swarm_source === "onchain" ? "real balances" : "simulated swarm"], ["DECIDE", isTee(r) ? "sealed in TEE" : "local rule"], ["COMMIT", "memory on NEAR"], ["ALLOCATE", run?.allocate_mode === "wnear" ? `${moved} transfer${moved === 1 ? "" : "s"}` : "print-only"], ["SUB-AGENTS", `${reported} reported on-chain`], ["PUBLISH", "public record"]];
+  const quoted = run?.cross_chain?.status === "quoted" ? " + price quote" : "";
+  const names = [["READ", run?.swarm_source === "onchain" ? "real balances" : "simulated swarm"], ["DECIDE", isTee(r) ? "sealed in TEE" : "local rule"], ["COMMIT", "memory on NEAR"], ["ALLOCATE", (run?.allocate_mode === "wnear" ? `${moved} transfer${moved === 1 ? "" : "s"}` : "print-only") + quoted], ["SUB-AGENTS", `${reported} reported on-chain`], ["PUBLISH", "public record"]];
   const steps = h("ol", { class: "steps", "aria-label": "Cycle steps" }, names.map(([n, s], i) =>
     h("li", { class: st[i] }, h("span", { class: "n" }, `${i + 1}/6`), n, h("span", { class: "s" }, st[i] === "stop" ? "stopped here" : st[i] ? s : "not run"))));
   box.replaceChildren(h("div", { class: "panel" }, h("div", { class: "decision" }, left, right), steps));
@@ -1023,10 +1024,12 @@ function logSteps(c) {
   if (!stopped) {
     if (run.allocations && run.allocations.length) {
       for (const e of run.allocations) {
-        add(alloc, e.kind === "transfer" ? "ok" : e.kind === "none" ? "" : "refuse", `sub ${e.sub}: ${e.note}`);
+        add(alloc, e.kind === "transfer" || e.kind === "quote" ? "ok" : e.kind === "none" ? "" : "refuse", `sub ${e.sub}: ${e.note}`);
         if (e.tx && txUrl(e.tx)) add(alloc, "faint", "  tx: ", ext(txUrl(e.tx), txUrl(e.tx)));
         if (e.kind === "failed") alloc.state = "failed";
       }
+      const cc = run.cross_chain;
+      if (cc && cc.status === "quoted" && txUrl(cc.memory_tx)) add(alloc, "faint", "  allowed by memory commit: ", ext(txUrl(cc.memory_tx), txUrl(cc.memory_tx)));
     } else for (const x of r.decisions || []) {
       add(alloc, "", x.action === "PAUSE" ? `sub ${x.sub}: PAUSE (${x.reason_code})` : `sub ${x.sub}: ${x.action} -> target_capital=${x.target_capital}, max_position=${x.max_position}, max_loss_cycle=${x.max_loss_cycle}, mandate=${x.mandate}`);
     }

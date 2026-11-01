@@ -1,0 +1,79 @@
+# Cross-chain allocation (Phase 7): quote only
+
+After a cycle's memory commit, ALLOCATE can ask Rhea / NEAR Intents what it would cost to move a small slice of one sub's allocation to another chain. **This build only quotes.**
+
+- A quote is a price, not a fill. Nothing is sent, signed or deposited, and every log line and the dashboard say so.
+- Rhea and NEAR Intents run on **mainnet**. This project stays on testnet with tiny amounts, so executing is deliberately not wired (see "Execution" below). A quote costs nothing and moves nothing, which is why it is allowed.
+- Off by default. `CROSS_CHAIN_ALLOCATE=1` turns it on. Offline demos and CI never touch the network.
+
+Order stays fixed: READ -> DECIDE (TEE) -> MEMORY COMMIT -> ALLOCATE (same-chain top-ups, then this) -> SUB WINDOW. If the memory commit fails, nothing in ALLOCATE runs.
+
+## What the memory record allows
+
+`src/allocate/cross_chain.ts`. Every rule fails closed.
+
+1. **No allocation without memory.** The same `assertMemoryGate()` as the wNEAR rail: committed, matches its own `decision_hash`, inside its own `max_total_exposure`. Otherwise the provider is never asked.
+2. **Only what the record says.** The chosen sub (`CROSS_CHAIN_SUB`, default A) must be `KEEP` or `INCREASE` in the committed record. Never `PAUSE`, never `CUT`, never the reduce-only sub. The amount can never exceed that sub's committed `target_capital`, `CROSS_CHAIN_MAX_UNITS` (default 100), or the hard ceiling in code (1000 units).
+3. **Destination allowlist, in code.** One path today: wNEAR on NEAR -> USDC on Base. Anything else is refused.
+4. **A provider's answer is checked before it is believed.** A quote for more than was asked, with no minimum output, with a deposit address, or past its expiry is refused.
+5. **Every quote is logged with what allowed it:** the decision hash, the memory tx (explorer link), the provider's quote id (Rhea `quote.id`, or 1Click `correlationId`) and a local `quote_ref` that digests the whole answer together with the decision hash. It goes into the cycle's run log (`cross_chain`) and shows in the dashboard's ALLOCATE step.
+6. A refusal or a provider outage is logged and the cycle carries on. The sub window still runs. Subs never create intents.
+
+## Providers
+
+| `CROSS_CHAIN_PROVIDER` | what | key |
+| --- | --- | --- |
+| `rhea` | Rhea's RHEA X Chain SDK, `@rhea-finance/cross-chain-aggregation-dex` (pinned 2.1.9), `SwapClient.quote()`. Rhea chooses among several routers (NEAR Intents is one) and the router that won is recorded. | `RHEA_API_KEY` from <https://boss.rhea.finance> |
+| `oneclick` | NEAR Intents' 1Click API, `POST /v0/quote` with `dry:true`. A dry quote has no deposit address by design. | none needed (`ONECLICK_API_KEY` only removes the 0.1% fee) |
+
+Default: `rhea` if `RHEA_API_KEY` is set, otherwise `oneclick`.
+
+## Configuration (all optional except the recipient)
+
+| variable | default | meaning |
+| --- | --- | --- |
+| `CROSS_CHAIN_ALLOCATE` | off | `1` to run this step in a cycle. Any other value except `0` is an error, never a guess. |
+| `CROSS_CHAIN_RECIPIENT` | none | an address **you own** on Base (`0x...`). Required. Nothing is sent to it. |
+| `CROSS_CHAIN_SUB` | `A` | which sub's allocation this is for |
+| `CROSS_CHAIN_UNITS` | `100` | capital units to quote (1 to 1000). At the default unit, 100 units = 0.001 wNEAR |
+| `CROSS_CHAIN_MAX_UNITS` | `100` | cap on the above (the code ceiling is 1000 whatever this says) |
+| `CROSS_CHAIN_SLIPPAGE_BPS` | `50` | slippage tolerance, 1 to 300 |
+| `CROSS_CHAIN_SENDER` | `GOVERNOR_ACCOUNT_ID` | origin-side account named on the quote (refund address). A testnet name may be rejected by a mainnet quote API: if so, set any mainnet account you own. It is only a label while nothing executes. |
+| `RHEA_API_URL` / `ONECLICK_URL` | the official hosts | only for testing against a stub |
+
+## Run it (Windows cmd)
+
+Quote for the newest committed record, without a whole cycle (no private key needed):
+
+```
+npm install
+set CROSS_CHAIN_RECIPIENT=0xYourBaseAddress
+npm run crosschain:check
+```
+
+Or as part of a real cycle:
+
+```
+set CROSS_CHAIN_RECIPIENT=0xYourBaseAddress
+set CROSS_CHAIN_ALLOCATE=1
+npm run cycle
+```
+
+For Rhea, also `set RHEA_API_KEY=...` (in that same window; `set` only lasts for the window you type it in).
+
+You should see one line like `sub A: CROSS-CHAIN QUOTE via near-intents: 0.00100 wNEAR -> about 0.0031 USDC on Base (at least 0.003), quote <id>; quote only, nothing was sent`, followed by the memory commit that allowed it.
+
+### If the quote says "amount too low"
+
+0.001 wNEAR is a fraction of a cent, below what solvers will price. The log then says `quote unavailable: ... (nothing was sent)`, and that is the honest result. To see a realistic price, scale the unit **only in the window where you run `crosschain:check`**, for example `set CAPITAL_UNIT_YOCTO=1000000000000000000000` (then 100 units = 0.1 wNEAR). A quote moves nothing, so this is safe. Do not set it in a window where `ALLOCATE_MODE=wnear`, because the same unit scales the real top-ups.
+
+## Execution: deliberately not wired
+
+`executeAllocation()` exists and its checks are tested: the memory gate again, the plan still matching the record, the quote belonging to this record, still inside the envelope and not expired, and an executor being present. **No executor is wired and the cycle never calls it**, so the default is a refusal: "execution is not wired in this build". Turning it on would move real mainnet funds, which is a separate decision. If it is ever wired, it needs its own absolute cap in token amount (the unit-based caps here scale with `CAPITAL_UNIT_YOCTO`), a mainnet key held apart from the testnet governor key, and a "completed" status that comes only from the executor, never assumed.
+
+## Honest limits
+
+- Quote, never fill. No intent is created and no swap happens.
+- Mainnet prices, testnet project: the quote is real market data about assets the project does not hold.
+- The `rhea` and `oneclick` providers were written against the published docs and the SDK's own type definitions. They are tested offline against fakes. See HANDOFF.md for the live run.
+- Operator-side only. A future per-user layer ([`MULTIUSER_PLAN.md`](MULTIUSER_PLAN.md)) must never be able to reach this rail.

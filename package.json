@@ -21,13 +21,15 @@
     "x402:demo:real": "tsx src/tools/x402RealDemo.ts",
     "tee:check": "tsx src/tools/teeCheck.ts",
     "swarm:setup": "tsx src/tools/swarmSetup.ts",
-    "rail:check": "tsx src/tools/railCheck.ts"
+    "rail:check": "tsx src/tools/railCheck.ts",
+    "crosschain:check": "tsx src/tools/crossChainCheck.ts"
   },
   "dependencies": {
     "@fastnear/x402": "2.5.0",
     "@noble/curves": "2.2.0",
     "@noble/hashes": "2.2.0",
     "@phala/dcap-qvl": "0.7.0",
+    "@rhea-finance/cross-chain-aggregation-dex": "2.1.9",
     "dotenv": "^18.0.9",
     "near-api-js": "^7.4.0"
   },

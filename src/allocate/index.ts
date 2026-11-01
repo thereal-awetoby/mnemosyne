@@ -61,8 +61,9 @@ export interface AllocationContext {
 export interface AllocationEntry {
   sub: SubId;
   action: SubAction;
-  rail: AllocateMode;
-  kind: "transfer" | "none" | "blocked" | "failed";
+  rail: AllocateMode | "cross_chain";
+  /** "quote" (cross-chain rail only): a price was obtained, nothing was sent */
+  kind: "transfer" | "none" | "blocked" | "failed" | "quote";
   units: number;
   /** wNEAR moved, for display ("0.00250"); only on a real transfer */
   wnear?: string;

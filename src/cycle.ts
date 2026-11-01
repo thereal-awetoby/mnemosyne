@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import { swarmScenario } from "./subAgents.js";
 import { fmtWnear, readSwarm, unitsToYocto, type SwarmSnapshot } from "./swarmState.js";
 import { runAllocate, AllocationGateError, type AllocationEntry } from "./allocate/index.js";
+import { crossChainEnabled, runCrossChainAllocate, type CrossChainRunLog } from "./allocate/cross_chain.js";
 import { envelopeToSwarmRisk, loadLimits } from "./limits/index.js";
 import { decidePrivately, type DecisionOutcome } from "./private/decide.js";
 import { getLatestMemoryRecord, hashDecision, writeMemoryRecord } from "./memory.js";
@@ -51,6 +52,8 @@ export interface CycleRun {
   swarm_source?: "simulated" | "onchain";
   allocate_mode?: "print" | "wnear";
   allocations?: AllocationEntry[];
+  /** Phase 7: the cross-chain quote for this cycle (only when CROSS_CHAIN_ALLOCATE=1). Quote only, never a fill. */
+  cross_chain?: CrossChainRunLog;
   limits_source?: "default" | "owner";
 }
 
@@ -187,8 +190,10 @@ export async function runCycle(): Promise<CycleResult> {
   // matches its own hash, no allocation.
   let allocateMode: "print" | "wnear" = "print";
   let allocations: AllocationEntry[] = [];
+  let allocateGateOk = false;
   try {
     const out = await runAllocate({ record: memoryRecord, commit: commitResult, state: swarmState, source: swarm.source });
+    allocateGateOk = true;
     allocateMode = out.mode;
     allocations = out.entries;
     console.log(`[4/6] ALLOCATE: applying decisions (${allocateMode === "wnear" ? "real wNEAR top-ups on testnet, tiny amounts" : "print-only — no real transfers"})...`);
@@ -200,6 +205,24 @@ export async function runCycle(): Promise<CycleResult> {
     if (moved.length) console.log(`      moved ${fmtWnear(unitsToYocto(moved.reduce((t, e) => t + e.units, 0)))} wNEAR in total`);
   } catch (err) {
     console.log(`[4/6] ALLOCATE: ${err instanceof AllocationGateError ? "[FAIL-CLOSED] " : "failed: "}${(err as Error).message}`);
+  }
+
+  // 4b. Phase 7, off by default: ask Rhea / NEAR Intents for a cross-chain price. Quote only,
+  // never a fill. It runs only if the same-chain allocation step passed the memory gate,
+  // and runCrossChainAllocate() checks that gate again itself.
+  let crossChain: CrossChainRunLog | undefined;
+  let crossChainOn = false;
+  try { crossChainOn = crossChainEnabled(); } catch (err) { console.log(`      cross-chain: ${(err as Error).message}; skipped`); }
+  if (crossChainOn && allocateGateOk) {
+    try {
+      const cc = await runCrossChainAllocate({ record: memoryRecord, commit: commitResult, state: swarmState, source: swarm.source });
+      crossChain = cc.summary;
+      allocations = [...allocations, ...cc.entries];
+      for (const e of cc.entries) console.log(`      sub ${e.sub}: ${e.note}`);
+      if (cc.summary.memory_tx_url) console.log(`        allowed by memory commit: ${cc.summary.memory_tx_url}`);
+    } catch (err) {
+      console.log(`      cross-chain: ${err instanceof AllocationGateError ? "[FAIL-CLOSED] " : "failed: "}${(err as Error).message}`);
+    }
   }
 
   // 5. SUB-AGENT WINDOW
@@ -265,6 +288,7 @@ export async function runCycle(): Promise<CycleResult> {
     swarm_source: swarm.source,
     allocate_mode: allocateMode,
     allocations,
+    ...(crossChain ? { cross_chain: crossChain } : {}),
     limits_source: limitsSource,
   });
   return { memoryRecord, privateDecision, committed: true, reports };

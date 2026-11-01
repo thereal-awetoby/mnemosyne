@@ -2,6 +2,21 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-01 — Phase 7: cross-chain allocation via Rhea / NEAR Intents (QUOTE ONLY; built, offline-tested, LIVE QUOTE PENDING)
+
+Full description: `docs/CROSS_CHAIN.md`. Off by default (`CROSS_CHAIN_ALLOCATE=1`). The order is unchanged: READ, DECIDE (TEE), MEMORY COMMIT, ALLOCATE, SUB WINDOW; if the commit fails nothing in ALLOCATE runs.
+
+- **`src/allocate/cross_chain.ts`**: `planCrossChain()` (memory gate, then what the committed record allows: sub must be KEEP or INCREASE, never PAUSE/CUT/the reduce-only sub, amount never above the sub's committed `target_capital`, `CROSS_CHAIN_MAX_UNITS` or the 1000-unit code ceiling, destination allowlist in code = wNEAR on NEAR to USDC on Base, recipient and sender checked), `quoteAllocation()` (ask the provider, then `checkQuote()`: refuse a quote larger than asked, with no minimum out, with a deposit address, or expired), `executeAllocation()` (all the checks again plus an executor; **no executor is wired and the cycle never calls it**), `runCrossChainAllocate()` (the ALLOCATE step: refusals and outages become log entries, a failed memory gate throws and is reported fail-closed).
+- **`src/allocate/crossChainProviders.ts`**: `rhea` = `@rhea-finance/cross-chain-aggregation-dex` 2.1.9 (`SwapClient.quote()`, needs `RHEA_API_KEY` from boss.rhea.finance, loaded only when used) and `oneclick` = NEAR Intents 1Click `POST /v0/quote` with `dry:true` (no key needed). Written against the published docs and the SDK's type definitions; tested against fakes. **A quote is a price, not a fill: nothing is sent, signed or deposited. Rhea and NEAR Intents are mainnet; the project stays testnet.**
+- **Logging**: each quote carries the decision hash, the memory tx link, the provider's quote id (Rhea `quote.id` / 1Click `correlationId`) and a local `quote_ref`. It is stored in the cycle's run log (`cross_chain`) and as an ALLOCATE entry (`kind: "quote"`); the dashboard shows it with a link to the memory commit.
+- **`npm run crosschain:check`**: quote for the newest committed record without a whole cycle, no private key needed.
+- 31 new tests (133 total), including "allocate without memory is rejected", the tampered record, every envelope refusal, the refusal to execute, and both providers' request and answer shapes. A real cycle with the step on and no governor key fails closed at the commit with no allocation.
+- **Not yet proven live** (the sandbox cannot reach either API). On the Windows machine: `npm install`, `set CROSS_CHAIN_RECIPIENT=0x<a Base address you own>`, `npm run crosschain:check`, then a cycle with `set CROSS_CHAIN_ALLOCATE=1`. If it answers "amount too low", see the note in `docs/CROSS_CHAIN.md`. Record the memory tx and quote id here.
+- Dependency added: `@rhea-finance/cross-chain-aggregation-dex` 2.1.9 (MIT, one dependency `zod`, published 2026-10-14, no install scripts), pinned exactly.
+- **Next, planned (not started): the per-user NEAR-login layer.** See `docs/MULTIUSER_PLAN.md`. Rule: login is identity plus personal policy, never root. Phase 7 is operator-side and must stay unreachable from it.
+
+---
+
 ## 2026-11-01 — Real balances, real top-ups, owner-editable limits (proven live on testnet)
 
 Full description: `docs/BALANCES_AND_LIMITS.md`. Nothing here is on by default.

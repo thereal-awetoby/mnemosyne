@@ -22,6 +22,8 @@ Proven 2026-10-31: a cycle decided in the TEE (signature, nonce binding, Intel T
 
 **Real balances and the owner's limits:** by default the swarm state and ALLOCATE are simulated and labelled as such. With `SWARM_STATE=onchain` READ uses each sub's real wNEAR balance, and with `ALLOCATE_MODE=wnear` the governor tops a sub up with a tiny real transfer, only after the memory commit and never above the committed target (no committed memory, no allocation). Losses stay a labelled simulation, because Mnemosyne doesn't trade. The owner can change the risk limits from the dashboard (admin token); each cycle writes the limits it used into its on-chain record. The per-cycle targets are the governor's decision and are not hand-editable. Details: [`docs/BALANCES_AND_LIMITS.md`](docs/BALANCES_AND_LIMITS.md).
 
+**Cross-chain allocation (Phase 7, optional, quote only):** with `CROSS_CHAIN_ALLOCATE=1`, after the memory commit ALLOCATE asks Rhea (`@rhea-finance/cross-chain-aggregation-dex`) or NEAR Intents' 1Click API what it would cost to move a small slice of one sub's allocation from wNEAR on NEAR to USDC on Base. It only runs if the memory gate passes, only for a sub the committed record leaves at KEEP or INCREASE, never above that sub's committed target, only to an allowlisted destination, and every quote is logged with the decision hash and the memory tx that allowed it. **It is a price, not a fill: nothing is sent, signed or deposited.** Both networks are mainnet and this project is testnet-only, so executing is deliberately not wired. Off by default. Details: [`docs/CROSS_CHAIN.md`](docs/CROSS_CHAIN.md). A planned per-user NEAR-login layer is described in [`docs/MULTIUSER_PLAN.md`](docs/MULTIUSER_PLAN.md).
+
 Still simulated by default, and labeled as such: swarm losses (`SWARM_SCENARIO`), and x402 settlement in the default mock rail.
 
 Sub-agent key setup: [`docs/PHASE3_KEYS.md`](docs/PHASE3_KEYS.md). Copy `.env.example` to `.env`.
@@ -39,6 +41,7 @@ npm run x402:demo             (an external agent pays for a memory check)
 npm run tee:check             (one verified private decision in the NEAR AI TEE, nothing on-chain)
 npm run swarm:setup           (one-time: fund the subs with tiny testnet wNEAR for real balances)
 npm run rail:check            (send 1 unit of real testnet wNEAR to a sub, only if the newest memory commit checks out)
+npm run crosschain:check      (Phase 7: a cross-chain price for the newest committed record; quote only, nothing is sent)
 npm test                      (x402 + private-decision tests, no network needed)
 ```
 
