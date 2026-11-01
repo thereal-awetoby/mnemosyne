@@ -89,5 +89,5 @@ It sends six price-only requests that each change one thing from the one before 
 
 - Quote, never fill. No intent is created and no swap happens.
 - Mainnet prices, testnet project: the quote is real market data about assets the project does not hold.
-- The `oneclick` provider is proven live (a price only, 2026-11-01; see HANDOFF.md). The `rhea` provider was written against the SDK's published type definitions and is tested offline against fakes only: it needs a `RHEA_API_KEY` from boss.rhea.finance and has not been run live.
+- The `oneclick` provider is proven live (a price only, 2026-11-01; see HANDOFF.md). The `rhea` provider was written against the SDK's published type definitions and is tested offline against fakes. **Run live without a key on 2026-11-01, Rhea refused it** ("Rhea wants an API key and none is set"; nothing was sent), so it needs a `RHEA_API_KEY` from boss.rhea.finance, which could not be obtained (the portal rejected the emailed verification code). Until a key is set, use `CROSS_CHAIN_PROVIDER=oneclick`, which needs none.
 - Operator-side only. A future per-user layer ([`MULTIUSER_PLAN.md`](MULTIUSER_PLAN.md)) must never be able to reach this rail.

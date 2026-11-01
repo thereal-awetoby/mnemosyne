@@ -15,7 +15,7 @@ Running record of what was actually built, patch by patch. Newest entry on top.
 - **x402 box:** "Request check" is a real unpaid `POST /memory/check` and shows the 402 terms. "Pay & retry" on the **mock rail** is a clearly labelled demo agent with a throwaway Ed25519 key in the tab (WebCrypto), which only pays what the server quoted, never above the listed price. On the **real rail** it explains that a tab holds no wNEAR and points to `npm run x402:demo:real`. A browser wallet paying x402 directly is not built (see `docs/LOGIN.md`).
 - Checked in Chromium at 1280 and 390 wide: no sideways scroll, no script errors. Driven end to end against a running server: unpaid 402, paid retry on the mock rail, wrong and right admin tokens, limits save and reset, sign-up with a real signed session, personal guardrails, pause blocking before the 402, sign-out.
 - 35 new tests (194 total).
-- **Rhea portal:** the API key could not be obtained (the sign-in page rejected the emailed verification code). The `rhea` provider now tries without a key first; the `oneclick` provider is proven live and covers the same ALLOCATE step. `docs/SUBMISSION.md` holds the demo script, X post and form text drafts.
+- **Rhea portal:** the API key could not be obtained (the sign-in page rejected the emailed verification code), and a keyless live try was refused by Rhea (see the Phase 7 follow-up entry). The `rhea` provider tries without a key first and says so plainly; the `oneclick` provider is proven live and covers the same ALLOCATE step. `docs/SUBMISSION.md` holds the demo script, X post and form text drafts.
 
 ---
 
@@ -41,7 +41,7 @@ First real `npm run crosschain:check` on the Windows machine reached 1Click and 
 - `implicitAccountId()` in `src/nearTx.ts` (hex of the key's 32-byte public key).
 - `refundAccount()` default and 3 more tests; 21 earlier new tests in this follow-up. 157 total, all offline.
 - **Full cycle with the step on, PROVEN (2026-11-01 10:54 UTC, cycle `2026-11-01T10:54:48.874Z-6fee1`, `CROSS_CHAIN_ALLOCATE=1`, no `CROSS_CHAIN_SENDER` set):** READ (real balances A=801 B=800 C=800), DECIDE in the NEAR AI Cloud TEE (signature, fresh nonce, Intel TDX `UpToDate`, NVIDIA GPU all OK; policy guard adjustments 0), MEMORY COMMIT [`4ZFT4xBh...`](https://testnet.nearblocks.io/txns/4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN) (decision hash `sha256:3f8a5e107da79a774ba9e873715a317a22de3d78fe67eeaaf9091a7c59441f32`, `prev_hash` the `9bc88d03...` commit above), then ALLOCATE: sub A KEEP (nothing to move), subs B and C CUT to 700, and `sub A: CROSS-CHAIN QUOTE via near-intents: 0.00100 wNEAR -> about 0.001957 USDC on Base (at least 0.001947), quote 7cefc589-e2fa-4150-bb68-549336e1cd0a; quote only, nothing was sent`, with the line "allowed by memory commit" pointing at the tx above. Then the sub window: A ACT, B ACT, C REFUSE (max_loss_cycle 35 over its ceiling 30), each reported on-chain by its own key. All four txs and the chain head (`get_latest` = `3f8a5e10...`, prev `9bc88d03...`, 13 commits) were re-read from testnet RPC and match. The quote id was read from the console and is not re-checkable on chain (1Click quotes are off-chain).
-- **Still open:** the `rhea` provider live (needs `RHEA_API_KEY` from boss.rhea.finance, or a keyless try: the SDK lists the key as optional).
+- **Rhea live, keyless (2026-11-01, Windows machine):** `CROSS_CHAIN_PROVIDER=rhea npm run crosschain:check` with no key got `Rhea wants an API key and none is set`, nothing sent, the memory gate still passed (decision `sha256:3f8a5e10...`). So Rhea does need a key, and the key portal rejected the emailed verification code. Still open only if a key is ever obtained; `CROSS_CHAIN_PROVIDER=oneclick` is the proven provider.
 
 ---
 
@@ -54,7 +54,7 @@ Full description: `docs/CROSS_CHAIN.md`. Off by default (`CROSS_CHAIN_ALLOCATE=1
 - **Logging**: each quote carries the decision hash, the memory tx link, the provider's quote id (Rhea `quote.id` / 1Click `correlationId`) and a local `quote_ref`. It is stored in the cycle's run log (`cross_chain`) and as an ALLOCATE entry (`kind: "quote"`); the dashboard shows it with a link to the memory commit.
 - **`npm run crosschain:check`**: quote for the newest committed record without a whole cycle, no private key needed.
 - 31 new tests (133 total), including "allocate without memory is rejected", the tampered record, every envelope refusal, the refusal to execute, and both providers' request and answer shapes. A real cycle with the step on and no governor key fails closed at the commit with no allocation.
-- **Proven live for 1Click** (price only), standalone and inside a full cycle: see the follow-up entry above. Not yet run live: the `rhea` provider.
+- **Proven live for 1Click** (price only), standalone and inside a full cycle: see the follow-up entry above. The `rhea` provider was tried live without a key and refused (see the follow-up entry).
 - Dependency added: `@rhea-finance/cross-chain-aggregation-dex` 2.1.9 (MIT, one dependency `zod`, published 2026-10-14, no install scripts), pinned exactly.
 - **The per-user NEAR-login layer is now built** (entry at the top, `docs/LOGIN.md`). Rule kept: login is identity plus personal policy, never root; Phase 7 is operator-side and unreachable from it.
 

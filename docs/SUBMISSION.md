@@ -73,4 +73,4 @@ All on NEAR testnet, from `HANDOFF.md`:
 
 ## What is and is not live
 
-Proven live on testnet: private decisions in the TEE, the fail-closed memory commit, report-only sub-agents, x402 payments in wNEAR, real balances and tiny top-ups, owner limits, and the 1Click price quote. Built and tested offline, not yet run live: the Rhea quote provider (needs a key from Rhea's portal, which is optional; 1Click covers the same step) and the wallet sign-in against a real wallet.
+Proven live on testnet: private decisions in the TEE, the fail-closed memory commit, report-only sub-agents, x402 payments in wNEAR, real balances and tiny top-ups, owner limits, and the 1Click price quote. Built and tested offline, not live: the Rhea quote provider (tried live without a key on 2026-11-01 and Rhea refused it, so it needs a key from Rhea's portal, which could not be obtained; 1Click covers the same step) and the wallet sign-in against a real wallet.
