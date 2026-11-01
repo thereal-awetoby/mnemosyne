@@ -15,6 +15,7 @@ Running record of what was actually built, patch by patch. Newest entry on top.
 - **x402 box:** "Request check" is a real unpaid `POST /memory/check` and shows the 402 terms. "Pay & retry" on the **mock rail** is a clearly labelled demo agent with a throwaway Ed25519 key in the tab (WebCrypto), which only pays what the server quoted, never above the listed price. On the **real rail** it explains that a tab holds no wNEAR and points to `npm run x402:demo:real`. A browser wallet paying x402 directly is not built (see `docs/LOGIN.md`).
 - Checked in Chromium at 1280 and 390 wide: no sideways scroll, no script errors. Driven end to end against a running server: unpaid 402, paid retry on the mock rail, wrong and right admin tokens, limits save and reset, sign-up with a real signed session, personal guardrails, pause blocking before the 402, sign-out.
 - 35 new tests (194 total).
+- **Rhea portal:** the API key could not be obtained (the sign-in page rejected the emailed verification code). The `rhea` provider now tries without a key first; the `oneclick` provider is proven live and covers the same ALLOCATE step. `docs/SUBMISSION.md` holds the demo script, X post and form text drafts.
 
 ---
 
@@ -55,7 +56,7 @@ Full description: `docs/CROSS_CHAIN.md`. Off by default (`CROSS_CHAIN_ALLOCATE=1
 - 31 new tests (133 total), including "allocate without memory is rejected", the tampered record, every envelope refusal, the refusal to execute, and both providers' request and answer shapes. A real cycle with the step on and no governor key fails closed at the commit with no allocation.
 - **Proven live for 1Click** (price only), standalone and inside a full cycle: see the follow-up entry above. Not yet run live: the `rhea` provider.
 - Dependency added: `@rhea-finance/cross-chain-aggregation-dex` 2.1.9 (MIT, one dependency `zod`, published 2026-10-14, no install scripts), pinned exactly.
-- **Next, planned (not started): the per-user NEAR-login layer.** See `docs/MULTIUSER_PLAN.md`. Rule: login is identity plus personal policy, never root. Phase 7 is operator-side and must stay unreachable from it.
+- **The per-user NEAR-login layer is now built** (entry at the top, `docs/LOGIN.md`). Rule kept: login is identity plus personal policy, never root; Phase 7 is operator-side and unreachable from it.
 
 ---
 
