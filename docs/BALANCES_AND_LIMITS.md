@@ -64,4 +64,4 @@ Today the owner proves who they are with the admin token. The file already recor
 - Balances are real; losses are not. There is no trading.
 - Top-ups are one-way (see rule 3).
 - A single owner, one governor. No per-user accounts yet.
-- Real balances, the stepped ALLOCATE log, the on-chain REFUSE and the limits panel have run live on testnet. The `ft_transfer` top-up is proven by `npm run rail:check`: see HANDOFF.md for the transaction once it has run.
+- Real balances, the stepped ALLOCATE log, the on-chain REFUSE, the limits panel and the `ft_transfer` top-up (via `npm run rail:check`) have all run live on testnet: see HANDOFF.md for the transactions. The governor choosing INCREASE inside a live cycle is covered by offline tests only, because it is told to be conservative and rarely does.
