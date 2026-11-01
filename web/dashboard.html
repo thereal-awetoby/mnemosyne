@@ -7,260 +7,285 @@
 <title>Mnemosyne</title>
 <style>
 :root {
-  --bg: #0c0c0c; --panel: #141414; --panel-2: #1a1a1a; --line: #2a2a2a; --line-soft: #222;
-  --text: #e8e8e6; --muted: #8a8a86; --dim: #5c5c58;
+  --bg: #0c0c0c; --panel: #151515; --panel-2: #1b1b1b; --line: #282828; --line-soft: #202020;
+  --text: #e8e8e6; --muted: #8e8e8a; --dim: #626260;
   --ok: #6f9f7a; --warn: #c4a35a; --bad: #c45c4a; --accent: #d4d0c8;
+  --r: 10px; --r-sm: 7px;
   --mono: "SF Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
   --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
-body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.45; min-height: 100vh; overflow-wrap: anywhere; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; min-height: 100vh; overflow-wrap: anywhere; }
 a { color: inherit; }
 code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
 [hidden] { display: none !important; }
-.mono { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.mono { font-size: 12px; color: var(--muted); }
 .faint { color: var(--dim); }
 .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.num { font-variant-numeric: tabular-nums; }
 
 /* top bar */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; padding: 14px 28px; border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.brand h1 { font-size: 15px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-.brand span { color: var(--muted); font-size: 12px; }
-.top-right { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; }
-.pill { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .9; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex: none; }
+.brand h1 { font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.top-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px 5px 10px; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 .pill.on { color: var(--ok); }
+.pill.on::before { animation: pulse 2.6s ease-out infinite; }
 .pill.warn { color: var(--warn); }
 .pill.bad { color: var(--bad); }
-.acct-slot { display: flex; align-items: center; gap: 8px; }
-.chip { font-family: var(--mono); font-size: 12px; color: var(--text); max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.btn { display: inline-block; background: transparent; color: var(--text); border: 1px solid #333; padding: 7px 14px; font-size: 12px; cursor: pointer; font-family: inherit; text-decoration: none; line-height: 1.3; text-align: center; }
-.btn:hover:not(:disabled) { border-color: #555; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(111,159,122,.55); } 70% { box-shadow: 0 0 0 6px rgba(111,159,122,0); } 100% { box-shadow: 0 0 0 0 rgba(111,159,122,0); } }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px 14px; font-size: 12px; cursor: pointer; font-family: inherit; text-decoration: none; line-height: 1.3; transition: border-color .15s, background .15s, opacity .15s; }
+.btn:hover:not(:disabled) { border-color: #4a4a4a; background: #222; }
 .btn.primary { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
-.btn.danger { color: var(--bad); border-color: #3a2a28; }
+.btn.primary:hover:not(:disabled) { background: #e4e0d8; border-color: #e4e0d8; }
+.btn.ghost { background: none; border-color: transparent; color: var(--muted); padding: 6px 8px; }
+.btn.ghost:hover:not(:disabled) { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+.btn.danger { color: var(--bad); border-color: #3a2a28; background: none; }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
-.btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, .copy:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, .copy:focus-visible, button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
 /* operator pop-over + banners */
-.pop { border-bottom: 1px solid var(--line-soft); padding: 16px 28px; }
-.pop-in { max-width: 720px; margin-left: auto; display: flex; flex-direction: column; gap: 10px; }
+.pop { border-bottom: 1px solid var(--line); background: var(--panel); padding: 16px 28px; }
+.pop-in { max-width: 560px; margin-left: auto; display: flex; flex-direction: column; gap: 10px; }
 .pop p { font-size: 12px; color: var(--muted); }
 .pop-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .pop-row input { flex: 1 1 220px; }
-.banner { padding: 10px 28px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line-soft); }
+.banner { padding: 11px 28px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--panel); }
 .banner.err { color: var(--bad); }
 .banner.good { color: var(--ok); }
 
 /* layout */
-.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr) 300px; min-height: calc(100vh - 57px); }
-.side { border-right: 1px solid var(--line-soft); padding: 20px 16px; }
-.side nav a { display: block; color: var(--muted); text-decoration: none; padding: 8px 12px; font-size: 13px; border-left: 2px solid transparent; margin-bottom: 2px; }
-.side nav a:hover { color: var(--text); }
-.side nav a.active { color: var(--text); border-left-color: var(--accent); }
-.side .meta { margin-top: 28px; padding: 0 12px; font-size: 11px; color: var(--dim); line-height: 1.6; }
-.side .meta strong { color: var(--muted); font-weight: 500; display: block; margin-bottom: 4px; }
-.side .meta a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line-soft); }
-.main { padding: 28px 36px 48px; min-width: 0; max-width: 1100px; }
-.rail { border-left: 1px solid var(--line-soft); padding: 20px 20px; min-width: 0; }
+.shell { display: grid; grid-template-columns: 232px minmax(0, 1fr) 300px; min-height: calc(100vh - 57px); }
+.side { border-right: 1px solid var(--line); padding: 18px 14px; display: flex; flex-direction: column; gap: 4px; }
+.side nav a { display: block; color: var(--muted); text-decoration: none; padding: 9px 12px; font-size: 13px; border-radius: var(--r-sm); margin-bottom: 2px; transition: background .15s, color .15s; }
+.side nav a:hover { color: var(--text); background: var(--panel); }
+.side nav a.active { color: var(--text); background: var(--panel-2); font-weight: 500; }
+.side-foot { margin-top: auto; padding-top: 18px; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 8px; }
+.user { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 1px solid transparent; border-radius: var(--r-sm); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s; }
+.user:hover { background: var(--panel); border-color: var(--line); }
+.av { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #111; display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none; }
+.av.guest { background: var(--panel-2); color: var(--dim); border: 1px solid var(--line); font-size: 14px; }
+.user .who { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.user .nm { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user .st { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user .cv { color: var(--dim); font-size: 11px; flex: none; }
+.user-menu { display: flex; flex-direction: column; gap: 2px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.user-menu button, .user-menu a { background: none; border: none; color: var(--muted); font: inherit; font-size: 12px; text-align: left; padding: 7px 10px; border-radius: 5px; cursor: pointer; text-decoration: none; }
+.user-menu button:hover, .user-menu a:hover { background: var(--panel-2); color: var(--text); }
+.side-note { font-size: 11px; color: var(--dim); padding: 0 8px; line-height: 1.5; }
+.side-note a { color: var(--dim); text-decoration: none; border-bottom: 1px solid var(--line); }
+.side-note a:hover { color: var(--muted); }
+.main { padding: 26px 30px 48px; min-width: 0; }
+.rail { border-left: 1px solid var(--line); padding: 20px 18px; min-width: 0; }
 @media (max-width: 960px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
   .side { border-right: none; border-bottom: 1px solid var(--line); padding: 12px 16px; }
   .side nav { display: flex; flex-wrap: wrap; gap: 4px; }
   .side nav a { margin: 0; padding: 7px 12px; }
-  .side .meta { display: none; }
+  .side-foot { margin-top: 10px; padding-top: 10px; }
+  .side-note { display: none; }
   .rail { border-left: none; border-top: 1px solid var(--line); }
   .top, .pop, .banner { padding-left: 16px; padding-right: 16px; }
   .main { padding: 20px 16px 32px; }
 }
 
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
-.row h2 { font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.row h2 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.rail .row h2 { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .row .right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* cards */
-.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-bottom: 8px; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
-.grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 36px; border: none; }
-@media (max-width: 800px) { .grid { grid-template-columns: minmax(0, 1fr); } .grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid:not(.four) > .card { border-right: none; border-bottom: 1px solid var(--line-soft); padding-left: 0; } .grid:not(.four) > .card:last-child { border-bottom: none; } }
-.card { padding: 18px 22px; min-width: 0; border-right: 1px solid var(--line-soft); }
-.card:first-child { padding-left: 0; }
-.card:last-child { border-right: none; }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 22px; }
+@media (max-width: 800px) { .grid, .grid.four { grid-template-columns: minmax(0, 1fr); } .grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; min-width: 0; display: flex; flex-direction: column; transition: border-color .15s; }
+.card:hover { border-color: #333; }
 .card .label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
 .card .value { font-size: 22px; font-weight: 500; letter-spacing: -.02em; }
 .card .value.m { font-size: 16px; font-family: var(--mono); letter-spacing: 0; padding-top: 4px; }
-.card .sub { margin-top: 6px; font-size: 12px; color: var(--muted); font-family: var(--mono); }
-.card .sub a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
-.card .sub a:hover { color: var(--text); }
-.card.small { padding: 10px 22px 0 0; border-right: none; }
-.card.small .value { font-size: 18px; }
+.card .sub { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.card .foot { margin-top: auto; padding-top: 10px; font-size: 12px; }
+.card .foot a, .card .sub a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+.card .foot a:hover, .card .sub a:hover { color: var(--text); }
+.card.small { padding: 14px 16px; }
+.card.small .value { font-size: 20px; }
 
 /* panels */
-.panel { margin-bottom: 40px; }
-.panel-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 0 0 10px; border-bottom: 1px solid var(--line-soft); }
-.panel-h h3 { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
-.panel-b { padding: 18px 0 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 16px; overflow: hidden; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 13px 18px; border-bottom: 1px solid var(--line-soft); }
+.panel-h .lhs { display: flex; align-items: center; gap: 8px; }
+.panel-h h3 { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--text); }
+.panel-b { padding: 16px 18px; }
 .panel-b > p, .intro { font-size: 13px; color: var(--muted); margin-bottom: 10px; max-width: 70ch; }
-.empty { color: var(--muted); font-size: 13px; padding: 4px 0; }
+.empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
 
-.tag { display: inline-block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.tag.ok { color: var(--ok); }
-.tag.ok::before, .tag.warn::before, .tag.bad::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 1px; }
-.tag.warn { color: var(--warn); }
-.tag.bad { color: var(--bad); }
+/* a one-line explanation, hidden until asked for */
+.hint { width: 17px; height: 17px; flex: none; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--dim); font-size: 10px; font-family: var(--sans); line-height: 1; cursor: pointer; padding: 0; transition: color .15s, border-color .15s; }
+.hint:hover, .hint[aria-expanded=true] { color: var(--text); border-color: #4a4a4a; }
+.hint-text { font-size: 12px; color: var(--muted); padding: 11px 18px; border-bottom: 1px solid var(--line-soft); background: var(--panel-2); max-width: none; }
+
+.tag { display: inline-block; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; background: #202020; color: var(--muted); white-space: nowrap; }
+.tag.ok { color: var(--ok); background: rgba(111,159,122,.13); }
+.tag.warn { color: var(--warn); background: rgba(196,163,90,.13); }
+.tag.bad { color: var(--bad); background: rgba(196,92,74,.13); }
 
 /* cycle spine */
-.step { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.step { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 13px 0; border-bottom: 1px solid var(--line-soft); }
 .step:last-child { border-bottom: none; padding-bottom: 0; }
 .step:first-child { padding-top: 0; }
-.step .n { font-family: var(--mono); font-size: 11px; color: var(--dim); padding-top: 2px; }
-.step .t { font-size: 13px; }
-.step .t small { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; font-family: var(--mono); }
+.step .n { font-size: 11px; color: var(--dim); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.step .t { font-size: 13px; font-weight: 500; }
+.step .t small { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; font-weight: 400; }
 
 /* tables */
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { text-align: left; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); font-weight: 500; padding: 0 12px 10px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
-td[data-label="Cycle"], td[data-label="Tx"], td[data-label="Settlement"], td[data-label="Receipt"], td[data-label="Decision hash"], td[data-label="Prev hash"] { white-space: nowrap; }
+th { text-align: left; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); font-weight: 500; padding: 0 14px 10px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 12px 14px 12px 0; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+td[data-label="Cycle"], td[data-label="Proof"], td[data-label="Settlement"], td[data-label="Receipt"], td[data-label="Record"], td[data-label="Follows"] { white-space: nowrap; }
 tr:last-child td { border-bottom: none; }
-tr.head td { background: transparent; }
-tr.head td:first-child { box-shadow: inset 2px 0 0 var(--warn); padding-left: 8px; }
+tr.head td { background: rgba(196,163,90,.06); }
+tr.head td:first-child { box-shadow: inset 2px 0 0 var(--warn); padding-left: 10px; }
+/* the last column is always the link, in the same place on every row */
+table.endlink th:last-child, table.endlink td:last-child { text-align: right; padding-right: 0; white-space: nowrap; }
 .copy { background: none; border: none; color: var(--text); font-family: var(--mono); font-size: 12px; cursor: pointer; padding: 0; text-align: left; }
 .copy:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
-.head-tag { margin-left: 8px; font-size: 9px; letter-spacing: .1em; color: var(--warn); vertical-align: 1px; }
+.head-tag { margin-left: 8px; font-size: 9px; letter-spacing: .08em; color: var(--warn); border-radius: 999px; background: rgba(196,163,90,.14); padding: 2px 7px; vertical-align: 1px; }
 td a, .panel a:not(.btn) { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
 td a:hover, .panel a:not(.btn):hover { color: var(--text); }
 @media (max-width: 720px) {
   table.stack thead { display: none; }
   table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; }
-  table.stack tr { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  table.stack tr { padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
   table.stack tr:last-child { border-bottom: none; }
   table.stack td { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border: none; padding: 3px 0; text-align: right; }
   table.stack td::before { content: attr(data-label); flex: none; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); text-align: left; }
   tr.head td:first-child { padding-left: 0; box-shadow: none; }
   tr.head { box-shadow: inset 2px 0 0 var(--warn); padding-left: 8px; }
 }
-.legend { list-style: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--muted); }
-.legend li { display: flex; gap: 10px; align-items: baseline; }
+.legend { list-style: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 12px; color: var(--muted); }
+.legend li { display: flex; gap: 8px; align-items: center; }
 .legend .head-tag { margin: 0; flex: none; }
-.legend .sym { flex: none; width: 18px; text-align: center; }
+.legend .sym { flex: none; }
 
 /* decision record */
-.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
-@media (max-width: 800px) { .two { grid-template-columns: minmax(0, 1fr); gap: 18px; } }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; }
+@media (max-width: 800px) { .two { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
 .sub-title { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); font-weight: 500; margin-bottom: 10px; }
-.kv .r { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.kv .r { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
 .kv .r:last-child { border-bottom: none; }
 .kv dt { color: var(--dim); font-size: 12px; }
 .kv dd { min-width: 0; }
-.checks { list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.checks { list-style: none; display: flex; flex-direction: column; gap: 11px; font-size: 13px; }
 .checks li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
 .checks small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
 .checks .dim { color: var(--muted); }
 
 /* sub-agent cards */
-.subs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
-.sub-card { border-left: 1px solid var(--line-soft); padding: 0 22px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.sub-card:first-child { border-left: none; padding-left: 0; }
-.sub-card:last-child { padding-right: 0; }
-@media (max-width: 1180px) {
-  .subs { grid-template-columns: minmax(0, 1fr); }
-  .sub-card, .sub-card:first-child, .sub-card:last-child { border-left: none; padding: 18px 0; border-top: 1px solid var(--line-soft); }
-  .sub-card:first-child { border-top: none; padding-top: 0; }
-  .sub-card:last-child { padding-bottom: 0; }
-}
+.subs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1180px) { .subs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 800px) { .subs { grid-template-columns: minmax(0, 1fr); } }
+.sub-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; transition: border-color .15s; }
+.sub-card:hover { border-color: #333; }
 .sub-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.sub-id { font-size: 12px; font-weight: 600; letter-spacing: .06em; }
-.sub-mandate { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.sub-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
-.sub-stats .k, .sub-balance .k { display: block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
-.sub-stats .v, .sub-balance .v { font-family: var(--mono); font-size: 13px; }
+.sub-id { font-size: 14px; font-weight: 600; }
+.sub-mandate { font-size: 12px; color: var(--muted); margin-top: -8px; }
+.sub-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.sub-stats .k, .sub-balance .k { display: block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: 1px; }
+.sub-stats .v, .sub-balance .v { font-size: 13px; font-variant-numeric: tabular-nums; }
 .sub-reason { font-size: 12px; color: var(--muted); }
 .sub-reason b { color: var(--text); font-weight: 600; }
-.sub-reason .tx { display: block; margin-top: 4px; font-family: var(--mono); font-size: 11px; }
-.sub-keys { font-size: 11px; color: var(--dim); }
-.key-badge { align-self: flex-start; }
+/* every card keeps its links in the same place, at the foot */
+.sub-foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--dim); }
+.sub-foot a { white-space: nowrap; }
+.sub-foot a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+.sub-foot a:hover { color: var(--text); }
 
 /* activity feed */
 .feed { list-style: none; }
-.feed li { padding: 11px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.feed li { padding: 11px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
 .feed li:last-child { border-bottom: none; }
-.feed .when { color: var(--dim); font-family: var(--mono); font-size: 11px; margin-bottom: 3px; }
-.feed .detail { color: var(--muted); margin-top: 3px; font-family: var(--mono); font-size: 11px; }
-.line { height: 1px; background: var(--line); margin: 18px 0; }
+.feed .when { color: var(--dim); font-size: 11px; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+.feed .detail { color: var(--muted); margin-top: 2px; font-size: 12px; }
+.line { height: 1px; background: var(--line); margin: 20px 0; }
 
 /* forms */
-.guard { display: flex; flex-direction: column; gap: 9px; }
+.guard { display: flex; flex-direction: column; gap: 10px; }
 .guard label, .lab { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
-input[type=text], input[type=number], input[type=password], select { background: transparent; border: none; border-bottom: 1px solid #3a3a3a; color: var(--text); padding: 8px 2px; font-size: 13px; font-family: inherit; width: 100%; border-radius: 0; }
-select option { background: var(--panel); }
-input:focus, select:focus { outline: none; border-bottom-color: var(--accent); }
+input[type=text], input[type=number], input[type=password], select { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text); padding: 9px 11px; font-size: 13px; font-family: inherit; width: 100%; transition: border-color .15s; }
+input:focus, select:focus { outline: none; border-color: #4a4a4a; }
 input[readonly] { color: var(--muted); }
-input[aria-invalid=true] { border-bottom-color: var(--bad); }
+input[aria-invalid=true] { border-color: var(--bad); }
 .note { margin-top: 16px; font-size: 11px; color: var(--dim); line-height: 1.5; }
-.msg { font-size: 12px; padding: 4px 0 4px 12px; border-left: 2px solid var(--line); color: var(--muted); }
-.msg.err { color: var(--bad); border-left-color: var(--bad); }
-.msg.good { color: var(--ok); border-left-color: var(--ok); }
+.msg { font-size: 12px; padding: 9px 12px; border-radius: var(--r-sm); background: var(--panel-2); color: var(--muted); }
+.msg.err { color: var(--bad); background: rgba(196,92,74,.1); }
+.msg.good { color: var(--ok); background: rgba(111,159,122,.1); }
 .msg ul { margin: 4px 0 0 16px; }
 .btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* owner limits */
-.limits-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; margin: 14px 0; }
+.limits-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 4px 0 14px; }
 @media (max-width: 800px) { .limits-grid { grid-template-columns: minmax(0, 1fr); } }
-.limit { border-top: 1px solid var(--line-soft); padding: 14px 0; display: flex; flex-direction: column; gap: 6px; }
-.limit.changed .val { color: var(--warn); }
+.limit { background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 13px 15px; display: flex; flex-direction: column; gap: 5px; }
+.limit.changed { border-color: #3a3520; }
 .limit .name { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--dim); }
-.limit .val { font-size: 18px; display: flex; align-items: baseline; gap: 6px; }
+.limit .val { font-size: 19px; display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
 .limit .val input { font-size: 15px; }
 .limit .val small { color: var(--muted); font-size: 12px; }
 .limit .help { font-size: 12px; color: var(--muted); }
-.limit .range { display: block; font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 2px; }
+.limit .range { display: block; font-size: 11px; color: var(--dim); margin-top: 2px; }
 .limits-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
 .token-row { display: flex; flex-direction: column; gap: 6px; flex: 1 1 240px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
-.limits-hist { list-style: none; margin-top: 14px; font-size: 12px; color: var(--muted); font-family: var(--mono); display: flex; flex-direction: column; gap: 4px; }
+.limits-hist { list-style: none; margin-top: 14px; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 5px; }
 
 /* x402 */
-.flow { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 0; margin: 12px 0 4px; }
-.flow li { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.flow { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; margin: 0 0 16px; font-size: 12px; color: var(--muted); }
+.flow li { white-space: nowrap; }
 .flow li + li::before { content: "→"; color: var(--dim); margin: 0 10px; }
-.flow b { color: var(--dim); font-weight: 400; margin-right: 6px; }
-.out { font-family: var(--mono); font-size: 12px; color: var(--muted); line-height: 1.7; border-left: 1px solid var(--line); padding: 2px 0 2px 16px; min-height: 90px; }
-.out .k { color: var(--dim); }
-.out .hd { color: var(--text); }
+.out { font-size: 13px; color: var(--muted); line-height: 1.75; border-radius: var(--r-sm); background: var(--bg); border: 1px solid var(--line-soft); padding: 13px 15px; min-height: 92px; }
+.out .k { color: var(--dim); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+.out .hd { color: var(--text); font-weight: 600; }
 
 /* cycle log */
-.log-step { border-top: 1px solid var(--line-soft); padding: 12px 0; }
+.log-step { border-top: 1px solid var(--line-soft); padding: 13px 0; }
 .log-step:first-child { border-top: none; padding-top: 0; }
-.log-head { display: grid; grid-template-columns: 34px 130px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
+.log-head { display: grid; grid-template-columns: 34px 150px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
 @media (max-width: 720px) { .log-head { grid-template-columns: 34px minmax(0, 1fr) auto; } .log-head .d { grid-column: 2 / 4; order: 4; } }
-.log-head .n { font-family: var(--mono); font-size: 11px; color: var(--dim); }
-.log-head .t { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.log-head .n { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.log-head .t { font-size: 12px; font-weight: 600; }
 .log-head .d { font-size: 12px; color: var(--muted); }
-.log-body { margin: 8px 0 0 44px; font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+.log-body { margin: 9px 0 0 44px; font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
 @media (max-width: 720px) { .log-body { margin-left: 0; } }
 .log-body .ln.ok { color: var(--ok); } .log-body .ln.refuse { color: var(--bad); } .log-body .ln.faint { color: var(--dim); }
 .log-body .ln { white-space: pre-wrap; }
 .select-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .select-row select { width: auto; max-width: 100%; }
+
+.main > section { animation: rise .2s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
 
 <header class="top">
-  <div class="brand"><h1>Mnemosyne</h1><span>governor · testnet</span></div>
+  <div class="brand"><span class="dot"></span><h1>Mnemosyne</h1></div>
   <div class="top-right">
-    <span class="pill" id="pillTee">TEE …</span>
-    <span class="pill" id="pillGate">memory gated</span>
-    <span class="acct-slot" id="acctSlot"></span>
+    <span class="pill" id="pillTee">Checking…</span>
+    <span class="pill" id="pillGate">Memory gate</span>
     <button class="btn primary" type="button" id="btnCycle" aria-expanded="false" aria-controls="cyclePop">Run cycle</button>
   </div>
 </header>
 
 <section class="pop" id="cyclePop" hidden aria-label="Run a cycle">
   <div class="pop-in">
-    <p>Runs one governor cycle on testnet: the private decision in the TEE, the memory commit on NEAR, then allocation and the sub-agent reports. It can take a minute or two. This is the operator's button: it needs the <code>ADMIN_TOKEN</code> from your <code>.env</code>. Signing in with a wallet never allows it.</p>
+    <p>One full cycle on testnet. Takes a minute or two. Operator only.</p>
     <div class="pop-row">
-      <input type="password" id="cycTok" autocomplete="off" placeholder="ADMIN_TOKEN from your .env" aria-label="Admin token">
+      <input type="password" id="cycTok" autocomplete="off" placeholder="Admin token" aria-label="Admin token">
       <button class="btn primary" type="button" id="cycGo">Run now</button>
       <button class="btn" type="button" id="cycCancel">Cancel</button>
     </div>
@@ -273,42 +298,45 @@ input[aria-invalid=true] { border-bottom-color: var(--bad); }
 <div class="shell">
   <aside class="side">
     <nav aria-label="Sections">
-      <a href="#desk">Desk</a>
+      <a href="#desk">Overview</a>
       <a href="#memory">Memory</a>
       <a href="#subs">Sub-agents</a>
-      <a href="#x402">x402 checks</a>
-      <a href="#guardrails">Guardrails</a>
-      <a href="#audit">Audit</a>
+      <a href="#x402">Paid checks</a>
+      <a href="#guardrails">Settings</a>
+      <a href="#audit">Activity log</a>
     </nav>
-    <div class="meta">
-      <strong>Governor</strong>
-      <span id="governorBadge">…</span>
-      <br><br>
-      <strong>Rule</strong>
-      No capital move without an on-chain memory commit. Strategy stays private.
-      <br><br>
-      <span id="updated">connecting…</span>
+    <div class="side-foot">
+      <div class="side-note">Governor <span id="governorBadge">…</span><br><span id="updated">Connecting…</span></div>
+      <div id="acctSlot"></div>
     </div>
   </aside>
 
   <main class="main">
 
     <!-- DESK -->
-    <section id="view-desk" aria-label="Desk">
+    <section id="view-desk" aria-label="Overview">
       <div class="row">
-        <h2>Desk</h2>
+        <h2>Overview</h2>
         <div class="right"><span class="mono" id="cycleId"></span><button class="btn" type="button" id="refresh">Refresh</button></div>
       </div>
       <div class="grid" id="cards"></div>
       <div class="grid four" id="stats"></div>
 
       <div class="panel">
-        <div class="panel-h"><h3>Cycle spine</h3><span id="spineTag"></span></div>
+        <div class="panel-h">
+          <div class="lhs"><h3>How the last cycle ran</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
+          <span id="spineTag"></span>
+        </div>
+        <p class="hint-text" hidden>Every cycle must write its decision to NEAR before any capital moves. If that write fails, the cycle stops and nothing moves.</p>
         <div class="panel-b" id="spine"></div>
       </div>
 
       <div class="panel">
-        <div class="panel-h"><h3>Sub-agents</h3><span class="tag">function-call keys only</span></div>
+        <div class="panel-h">
+          <div class="lhs"><h3>Sub-agents</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
+          <span class="tag">Report only</span>
+        </div>
+        <p class="hint-text" hidden>Sub-agents can only report what they did. Their keys cannot move funds.</p>
         <div class="panel-b" id="subsTable"></div>
       </div>
     </section>
@@ -317,14 +345,18 @@ input[aria-invalid=true] { border-bottom-color: var(--bad); }
     <section id="view-memory" aria-label="Memory" hidden>
       <div class="row"><h2>Memory</h2><span class="mono" id="chainNote"></span></div>
       <div class="panel">
-        <div class="panel-h"><h3>Memory chain</h3><span class="tag">on NEAR</span></div>
+        <div class="panel-h">
+          <div class="lhs"><h3>Decisions written to NEAR</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
+          <span class="tag">On NEAR</span>
+        </div>
+        <p class="hint-text" hidden>Each entry points at the one before it, so the order cannot be changed afterwards. The newest is marked Now.</p>
         <div class="panel-b">
           <div id="chainBox"></div>
           <ul class="legend" id="chainLegend"></ul>
         </div>
       </div>
       <div class="panel">
-        <div class="panel-h"><h3>Latest decision</h3><span class="mono" id="decisionNote"></span></div>
+        <div class="panel-h"><div class="lhs"><h3>Latest decision</h3></div><span class="mono" id="decisionNote"></span></div>
         <div class="panel-b" id="decisionBox"></div>
       </div>
     </section>
@@ -336,52 +368,60 @@ input[aria-invalid=true] { border-bottom-color: var(--bad); }
     </section>
 
     <!-- X402 -->
-    <section id="view-x402" aria-label="x402 checks" hidden>
-      <div class="row"><h2>x402 checks</h2><span class="tag" id="railTag"></span></div>
+    <section id="view-x402" aria-label="Paid checks" hidden>
+      <div class="row"><h2>Paid checks</h2><span class="tag" id="railTag"></span></div>
       <div class="panel">
-        <div class="panel-h"><h3>Memory check</h3><span class="tag">pay per query</span></div>
+        <div class="panel-h">
+          <div class="lhs"><h3>Ask the memory</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
+          <span class="tag" id="priceTag"></span>
+        </div>
+        <p class="hint-text" hidden>Other agents pay per question to ask whether a situation matches a failure Mnemosyne already learned from. They get a citation and one line of advice, never the private detail.</p>
         <div class="panel-b">
-          <div id="x402Copy"></div>
-          <div class="guard" style="margin:14px 0">
-            <label for="q">Query</label>
+          <ol class="flow" id="x402Flow"></ol>
+          <div class="guard" style="margin-bottom:14px">
+            <label for="q">Your question</label>
             <input type="text" id="q" value="delete the full access key" maxlength="500" autocomplete="off">
           </div>
           <div class="btnrow" style="margin-bottom:14px">
-            <button class="btn primary" type="button" id="btnCheck">Request check</button>
+            <button class="btn primary" type="button" id="btnCheck">Ask without paying</button>
             <button class="btn" type="button" id="btnPay">Pay &amp; retry</button>
           </div>
           <div class="out" id="x402Out" role="status" aria-live="polite"></div>
         </div>
       </div>
-      <div class="panel">
-        <div class="panel-h"><h3>Recent paid checks</h3><a class="btn" href="/audit" target="_blank" rel="noopener">Open audit JSON ↗</a></div>
-        <div class="panel-b" id="x402Table"></div>
-      </div>
       <div class="panel" id="myReceiptsPanel" hidden>
-        <div class="panel-h"><h3>Your paid checks</h3><span class="tag">your account</span></div>
+        <div class="panel-h"><div class="lhs"><h3>Your paid checks</h3></div><span class="tag">Your account</span></div>
         <div class="panel-b" id="myReceipts"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div class="lhs"><h3>Everyone's paid checks</h3></div><a class="btn ghost" href="/audit" target="_blank" rel="noopener">Raw data ↗</a></div>
+        <div class="panel-b" id="x402Table"></div>
       </div>
     </section>
 
     <!-- GUARDRAILS -->
-    <section id="view-guardrails" aria-label="Guardrails" hidden>
-      <div class="row"><h2>Guardrails</h2></div>
+    <section id="view-guardrails" aria-label="Settings" hidden>
+      <div class="row"><h2>Settings</h2></div>
       <div class="panel">
-        <div class="panel-h"><h3>Your account</h3><span class="tag" id="acctTag"></span></div>
+        <div class="panel-h"><div class="lhs"><h3>Your account</h3></div><span class="tag" id="acctTag"></span></div>
         <div class="panel-b" id="acctPanel"></div>
       </div>
       <div class="panel">
-        <div class="panel-h"><h3>Governor limits</h3><span class="tag" id="limitsNote"></span></div>
+        <div class="panel-h">
+          <div class="lhs"><h3>Governor limits</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
+          <span class="tag" id="limitsNote"></span>
+        </div>
+        <p class="hint-text" hidden>The rails the governor works inside. Every cycle writes the limits it used to NEAR, so you can see which rules applied to which decision. Changing them needs the admin token.</p>
         <div class="panel-b" id="limitsBox"></div>
       </div>
     </section>
 
     <!-- AUDIT -->
-    <section id="view-audit" aria-label="Audit" hidden>
-      <div class="row"><h2>Audit</h2><a class="btn" href="/dashboard.json" target="_blank" rel="noopener">Open dashboard JSON ↗</a></div>
+    <section id="view-audit" aria-label="Activity log" hidden>
+      <div class="row"><h2>Activity log</h2><a class="btn ghost" href="/dashboard.json" target="_blank" rel="noopener">Raw data ↗</a></div>
       <div class="panel">
         <div class="panel-h">
-          <h3>Cycle log</h3>
+          <div class="lhs"><h3>Step by step</h3></div>
           <div class="select-row"><label class="lab" for="cycSel">Cycle</label><select id="cycSel"></select></div>
         </div>
         <div class="panel-b" id="logBox"></div>
@@ -390,13 +430,12 @@ input[aria-invalid=true] { border-bottom-color: var(--bad); }
   </main>
 
   <aside class="rail">
-    <div class="row"><h2>Activity</h2></div>
+    <div class="row"><h2>Recent activity</h2></div>
     <ul class="feed" id="feed"></ul>
     <div class="line"></div>
     <div id="guardrails">
-      <div class="row"><h2>Guardrails</h2></div>
+      <div class="row"><h2>Your limits</h2></div>
       <div id="railGuard"></div>
-      <p class="note">Login sets personal limits only. Governor keys never leave the operator environment. Memory gate stays mandatory.</p>
     </div>
   </aside>
 </div>
@@ -453,6 +492,21 @@ const td = (label, ...kids) => h("td", { "data-label": label }, ...kids);
 const th = (...t) => h("thead", {}, h("tr", {}, t.map((x) => h("th", { scope: "col" }, x))));
 const emptyBox = (...kids) => h("div", { class: "empty" }, ...kids);
 const tag = (text, kind, title) => h("span", { class: "tag" + (kind ? " " + kind : ""), title }, text);
+
+/* Machine words never reach the screen as they are: mean_reversion_only reads
+   "Mean reversion only", and a server message keeps its field names readable. */
+const ACRO = { tee: "TEE", near: "NEAR", wnear: "wNEAR", api: "API", tdx: "TDX", gpu: "GPU", id: "ID", json: "JSON", url: "URL", http: "HTTP" };
+const capFirst = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+const splitWords = (t) => String(t).split(/[_-]+/).filter(Boolean).map((w) => ACRO[w.toLowerCase()] || w.toLowerCase()).join(" ");
+function pretty(v) {
+  const t = String(v ?? "").trim();
+  if (!t) return "";
+  if (/[_-]/.test(t) || (t === t.toUpperCase() && /^[A-Z0-9 .]+$/.test(t))) return capFirst(splitWords(t));
+  return t;
+}
+const human = (v) => capFirst(String(v ?? "").replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (m) => splitWords(m)).trim());
+const nfmt = (n) => (typeof n === "number" && isFinite(n) ? n.toLocaleString() : String(n ?? ""));
+const initials = (name) => String(name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
 
 /* yoctoNEAR <-> NEAR, exact (BigInt), never through floating point */
 function yoctoToNear(y, max = 6) {
@@ -525,27 +579,51 @@ function teeVerified(r) {
 
 function renderTop(d) {
   const c = d.cycles[0], t = $("pillTee"), g = $("pillGate");
-  if (!c) { t.className = "pill"; t.textContent = "no cycle yet"; t.title = "No decision has been recorded on this machine."; }
+  if (!c) { t.className = "pill"; t.textContent = "No cycle yet"; t.title = "Nothing has been decided on this machine yet."; }
   else if (isTee(c.record) && c.record.tee) {
     const ok = teeVerified(c.record);
     t.className = "pill " + (ok ? "on" : "bad");
-    t.textContent = ok ? "TEE live" : "TEE check failed";
-    t.title = ok ? "The latest decision was sealed in a NEAR AI Cloud TEE and every check passed." : "At least one attestation check on the latest decision failed. See Memory.";
-  } else { t.className = "pill warn"; t.textContent = "local rule"; t.title = "The latest decision came from the fixed local rule, not a TEE."; }
+    t.textContent = ok ? "Sealed in a TEE" : "TEE check failed";
+    t.title = ok ? "The last decision was made inside a sealed enclave and every check passed." : "A check on the last sealed decision failed. Open Memory for the detail.";
+  } else { t.className = "pill warn"; t.textContent = "Decided locally"; t.title = "The last decision came from the built-in rule, not a sealed enclave."; }
   g.className = "pill " + (d.chain.ok ? "on" : "bad");
-  g.textContent = d.chain.ok ? "memory gated" : "chain unreadable";
-  g.title = d.chain.ok ? "No capital move happens without an on-chain memory commit." : `Could not read the chain: ${d.chain.error}`;
+  g.textContent = d.chain.ok ? "Memory gate on" : "NEAR unreachable";
+  g.title = d.chain.ok ? "Nothing moves until the decision is written to NEAR." : "Can't reach NEAR right now, so only what's saved here is shown.";
 }
 
+let menuOpen = false;
 function renderAccountSlot() {
   const slot = $("acctSlot");
   if (LOGIN_OFF) return fill(slot);
-  if (!ME) return fill(slot, h("a", { class: "btn", href: "/login" }, "Connect NEAR"));
-  const label = ME.profile?.display_name || short(ME.account_id, 12, 8);
-  const out = h("button", { class: "btn", type: "button" }, "Sign out");
+  if (!ME) {
+    return fill(slot, h("a", { class: "user", href: "/login" },
+      h("span", { class: "av guest" }, "+"),
+      h("span", { class: "who" }, h("span", { class: "nm" }, "Sign in"), h("span", { class: "st" }, "Set your own limits"))));
+  }
+  const label = ME.profile?.display_name || short(ME.account_id, 10, 6);
+  const btn = h("button", { class: "user", type: "button", title: ME.account_id, "aria-expanded": String(menuOpen) },
+    h("span", { class: "av" }, initials(ME.profile?.display_name || ME.account_id)),
+    h("span", { class: "who" }, h("span", { class: "nm" }, label), h("span", { class: "st" }, ME.signed_up ? "Signed in" : "Sign-up not finished")),
+    h("span", { class: "cv" }, menuOpen ? "\u25be" : "\u25b4"));
+  btn.addEventListener("click", () => { menuOpen = !menuOpen; renderAccountSlot(); });
+  const out = h("button", { type: "button" }, "Sign out");
   out.addEventListener("click", signOut);
-  fill(slot, h("span", { class: "chip", title: ME.account_id }, label), ME.signed_up ? null : h("a", { class: "btn", href: "/login" }, "Finish sign-up"), out);
+  const menu = h("div", { class: "user-menu" },
+    h("a", { href: "#guardrails" }, "Settings"),
+    ME.signed_up ? null : h("a", { href: "/login" }, "Finish sign-up"),
+    out);
+  fill(slot, btn, menuOpen ? menu : null);
 }
+
+/* each panel can explain itself in one line, only when asked */
+document.addEventListener("click", (e) => {
+  const b = e.target.closest?.(".hint");
+  if (!b) return;
+  const text = b.closest(".panel")?.querySelector(".hint-text");
+  if (!text) return;
+  text.hidden = !text.hidden;
+  b.setAttribute("aria-expanded", String(!text.hidden));
+});
 
 async function signOut() {
   await api("POST", "/auth/logout", {});
@@ -569,43 +647,37 @@ function decisionCounts(c) {
 
 function renderDesk(d) {
   const c = d.cycles[0];
-  $("cycleId").textContent = c ? `cycle ${cycleLabel(c.record.cycle_id)}` : "no cycle yet";
+  $("cycleId").textContent = c ? ago(cycleIso(c.record.cycle_id)) : "";
   if (!c) {
     fill($("cards"),
-      h("div", { class: "card" }, h("div", { class: "label" }, "Last decision"), h("div", { class: "value" }, "–"), h("div", { class: "sub" }, "none yet")),
-      h("div", { class: "card" }, h("div", { class: "label" }, "Memory commit"), h("div", { class: "value m" }, "–"), h("div", { class: "sub" }, "none yet")),
-      h("div", { class: "card" }, h("div", { class: "label" }, "Swarm"), h("div", { class: "value" }, "–"), h("div", { class: "sub" }, "none yet")));
+      h("div", { class: "card" }, h("div", { class: "label" }, "Last decision"), h("div", { class: "value" }, "–"), h("div", { class: "sub" }, "Nothing yet")),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Written to NEAR"), h("div", { class: "value m" }, "–"), h("div", { class: "sub" }, "Nothing yet")),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Sub-agents"), h("div", { class: "value" }, "–"), h("div", { class: "sub" }, "Nothing yet")));
   } else {
     const r = c.record, run = c.run, committed = run ? run.committed : null;
     const k = r.tee?.checks || {};
-    const tdx = k.tdx === "not_checked" ? "TDX not checked" : k.tdx ? `TDX ${k.tdx.status}` : "";
     const { act, refuse, pause } = decisionCounts(c);
-    const per = (r.decisions || []).map((x) => {
-      const rep = run?.reports?.find((y) => y.sub === x.sub);
-      const v = run?.verdicts?.find((y) => y.sub === x.sub);
-      const word = x.action === "PAUSE" ? String(x.reason_code || "pause") : v?.action === "REFUSE" ? "refuse" : rep?.status === "reported" ? "report" : "act";
-      return `${x.sub} ${word}`;
-    }).join(" · ");
+    const count = [act ? `${act} acting` : null, refuse ? `${refuse} refused` : null, pause ? `${pause} paused` : null].filter(Boolean).join(" · ");
     fill($("cards"),
       h("div", { class: "card" }, h("div", { class: "label" }, "Last decision"),
-        h("div", { class: "value" }, isTee(r) ? "TEE" : r.decision_path === "local-policy" ? "Local rule" : "Stub"),
-        h("div", { class: "sub" }, isTee(r) ? [short(r.tee?.model, 14, 8), tdx].filter(Boolean).join(" · ") : "no enclave used")),
-      h("div", { class: "card" }, h("div", { class: "label" }, "Memory commit"),
+        h("div", { class: "value" }, isTee(r) ? "Sealed in a TEE" : r.decision_path === "local-policy" ? "Built-in rule" : "Early version"),
+        h("div", { class: "sub", title: k.tdx === "not_checked" ? "Intel TDX quote not checked on this run" : undefined }, isTee(r) ? short(r.tee?.model, 16, 6) : "No enclave was used")),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Written to NEAR"),
         h("div", { class: "value m", title: r.decision_hash }, head(bare(r.decision_hash), 8)),
-        h("div", { class: "sub" }, committed === false ? h("span", { class: "bad" }, "not committed") : run ? txLink(run.commit_tx, `tx ${head(run.commit_tx, 8)}`) : "tx not recorded here")),
-      h("div", { class: "card" }, h("div", { class: "label" }, "Swarm"),
-        h("div", { class: "value" }, `${act} ACT${refuse ? ` · ${refuse} refuse` : ""}${pause ? ` · ${pause} pause` : ""}`),
-        h("div", { class: "sub" }, per || "–")));
+        h("div", { class: "foot" }, committed === false ? h("span", { class: "bad" }, "Not written — nothing moved") : run ? txLink(run.commit_tx, "View on NEAR \u2197") : h("span", { class: "faint" }, "No link saved here"))),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Sub-agents"),
+        h("div", { class: "value" }, `${act + refuse + pause} active`),
+        h("div", { class: "sub" }, count || "–")));
   }
 
   const keys = d.subs.map((s) => s.keys?.agent_key?.kind);
   const known = keys.filter(Boolean).length, scoped = keys.filter((x) => x === "function_call").length;
   const stat = (label, value) => h("div", { class: "card small" }, h("div", { class: "label" }, label), h("div", { class: "value" }, value));
   fill($("stats"),
-    stat("On-chain entries", d.chain.ok ? d.chain.commit_count : "–"),
-    stat("Sealed in a TEE", d.cycles.filter((x) => isTee(x.record) && x.run?.committed !== false).length),
-    stat("Report-only keys", known ? `${scoped} of ${d.subs.length}` : "–"),
-    stat("Paid checks", d.x402 ? d.x402.paid_checks_total : "–"));
+    stat("Decisions on NEAR", d.chain.ok ? nfmt(d.chain.commit_count) : "–"),
+    stat("Sealed in a TEE", nfmt(d.cycles.filter((x) => isTee(x.record) && x.run?.committed !== false).length)),
+    stat("Keys that can't spend", known ? `${scoped} of ${d.subs.length}` : "–"),
+    stat("Paid checks", d.x402 ? nfmt(d.x402.paid_checks_total) : "–"));
 
   renderSpine(d);
   renderSubsTable(d);
@@ -613,7 +685,7 @@ function renderDesk(d) {
 
 function renderSpine(d) {
   const c = d.cycles[0], box = $("spine");
-  if (!c) { fill($("spineTag")); return fill(box, emptyBox("No cycle recorded on this machine yet. Press Run cycle, or run ", h("code", {}, "npm run cycle"), ".")); }
+  if (!c) { fill($("spineTag")); return fill(box, emptyBox("No cycle has run on this machine yet. Press Run cycle to start one.")); }
   const r = c.record, run = c.run, committed = run ? run.committed : null;
   const reported = (run?.reports || []).filter((x) => x.status === "reported").length;
   const moved = (run?.allocations || []).filter((e) => e.kind === "transfer" && e.tx).length;
@@ -621,20 +693,20 @@ function renderSpine(d) {
   const real = run?.allocate_mode === "wnear";
   const st = ["done", "done", committed === false ? "stop" : committed ? "done" : "", committed ? "done" : "", committed ? "done" : "", committed ? "done" : ""];
   const steps = [
-    ["Read", `${run?.swarm_source === "onchain" ? "real wNEAR balances" : "simulated swarm"} · prev memory ${r.prev_memory_hash ? head(bare(r.prev_memory_hash), 10) : "none (first cycle)"}`, "done", "ok"],
-    ["Decide · private", isTee(r) ? `NEAR AI Cloud TEE${r.private_commitment ? ` · commitment ${head(r.private_commitment, 17)}` : ""}` : r.decision_path === "local-policy" ? "fixed local rule, labelled as such on-chain" : "stub logic (before private decisions)", isTee(r) ? "tee" : "local", isTee(r) ? "ok" : "warn"],
-    ["Memory commit", committed === false ? `FAIL-CLOSED · ${run.error || "commit failed"}` : "on-chain · chained to prev · required gate", committed === false ? "failed" : committed == null ? "unknown" : "committed", committed === false ? "bad" : committed ? "ok" : ""],
-    ["Allocate", `${real ? `${moved} wNEAR transfer${moved === 1 ? "" : "s"}, tiny amounts` : "print-only, no real transfers"}${quoted ? " · cross-chain price quote" : ""}`, moved ? "transfers" : quoted ? "quoted" : real ? "no top-ups" : "simulated", real || quoted ? "ok" : "warn"],
-    ["Sub window", `${reported} reported on-chain · report-only function-call keys`, "reported", reported ? "ok" : "warn"],
-    ["Publish", "public record, private reasoning stays local", "done", "ok"],
+    ["Read the state", run?.swarm_source === "onchain" ? "Real balances on NEAR testnet" : "Simulated balances", "done", "ok"],
+    ["Decide, privately", isTee(r) ? "Inside a sealed enclave, reasoning stays private" : r.decision_path === "local-policy" ? "Built-in rule, labelled as such on NEAR" : "Early version", isTee(r) ? "sealed" : "local", isTee(r) ? "ok" : "warn"],
+    ["Write to NEAR", committed === false ? `Stopped here — ${human(run.error) || "the write failed"}` : "Saved, and linked to the decision before it", committed === false ? "failed" : committed == null ? "unknown" : "written", committed === false ? "bad" : committed ? "ok" : ""],
+    ["Allocate", `${real ? `${moved} transfer${moved === 1 ? "" : "s"}, tiny amounts` : "Nothing moved, this run is print-only"}${quoted ? " · cross-chain price quote" : ""}`, moved ? "moved" : quoted ? "quoted" : real ? "nothing to move" : "simulated", real || quoted ? "ok" : "warn"],
+    ["Sub-agents report", `${reported} reported back on NEAR`, "reported", reported ? "ok" : "warn"],
+    ["Publish", "Public record saved, private reasoning stays here", "done", "ok"],
   ];
-  fill($("spineTag"), committed === false ? tag("stopped at commit", "bad") : tag("fail-closed", "ok"));
+  fill($("spineTag"), committed === false ? tag("Stopped", "bad") : tag("All clear", "ok"));
   fill(box, steps.map(([name, small, word, kind], i) => {
     const s = st[i];
     return h("div", { class: "step" },
       h("div", { class: "n" }, String(i + 1).padStart(2, "0")),
-      h("div", { class: "t" }, name, h("small", {}, s ? small : "not run")),
-      s === "stop" || (i === 2 && committed === false) ? tag("failed", "bad") : s ? tag(word, kind) : tag("not run"));
+      h("div", { class: "t" }, name, h("small", {}, s ? small : "Did not run")),
+      s === "stop" || (i === 2 && committed === false) ? tag("Failed", "bad") : s ? tag(word, kind) : tag("Not run"));
   }));
 }
 
@@ -644,27 +716,25 @@ function subOutcome(d, s) {
   const dec = latest?.record?.decisions?.find((x) => x.sub === s.id);
   const ver = latest?.run?.verdicts?.find((x) => x.sub === s.id);
   const rep = latest?.run?.reports?.find((x) => x.sub === s.id);
-  let pill = ["WAITING", ""], reason;
-  if (!dec) reason = h("span", {}, h("b", {}, "NO DIRECTIVE"), " — no cycle recorded yet");
-  else if (dec.action === "PAUSE") { pill = ["PAUSED", "warn"]; reason = h("span", {}, h("b", {}, "PAUSE"), ` — ${String(dec.reason_code || "paused by governor").replaceAll("_", " ")}`); }
-  else if (!ver) reason = h("span", {}, h("b", {}, dec.action), " — no answer recorded; run a fresh cycle");
-  else if (ver.action === "ACT") { pill = ["ACT", "ok"]; reason = h("span", {}, h("b", {}, "ACT"), ` — ${ver.reason}`); }
-  else { pill = ["REFUSE", "bad"]; reason = h("span", { class: "bad" }, h("b", {}, "REFUSE"), ` — ${ver.reason}`); }
-  if (rep?.status === "reported") reason.append(h("span", { class: "tx" }, "on-chain report: ", txLink(rep.txHash, short(rep.txHash, 8, 6) + " ↗")));
-  else if (rep) reason.append(h("span", { class: "tx bad" }, `report ${rep.status}${rep.error ? ": " + rep.error : ""}`));
+  let pill = ["Waiting", ""], reason;
+  if (!dec) reason = h("span", {}, "No cycle has run yet.");
+  else if (dec.action === "PAUSE") { pill = ["Paused", "warn"]; reason = h("span", {}, h("b", {}, "Paused"), ` — ${pretty(dec.reason_code || "paused by the governor")}`); }
+  else if (!ver) reason = h("span", {}, h("b", {}, pretty(dec.action)), " — no answer recorded, run a fresh cycle");
+  else if (ver.action === "ACT") { pill = ["Acting", "ok"]; reason = h("span", {}, h("b", {}, "Acting"), ` — ${human(ver.reason)}`); }
+  else { pill = ["Refused", "bad"]; reason = h("span", { class: "bad" }, h("b", {}, "Refused"), ` — ${human(ver.reason)}`); }
   return { dec, ver, rep, pill, reason };
 }
 
 function renderSubsTable(d) {
-  if (!d.subs.length) return fill($("subsTable"), emptyBox("No sub-agents configured."));
-  fill($("subsTable"), h("table", { class: "stack" },
-    th("Sub", "Mandate", "Directive", "Result"),
+  if (!d.subs.length) return fill($("subsTable"), emptyBox("No sub-agents are set up."));
+  fill($("subsTable"), h("table", { class: "stack endlink" },
+    th("Sub-agent", "Job", "Told to", "Result"),
     h("tbody", {}, d.subs.map((s) => {
       const o = subOutcome(d, s), active = o.dec && o.dec.action !== "PAUSE";
       return h("tr", {},
-        td("Sub", s.id),
-        td("Mandate", h("span", { class: "mono" }, s.mandate)),
-        td("Directive", h("span", { class: "mono" }, o.dec ? `${o.dec.action}${active ? " " + o.dec.target_capital : ""}` : "–")),
+        td("Sub-agent", `Sub ${s.id}`),
+        td("Job", pretty(s.mandate)),
+        td("Told to", o.dec ? `${pretty(o.dec.action)}${active ? " " + nfmt(o.dec.target_capital) : ""}` : "–"),
         td("Result", tag(o.pill[0], o.pill[1])));
     }))));
 }
@@ -673,12 +743,12 @@ function renderSubsTable(d) {
 function renderChain(d) {
   const box = $("chainBox");
   if (!d.cycles.length) {
-    $("chainNote").textContent = "no entries on this machine yet";
+    $("chainNote").textContent = "";
     fill($("chainLegend"));
-    return fill(box, emptyBox("Nothing recorded here yet. Run ", h("code", {}, "npm run cycle"), ", then refresh."));
+    return fill(box, emptyBox("Nothing has been written yet. Run a cycle, then refresh."));
   }
   const committed = d.cycles.filter((c) => c.run?.committed !== false).length;
-  $("chainNote").textContent = `${committed} of ${d.cycles.length} entries on this machine committed`;
+  $("chainNote").textContent = `${committed} of ${d.cycles.length} written`;
   const seen = { head: false, linked: false, unlinked: false, noTx: false };
   const rows = d.cycles.map((c, i) => {
     const r = c.record, failed = c.run?.committed === false;
@@ -689,21 +759,19 @@ function renderChain(d) {
     if (linked) seen.linked = true; else if (!failed && r.prev_memory_hash) seen.unlinked = true;
     if (!failed && !c.run) seen.noTx = true;
     return h("tr", { class: isHead ? "head" : "" },
-      td("Cycle", cycleLabel(r.cycle_id)),
-      td("Decision hash", hashEl(r.decision_hash, 0, 0, short(bare(r.decision_hash), 8, 6)), isHead ? h("span", { class: "head-tag", title: "The hash the contract holds on NEAR right now" }, "HEAD") : null),
-      td("Prev hash", linked ? h("span", {}, h("span", { class: "ok", title: "Matches the decision hash of the entry below" }, "✓ "), hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))) : hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))),
-      td("Time", h("span", { title: cycleIso(r.cycle_id) }, ago(cycleIso(r.cycle_id)))),
-      td("Decided", isTee(r) ? "TEE · sealed" : r.decision_path === "local-policy" ? "local rule" : "stub"),
-      td("Tx", failed ? h("span", { class: "bad" }, "not committed") : c.run ? txLink(c.run.commit_tx) : h("span", { class: "faint" }, "—")));
+      td("When", h("span", { title: cycleIso(r.cycle_id) }, ago(cycleIso(r.cycle_id)))),
+      td("Record", hashEl(r.decision_hash, 0, 0, short(bare(r.decision_hash), 8, 6)), isHead ? h("span", { class: "head-tag", title: "The record NEAR is holding right now" }, "Now") : null),
+      td("Follows", linked ? h("span", {}, h("span", { class: "ok", title: "Matches the record below it" }, "✓ "), hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))) : hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))),
+      td("Decided", isTee(r) ? "Sealed in a TEE" : r.decision_path === "local-policy" ? "Built-in rule" : "Early version"),
+      td("Proof", failed ? h("span", { class: "bad" }, "Not written") : c.run ? txLink(c.run.commit_tx, "View \u2197") : h("span", { class: "faint" }, "—")));
   });
-  fill(box, h("table", { class: "stack" }, th("Cycle", "Decision hash", "Prev hash", "Time", "Decided", "Tx"), h("tbody", {}, rows)));
+  fill(box, h("table", { class: "stack endlink" }, th("When", "Record", "Follows", "Decided", "Proof"), h("tbody", {}, rows)));
 
-  // a plain-words key to what the colour and the tick mean, shown only for what is on screen
   const key = (sym, text) => h("li", {}, sym, h("span", {}, text));
   fill($("chainLegend"),
-    seen.head ? key(h("span", { class: "head-tag" }, "HEAD"), "The newest entry, in gold. This is the hash the contract is holding on NEAR right now.") : null,
-    seen.linked ? key(h("span", { class: "sym ok" }, "✓"), `A tick on a prev hash means it matches the decision hash of the entry below it, so the two are chained.${seen.unlinked ? " No tick: the entry it follows isn't stored on this machine." : ""}`) : null,
-    seen.noTx ? key(h("span", { class: "sym faint" }, "—"), "No transaction link was saved for this entry on this machine.") : null);
+    seen.head ? key(h("span", { class: "head-tag" }, "Now"), "Newest, and the one NEAR holds") : null,
+    seen.linked ? key(h("span", { class: "sym ok" }, "✓"), "Linked to the record below it") : null,
+    seen.noTx ? key(h("span", { class: "sym faint" }, "—"), "No link saved here") : null);
 }
 
 function checkList(r) {
@@ -713,110 +781,108 @@ function checkList(r) {
     h("span", { class: st === "skip" ? "dim" : "" }, title, detail ? h("small", {}, detail) : null)));
   if (isTee(r) && r.tee) {
     const c = r.tee.checks || {}, s = (b) => (b ? "ok" : "bad");
-    item(s(c.hashes_match), "Answer untouched", "Request and response match what the enclave signed");
+    item(s(c.hashes_match), "Answer untouched", "Question and answer match what the enclave signed");
     item(s(c.signature_valid && c.provider_tee && c.model_matches), "Signed inside the enclave", `${r.tee.model}, key ${short(r.tee.signing_address, 6, 4)}`);
-    item(s(c.binds_address && c.binds_nonce), "Enclave key proven live", "Bound to a fresh random challenge from us");
-    if (c.tdx === "not_checked") item("skip", "Intel TDX quote not checked", "Run with TEE_VERIFY=full");
-    else item(s(c.tdx && c.tdx.verified), "Intel TDX hardware verified", `Platform status: ${c.tdx ? c.tdx.status : "unknown"}`);
-    if (c.gpu === "not_checked") item("skip", "NVIDIA GPU not checked", null);
-    else item(s(c.gpu && c.gpu.verdict && c.gpu.token_signature_valid), "NVIDIA GPU verified", "NVIDIA's signed verdict, checked against its keys");
-  } else if (r.decision_path === "local-policy") item("skip", "No enclave used", "Decided by the fixed local rule, and labelled so on-chain");
-  else item("skip", "Recorded before sealed decisions", "Schema 1 entry");
+    item(s(c.binds_address && c.binds_nonce), "Enclave proven live", "It answered a fresh random challenge from us");
+    if (c.tdx === "not_checked") item("skip", "Intel chip not checked", "Turned off for this run");
+    else item(s(c.tdx && c.tdx.verified), "Intel chip verified", `Status: ${pretty(c.tdx ? c.tdx.status : "unknown")}`);
+    if (c.gpu === "not_checked") item("skip", "NVIDIA chip not checked", "Turned off for this run");
+    else item(s(c.gpu && c.gpu.verdict && c.gpu.token_signature_valid), "NVIDIA chip verified", "Checked against NVIDIA's own keys");
+  } else if (r.decision_path === "local-policy") item("skip", "No enclave was used", "The built-in rule decided, and says so on NEAR");
+  else item("skip", "Recorded before sealed decisions", "An older record");
   return ul;
 }
 
 function renderDecision(d) {
   const box = $("decisionBox"), c = d.cycles[0];
-  if (!c) { $("decisionNote").textContent = ""; return fill(box, emptyBox("No decision yet. Run ", h("code", {}, "npm run cycle"), ".")); }
+  if (!c) { $("decisionNote").textContent = ""; return fill(box, emptyBox("No decision yet.")); }
   const r = c.record, run = c.run, committed = run ? run.committed : null;
-  $("decisionNote").textContent = `cycle ${cycleLabel(r.cycle_id)}`;
+  $("decisionNote").textContent = when(cycleIso(r.cycle_id));
   const row = (k, v) => h("div", { class: "r" }, h("dt", {}, k), h("dd", {}, v));
   fill(box, h("div", { class: "two" },
-    h("div", {}, h("h4", { class: "sub-title" }, "Record"),
+    h("div", {}, h("h4", { class: "sub-title" }, "The record"),
       h("dl", { class: "kv" },
-        row("Decided via", isTee(r) ? "NEAR AI Cloud TEE" : r.decision_path === "local-policy" ? "fixed local rule" : "stub"),
-        row("Decision hash", hashEl(r.decision_hash, 14, 8)),
-        row("Follows", hashEl(r.prev_memory_hash, 14, 8)),
-        row("Sealed reasoning", r.private_commitment ? hashEl(r.private_commitment, 14, 8) : h("span", { class: "faint" }, "n/a")),
-        row("Written to NEAR", committed === false ? h("span", { class: "bad" }, `no — ${run.error || "commit failed"}`) : run ? txLink(run.commit_tx, short(run.commit_tx, 10, 6)) : h("span", { class: "faint" }, "not recorded on this machine")),
-        row("Risk limits", `exposure ≤ ${r.swarm_risk?.max_total_exposure ?? "?"}, daily loss ≤ ${r.swarm_risk?.max_daily_loss ?? "?"}`))),
-    h("div", {}, h("h4", { class: "sub-title" }, "Checked before the commit"), checkList(r))));
+        row("Decided by", isTee(r) ? "A sealed enclave" : r.decision_path === "local-policy" ? "The built-in rule" : "An early version"),
+        row("Record", hashEl(r.decision_hash, 14, 8, short(bare(r.decision_hash), 14, 8))),
+        row("Follows", r.prev_memory_hash ? hashEl(r.prev_memory_hash, 14, 8, short(bare(r.prev_memory_hash), 14, 8)) : h("span", { class: "faint" }, "nothing — this was the first")),
+        row("Sealed reasoning", r.private_commitment ? hashEl(r.private_commitment, 14, 8, short(bare(r.private_commitment), 14, 8)) : h("span", { class: "faint" }, "none")),
+        row("Written to NEAR", committed === false ? h("span", { class: "bad" }, `No — ${human(run.error) || "the write failed"}`) : run ? txLink(run.commit_tx, "View on NEAR \u2197") : h("span", { class: "faint" }, "No link saved here")),
+        row("Limits in force", `Total ${nfmt(r.swarm_risk?.max_total_exposure ?? "?")} · daily loss ${nfmt(r.swarm_risk?.max_daily_loss ?? "?")}`))),
+    h("div", {}, h("h4", { class: "sub-title" }, "Checked before it was written"), checkList(r))));
 }
 
 /* ---------- sub-agent cards ---------- */
 function renderSwarm(d) {
   const real = d.swarm?.source === "onchain";
-  $("swarmTag").textContent = real ? "REAL BALANCES · SIMULATED LOSSES" : "SIMULATED BALANCES";
+  $("swarmTag").textContent = real ? "Real balances" : "Simulated balances";
   $("swarmTag").title = real
-    ? "Balances are real wNEAR on NEAR testnet. Mnemosyne does not trade, so losses are a labelled simulation. Keys, directives and on-chain reports are real."
-    : "Capital and losses are simulated; keys, directives and on-chain reports are real.";
-  if (!d.subs.length) return fill($("swarmGrid"), emptyBox("No sub-agents configured."));
+    ? "Balances are real on NEAR testnet. Mnemosyne does not trade, so losses are simulated. Keys and reports are real."
+    : "Capital and losses are simulated. Keys and reports are real.";
+  if (!d.subs.length) return fill($("swarmGrid"), emptyBox("No sub-agents are set up."));
   fill($("swarmGrid"), d.subs.map((s) => {
     const o = subOutcome(d, s), dec = o.dec, active = dec && dec.action !== "PAUSE";
     const k = s.keys, a = k?.agent_key;
     let badge;
-    if (!k || k.error) badge = tag("keys unreadable");
-    else if (!a) badge = tag("key not set on this machine");
-    else if (a.kind === "function_call") badge = tag("report-only (function-call)", "ok", `Can only call ${(a.methods || []).join(", ")} on ${a.receiver}`);
-    else if (a.kind === "full_access") badge = tag("FullAccess — not scoped", "bad");
-    else badge = tag("agent key not on the account", "bad");
-    const keyNote = k && !k.error
-      ? h("div", { class: "sub-keys" }, `${k.full_access_keys} full-access key${k.full_access_keys === 1 ? "" : "s"} on the account, held cold, never by the agent · `, accLink(k.account))
-      : h("div", { class: "sub-keys" }, accLink(k?.account));
+    if (!k || k.error) badge = tag("Keys unreadable");
+    else if (!a) badge = tag("No key on this machine");
+    else if (a.kind === "function_call") badge = tag("Can't spend", "ok", `This key may only call ${(a.methods || []).join(", ")} on ${a.receiver}`);
+    else if (a.kind === "full_access") badge = tag("Key not locked down", "bad");
+    else badge = tag("Key missing on the account", "bad");
     const bal = d.swarm?.balances?.[s.id];
     const stat = (k2, v) => h("div", {}, h("span", { class: "k" }, k2), h("span", { class: "v" }, v));
+    const reported = o.rep?.status === "reported";
     return h("article", { class: "sub-card" },
-      h("div", { class: "sub-head" }, h("span", { class: "sub-id" }, `SUB ${s.id}`), tag(o.pill[0], o.pill[1])),
-      h("div", { class: "sub-mandate" }, s.mandate),
-      bal ? h("div", { class: "sub-balance", title: `${bal.account} on ${d.swarm.asset}` }, h("span", { class: "k" }, "On-chain balance"), h("span", { class: "v" }, `${bal.units} units · ${bal.wnear} wNEAR`)) : null,
+      h("div", { class: "sub-head" }, h("span", { class: "sub-id" }, `Sub ${s.id}`), tag(o.pill[0], o.pill[1])),
+      h("div", { class: "sub-mandate" }, pretty(s.mandate)),
       h("div", { class: "sub-stats" },
-        stat("Directive", dec ? dec.action : "–"),
-        stat("Target", active ? dec.target_capital : "–"),
-        stat("Max position", active ? dec.max_position : "–"),
-        stat("Max loss / cycle", active ? dec.max_loss_cycle : "–")),
+        stat("Told to", dec ? pretty(dec.action) : "–"),
+        stat("Target", active ? nfmt(dec.target_capital) : "–"),
+        stat("Biggest position", active ? nfmt(dec.max_position) : "–"),
+        stat("Most it may lose", active ? nfmt(dec.max_loss_cycle) : "–")),
+      bal ? h("div", { class: "sub-balance", title: `${bal.account} on ${d.swarm.asset}` }, h("span", { class: "k" }, "Balance on NEAR"), h("span", { class: "v" }, `${nfmt(bal.units)} units · ${bal.wnear} wNEAR`)) : null,
       h("div", { class: "sub-reason" }, o.reason),
-      h("div", { class: "key-badge" }, badge),
-      keyNote);
+      o.rep && !reported ? h("div", { class: "sub-reason bad" }, `Its report ${pretty(o.rep.status).toLowerCase()}${o.rep.error ? ": " + human(o.rep.error) : ""}`) : null,
+      h("div", { class: "sub-foot" }, badge,
+        reported ? txLink(o.rep.txHash, "Its report \u2197")
+          : (k?.account ? ext(`${EXPLORER}/address/${k.account}`, "Its wallet \u2197") : h("span", { class: "faint" }, "\u2014"))));
   }));
 }
 
 /* ---------- x402 ---------- */
 function renderX402(d) {
   const x = d.x402;
-  if (!x) { $("railTag").textContent = ""; fill($("x402Copy")); return fill($("x402Table"), emptyBox("The x402 service is not configured on this server.")); }
-  $("railTag").textContent = x.mock_settlement ? "MOCK RAIL" : "REAL · wNEAR TESTNET";
-  const rail = x.mock_settlement
-    ? "Mock rail: every payment is fully verified, then recorded in a local ledger instead of on-chain."
-    : `Real settlement: ${yoctoToNear(x.price)} wNEAR per check on NEAR testnet, paid to ${x.pay_to}.`;
-  fill($("x402Copy"),
-    h("p", { class: "intro" }, "Other agents pay per query over x402 to ask whether a situation matches a failure Mnemosyne has already learned from. They get a citation and one line of advice — never the private detail."),
-    h("p", { class: "intro" }, rail, ` ${x.memory_entries} lessons in memory.`),
-    h("ol", { class: "flow" }, ["POST /memory/check", "402 + price", "sign and retry", "answer + receipt"].map((t, i) => h("li", {}, h("b", {}, String(i + 1)), t))));
-  if (!x.recent.length) return fill($("x402Table"), emptyBox("No paid checks on this server yet. Press Pay & retry above on the mock rail, or run ", h("code", {}, "npm run x402:demo:real"), " against it."));
-  fill($("x402Table"), h("table", { class: "stack" },
-    th("When", "Payer", "Paid", "Answer", "Settlement", "Receipt"),
+  if (!x) { $("railTag").textContent = ""; $("priceTag").textContent = ""; fill($("x402Flow")); return fill($("x402Table"), emptyBox("Paid checks are not set up on this server.")); }
+  $("railTag").textContent = x.mock_settlement ? "Test payments" : "Real payments";
+  $("railTag").title = x.mock_settlement
+    ? "Every payment is fully checked, then recorded here instead of on NEAR."
+    : `Paid in wNEAR on NEAR testnet, to ${x.pay_to}.`;
+  $("priceTag").textContent = `${yoctoToNear(x.price)} NEAR · ${nfmt(x.memory_entries)} lessons`;
+  fill($("x402Flow"), ["Ask", "Get a price", "Pay", "Get the answer"].map((t) => h("li", {}, t)));
+  if (!x.recent.length) return fill($("x402Table"), emptyBox("Nobody has paid for a check on this server yet."));
+  fill($("x402Table"), h("table", { class: "stack endlink" },
+    th("When", "Who asked", "Paid", "Answer", "Receipt", "Proof"),
     h("tbody", {}, x.recent.map((r) => h("tr", {},
       td("When", when(r.at)),
-      td("Payer", h("span", { title: r.payer }, short(r.payer, 8, 6))),
-      td("Paid", r.mock ? "mock" : money(r.amount, "wrap.testnet")),
-      td("Answer", r.match ? h("span", { class: "ok" }, `matched ${r.citation_id}`) : "no match"),
-      td("Settlement", r.mock ? h("span", { class: "faint" }, "local ledger") : txLink(r.settlement, short(r.settlement, 6, 5) + " ↗")),
-      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 6, 4))))))));
+      td("Who asked", h("span", { title: r.payer }, short(r.payer, 8, 6))),
+      td("Paid", r.mock ? "Test" : money(r.amount, "wrap.testnet")),
+      td("Answer", r.match ? h("span", { class: "ok" }, `Matched ${r.citation_id}`) : "No match"),
+      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 6, 4))),
+      td("Proof", r.mock ? h("span", { class: "faint" }, "—") : txLink(r.settlement, "View \u2197")))))));
 }
 
 function renderMyReceipts() {
   const panel = $("myReceiptsPanel");
   panel.hidden = !(ME && ME.signed_up);
   if (panel.hidden) return;
-  if (!RECEIPTS.length) return fill($("myReceipts"), emptyBox("No paid checks from your account yet."));
-  fill($("myReceipts"), h("table", { class: "stack" },
-    th("When", "Paid", "Answer", "Settlement", "Receipt"),
+  if (!RECEIPTS.length) return fill($("myReceipts"), emptyBox("You haven't paid for a check yet."));
+  fill($("myReceipts"), h("table", { class: "stack endlink" },
+    th("When", "Paid", "Answer", "Receipt", "Proof"),
     h("tbody", {}, RECEIPTS.map((r) => h("tr", {},
       td("When", when(r.at)),
-      td("Paid", r.mock ? "mock" : money(r.amount, "wrap.testnet")),
-      td("Answer", r.match ? h("span", { class: "ok" }, `matched ${r.citation_id}`) : "no match"),
-      td("Settlement", r.mock ? h("span", { class: "faint" }, "local ledger") : (r.explorer ? ext(r.explorer, short(r.settlement, 6, 5) + " ↗") : txLink(r.settlement, short(r.settlement, 6, 5) + " ↗"))),
-      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 6, 4))))))));
+      td("Paid", r.mock ? "Test" : money(r.amount, "wrap.testnet")),
+      td("Answer", r.match ? h("span", { class: "ok" }, `Matched ${r.citation_id}`) : "No match"),
+      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 6, 4))),
+      td("Proof", r.mock ? h("span", { class: "faint" }, "—") : (r.explorer ? ext(r.explorer, "View \u2197") : txLink(r.settlement, "View \u2197"))))))));
 }
 
 /* ----- the check box: a real unpaid request, then a demo agent that pays on the mock rail ----- */
@@ -843,27 +909,27 @@ function outLines(lines) {
     return h("div", {}, h("span", { class: "k" }, k + " · "), h("span", { class: cls || "" }, v));
   }));
 }
-const IDLE = ["Idle. An unpaid request returns HTTP 402 with the price. A paid one returns the answer and a receipt. Answers never include the private detail."];
+const IDLE = ["Ask without paying and you get a price back. Pay and you get the answer, with a receipt."];
 const outBusy = (on) => { $("btnCheck").disabled = on; $("btnPay").disabled = on; };
 
 async function requestCheck() {
   const q = $("q").value.trim();
-  if (!q) return outLines([["error", "Type a question first.", "bad"]]);
-  outBusy(true); outLines(["Asking /memory/check without paying…"]);
+  if (!q) return outLines([["Problem", "Type a question first.", "bad"]]);
+  outBusy(true); outLines(["Asking, without paying…"]);
   try {
     const r = await api("POST", "/memory/check", { query: q });
     if (r.status === 402 && r.body?.accepts?.[0]) {
       const req = r.body.accepts[0];
       LAST_QUOTE = { quote: r.body, query: q };
-      outLines([["HTTP", "402 Payment Required", "hd"], ["price", money(req.amount, req.asset)], ["payTo", req.payTo], ["network", req.network],
-        ["rail", req.extra?.mock ? "mock (local ledger)" : "real settlement"], "No answer until paid."]);
-      addFeed("x402 price requested", `${money(req.amount, req.asset)} to ${req.payTo}`);
+      outLines([["Answer", "Payment needed first", "hd"], ["Price", money(req.amount, req.asset)], ["Paid to", req.payTo],
+        ["Settles on", req.extra?.mock ? "this server (test payments)" : "NEAR testnet"], "No answer until it is paid."]);
+      addFeed("Price quoted", `${money(req.amount, req.asset)} to ${req.payTo}`);
     } else if (r.status === 403 || r.status === 429) {
-      outLines([["HTTP", String(r.status), "bad"], ["blocked by your own guardrail", r.body?.error || "limit reached", "bad"], "Change it under Guardrails."]);
+      outLines([["Stopped", "by your own limit", "bad"], ["Reason", human(r.body?.error) || "You have reached your limit.", "bad"], "You can change it under Settings."]);
     } else {
-      outLines([["HTTP", String(r.status), "bad"], ["error", r.body?.error || "unexpected answer", "bad"]]);
+      outLines([["Problem", human(r.body?.error) || "The server gave an unexpected answer.", "bad"]]);
     }
-  } catch (err) { outLines([["error", `Couldn't reach the server: ${err.message}`, "bad"]]); }
+  } catch (err) { outLines([["Problem", `Couldn't reach the server: ${err.message}`, "bad"]]); }
   finally { outBusy(false); }
 }
 
@@ -879,11 +945,10 @@ async function demoPayer() {
 }
 
 async function payAndRetry() {
-  if (!DATA?.x402) return outLines([["error", "x402 isn't configured on this server.", "bad"]]);
+  if (!DATA?.x402) return outLines([["Problem", "Paid checks are not set up on this server.", "bad"]]);
   if (!DATA.x402.mock_settlement) {
-    return outLines([["real rail", "A real payment is a wNEAR transfer signed by an agent that holds wNEAR, and this tab has none.", "warn"],
-      "From your terminal run:  npm run x402:demo:real",
-      "Then press Refresh: the paid check appears in Recent paid checks, with its transaction link."]);
+    return outLines([["Real payments are on", "this page has no wallet to pay with.", "warn"],
+      "Run the paying agent from your terminal, then press Refresh. The check shows up below with its proof."]);
   }
   if (!LAST_QUOTE || LAST_QUOTE.query !== $("q").value.trim()) await requestCheck();
   if (!LAST_QUOTE) return;
@@ -905,7 +970,7 @@ async function payAndRetry() {
     const message = new TextEncoder().encode("mnemosyne-x402-v2:" + canonicalJson(authorization));
     const signature = "ed25519:" + b58(new Uint8Array(await crypto.subtle.sign({ name: "Ed25519" }, payer.priv, message)));
     const payment = { x402Version: 2, accepted: req, payload: { authorization, publicKey: payer.publicKey, signature } };
-    outLines(["Signing with the demo agent and retrying…"]);
+    outLines(["Paying and asking again…"]);
     const res = await fetch("/memory/check", {
       method: "POST", cache: "no-store", credentials: "same-origin",
       headers: { "content-type": "application/json", "PAYMENT-SIGNATURE": btoa(JSON.stringify(payment)) },
@@ -914,16 +979,18 @@ async function payAndRetry() {
     let j = null; try { j = await res.json(); } catch {}
     LAST_QUOTE = null;                       // a payment is single-use
     if (res.status === 200) {
-      outLines([["HTTP", "200", "hd"], ["match", String(j.match), j.match ? "ok" : ""], j.match ? ["citation", `${j.citation_id} · ${j.category}`] : null, j.advice ? ["advice", j.advice] : null,
-        ["receipt", j.receipt_id], ["paid by", `demo agent ${short(payer.account, 8, 6)} (throwaway key, lives in this tab)`], ["private detail", "never returned"]].filter(Boolean));
-      addFeed("x402 check settled", `${j.match ? "match · " + j.citation_id : "no match"} · ${short(j.receipt_id, 8, 4)}`);
+      outLines([["Answer", j.match ? "This matches a lesson" : "No match", j.match ? "ok" : "hd"],
+        j.match ? ["Lesson", `${j.citation_id} · ${pretty(j.category)}`] : null, j.advice ? ["Advice", j.advice] : null,
+        ["Receipt", j.receipt_id], ["Paid by", `a throwaway key made in this tab (${short(payer.account, 8, 6)})`],
+        ["Kept private", "the full lesson is never sent"]].filter(Boolean));
+      addFeed("Paid check answered", `${j.match ? "match · " + j.citation_id : "no match"} · ${short(j.receipt_id, 8, 4)}`);
       load();
     } else if (res.status === 402) {
-      outLines([["HTTP", "402", "bad"], ["payment refused", j?.error || "invalid payment", "bad"], "Nothing was charged."]);
+      outLines([["Payment refused", human(j?.error) || "The payment was not accepted.", "bad"], "Nothing was charged."]);
     } else {
-      outLines([["HTTP", String(res.status), "bad"], ["error", j?.error || "unexpected answer", "bad"]]);
+      outLines([["Problem", human(j?.error) || "The server gave an unexpected answer.", "bad"]]);
     }
-  } catch (err) { outLines([["not paid", err.message, "bad"]]); }
+  } catch (err) { outLines([["Not paid", err.message, "bad"]]); }
   finally { outBusy(false); }
 }
 
@@ -933,10 +1000,10 @@ let railDirty = false;
 function renderRail() {
   const box = $("railGuard");
   const ro = (v) => h("input", { type: "text", value: v, readonly: true, "aria-label": "Account" });
-  if (LOGIN_OFF) return fill(box, h("p", { class: "mono" }, "Login is switched off on this server (LOGIN=0)."));
-  if (!ME) return fill(box, h("div", { class: "guard" }, h("label", {}, "Account"), ro("not connected"),
-    h("p", { class: "mono" }, "Connect a NEAR wallet to set your own limits for paid memory checks."), h("a", { class: "btn", href: "/login" }, "Connect NEAR")));
-  if (!ME.signed_up) return fill(box, h("div", { class: "guard" }, h("label", {}, "Account"), ro(ME.account_id),
+  if (LOGIN_OFF) return fill(box, h("p", { class: "mono" }, "Sign-in is switched off on this server."));
+  if (!ME) return fill(box, h("div", { class: "guard" },
+    h("p", { class: "mono" }, "Sign in to set your own limits."), h("a", { class: "btn", href: "/login" }, "Sign in")));
+  if (!ME.signed_up) return fill(box, h("div", { class: "guard" },
     h("p", { class: "mono" }, "Finish creating your account to set limits."), h("a", { class: "btn primary", href: "/login" }, "Finish sign-up")));
   const g = ME.profile.guardrails, maxQ = ME.protocol.max_queries_per_day.max, maxS = ME.protocol.max_spend_per_day.max;
   const dirty = () => { railDirty = true; };
@@ -948,13 +1015,12 @@ function renderRail() {
   save.addEventListener("click", saveRail);
   const u = ME.usage;
   fill(box, h("div", { class: "guard" },
-    h("label", {}, "Account"), ro(ME.account_id),
-    h("label", { for: "rg-q" }, "Max queries / day"), q,
-    h("label", { for: "rg-s" }, "Max spend / day (NEAR)"), s,
+    h("label", { for: "rg-q" }, "Checks a day"), q,
+    h("label", { for: "rg-s" }, "Spend a day (NEAR)"), s,
     h("span", { class: "mono", id: "rg-s-help" }, `up to ${yoctoToNear(maxS)} NEAR`),
-    h("label", { for: "rg-p" }, "Pause memory API"), p,
+    h("label", { for: "rg-p" }, "Pause my checks"), p,
     save,
-    h("p", { class: "mono", style: "margin-top:2px" }, `last 24 h: ${u.queries} of ${g.max_queries_per_day} checks · ${yoctoToNear(u.spend)} of ${yoctoToNear(g.max_spend_per_day)} NEAR`)));
+    h("p", { class: "mono", style: "margin-top:2px" }, `Today: ${nfmt(u.queries)} of ${nfmt(g.max_queries_per_day)} checks, ${yoctoToNear(u.spend)} of ${yoctoToNear(g.max_spend_per_day)} NEAR`)));
 }
 
 async function saveRail() {
@@ -962,18 +1028,19 @@ async function saveRail() {
   const qn = Number($("rg-q").value.trim()), yocto = nearToYocto($("rg-s").value);
   const errs = [];
   $("rg-q").removeAttribute("aria-invalid"); $("rg-s").removeAttribute("aria-invalid");
-  if ($("rg-q").value.trim() === "" || !Number.isInteger(qn) || qn < 0) { errs.push("Queries per day: enter a whole number."); $("rg-q").setAttribute("aria-invalid", "true"); }
-  if (yocto == null) { errs.push("Spend per day: enter an amount like 0.05."); $("rg-s").setAttribute("aria-invalid", "true"); }
+  if ($("rg-q").value.trim() === "" || !Number.isInteger(qn) || qn < 0) { errs.push("Checks a day: enter a whole number."); $("rg-q").setAttribute("aria-invalid", "true"); }
+  if (yocto == null) { errs.push("Spend a day: enter an amount like 0.05."); $("rg-s").setAttribute("aria-invalid", "true"); }
   if (errs.length) return msgBox(wrap, "err", h("ul", {}, errs.map((e) => h("li", {}, e))));
+
   btn.disabled = true; btn.textContent = "Saving…";
   try {
     const res = await api("PUT", "/me/guardrails", { pause_all: $("rg-p").value === "true", max_queries_per_day: qn, max_spend_per_day: yocto });
     if (res.status === 401) { ME = null; railDirty = false; renderAccountAll(); return flash("err", "You were signed out. Connect your wallet again."); }
-    if (!res.ok) return msgBox(wrap, "err", h("ul", {}, errLines(res).map((e) => h("li", {}, e))));
+    if (!res.ok) return msgBox(wrap, "err", h("ul", {}, errLines(res).map((e) => h("li", {}, human(e)))));
     ME = res.body; railDirty = false;
     renderAccountAll();
-    msgBox($("railGuard"), "good", "Saved. These limits apply to your next paid check.");
-    addFeed("Guardrails saved", `${ME.profile.guardrails.max_queries_per_day} queries/day · ${ME.profile.guardrails.pause_all ? "paused" : "active"}`);
+    msgBox($("railGuard"), "good", "Saved. These apply to your next check.");
+    addFeed("Limits saved", `${nfmt(ME.profile.guardrails.max_queries_per_day)} checks a day · ${ME.profile.guardrails.pause_all ? "paused" : "active"}`);
   } catch (err) { msgBox(wrap, "err", `Couldn't reach the server: ${err.message}`); }
   finally { const b = $("rg-save"); if (b) { b.disabled = false; b.textContent = "Save"; } }
 }
@@ -981,44 +1048,43 @@ async function saveRail() {
 let deleteArmed = false;
 function renderAccountPanel() {
   const box = $("acctPanel"), tagEl = $("acctTag");
-  if (LOGIN_OFF) { fill(tagEl); return fill(box, emptyBox("Login is switched off on this server (LOGIN=0).")); }
+  if (LOGIN_OFF) { fill(tagEl); return fill(box, emptyBox("Sign-in is switched off on this server.")); }
   if (!ME) {
-    fill(tagEl, "signed out");
-    return fill(box, h("p", {}, "Sign in with a NEAR wallet to create an account and set your own limits for paid memory checks: a daily query cap, a daily spend cap and a pause switch. Signing in never gives access to the governor, its keys or any capital."),
-      h("a", { class: "btn primary", href: "/login" }, "Connect NEAR"));
+    fill(tagEl, "Signed out");
+    return fill(box, h("p", {}, "Sign in with your NEAR wallet to set your own limits."),
+      h("a", { class: "btn primary", href: "/login" }, "Sign in"));
   }
-  fill(tagEl, ME.signed_up ? "signed in" : "sign-up not finished");
-  if (!ME.signed_up) return fill(box, h("p", {}, `You are signed in as ${ME.account_id}, but your account isn't created yet.`), h("a", { class: "btn primary", href: "/login" }, "Finish sign-up"));
+  fill(tagEl, ME.signed_up ? "Signed in" : "Not finished");
+  if (!ME.signed_up) return fill(box, h("p", {}, "You are signed in, but your account isn't created yet."), h("a", { class: "btn primary", href: "/login" }, "Finish sign-up"));
   const p = ME.profile, u = ME.usage, g = p.guardrails;
   const name = h("input", { type: "text", id: "nameIn", maxlength: "32", value: p.display_name || "", placeholder: "no display name", "aria-label": "Display name" });
   const saveName = h("button", { class: "btn", type: "button" }, "Save name");
   saveName.addEventListener("click", async () => {
     const res = await api("PUT", "/me", { display_name: name.value.trim() || null });
     if (res.ok) { ME = res.body; renderAccountAll(); msgBox($("acctPanel"), "good", "Name saved."); }
-    else msgBox($("acctPanel"), "err", errLines(res).join(" "));
+    else msgBox($("acctPanel"), "err", errLines(res).map(human).join(" "));
   });
   const del = h("button", { class: "btn danger", type: "button" }, deleteArmed ? "Click again to delete" : "Delete my account");
   del.addEventListener("click", async () => {
     if (!deleteArmed) { deleteArmed = true; del.textContent = "Click again to delete"; return; }
     deleteArmed = false;
     const res = await api("DELETE", "/me");
-    if (res.ok) { ME = null; RECEIPTS = []; renderAccountAll(); flash("", "Your account was deleted. Paid receipts stay in the public audit log; they hold no personal data."); }
-    else msgBox($("acctPanel"), "err", errLines(res).join(" "));
+    if (res.ok) { ME = null; RECEIPTS = []; menuOpen = false; renderAccountAll(); flash("", "Your account was deleted. Past receipts stay in the public log; they hold nothing personal."); }
+    else msgBox($("acctPanel"), "err", errLines(res).map(human).join(" "));
   });
   const row = (k, v) => h("div", { class: "r" }, h("dt", {}, k), h("dd", {}, v));
   const hist = (p.history || []).slice(0, 4);
   fill(box,
     h("dl", { class: "kv" },
-      row("Account", ext(`${EXPLORER}/address/${ME.account_id}`, ME.account_id)),
+      row("Wallet", ext(`${EXPLORER}/address/${ME.account_id}`, ME.account_id)),
       row("Display name", h("div", { class: "btnrow" }, name, saveName)),
-      row("Member since", when(p.created_at)),
+      row("Joined", when(p.created_at)),
       row("Last sign-in", when(p.last_login_at)),
-      row("Last 24 h", `${u.queries} of ${g.max_queries_per_day} checks · ${yoctoToNear(u.spend)} of ${yoctoToNear(g.max_spend_per_day)} NEAR`),
+      row("Today", `${nfmt(u.queries)} of ${nfmt(g.max_queries_per_day)} checks · ${yoctoToNear(u.spend)} of ${yoctoToNear(g.max_spend_per_day)} NEAR`),
       row("Price per check", `${yoctoToNear(ME.price)} NEAR`),
-      row("Memory API", g.pause_all ? h("span", { class: "warn" }, "paused by you") : "active")),
-    h("p", { class: "intro", style: "margin-top:12px" }, "Edit your limits in the panel on the right. They apply to checks paid from this account, before anything is settled. Accounts that never sign up have no personal limits."),
-    hist.length ? h("ul", { class: "limits-hist", "aria-label": "Recent changes" }, hist.map((c) => h("li", {}, `${ago(c.at)} · ${c.change}`))) : null,
-    h("div", { class: "btnrow", style: "margin-top:14px" }, del));
+      row("Your checks", g.pause_all ? h("span", { class: "warn" }, "Paused by you") : "Running")),
+    hist.length ? h("ul", { class: "limits-hist", "aria-label": "Recent changes" }, hist.map((c) => h("li", {}, `${ago(c.at)} · ${human(c.change)}`))) : null,
+    h("div", { class: "btnrow", style: "margin-top:16px" }, del));
 }
 
 function renderAccountAll() {
@@ -1042,23 +1108,23 @@ function renderFeed(d) {
   const c = d.cycles[0];
   if (c) {
     const t = cycleIso(c.record.cycle_id), run = c.run;
-    if (run?.committed === false) items.push({ at: t, what: "Memory commit failed", detail: run.error || "fail-closed, nothing moved" });
-    else if (run) items.push({ at: t, what: "Memory committed", detail: `decision_hash ${head(bare(c.record.decision_hash), 12)}` });
-    else items.push({ at: t, what: "Decision recorded", detail: `decision_hash ${head(bare(c.record.decision_hash), 12)}` });
+    if (run?.committed === false) items.push({ at: t, what: "Couldn't write to NEAR", detail: human(run.error) || "The cycle stopped and nothing moved" });
+    else if (run) items.push({ at: t, what: "Decision written to NEAR", detail: head(bare(c.record.decision_hash), 12) });
+    else items.push({ at: t, what: "Decision recorded", detail: head(bare(c.record.decision_hash), 12) });
     if (run && run.committed !== false) {
       for (const x of c.record.decisions || []) {
         const rep = run.reports?.find((y) => y.sub === x.sub), v = run.verdicts?.find((y) => y.sub === x.sub);
-        const word = x.action === "PAUSE" ? "paused" : v?.action || x.action;
+        const word = x.action === "PAUSE" ? "paused" : pretty(v?.action || x.action).toLowerCase();
         const acc = d.subs.find((s) => s.id === x.sub)?.keys?.account;
-        items.push({ at: t, what: `Sub ${x.sub} · ${word}`, detail: x.action === "PAUSE" ? String(x.reason_code || "") : rep?.status === "reported" ? (rep.accountId || acc || "reported on-chain") : (rep ? `report ${rep.status}` : v?.reason || "") });
+        items.push({ at: t, what: `Sub ${x.sub} · ${word}`, detail: x.action === "PAUSE" ? pretty(x.reason_code || "") : rep?.status === "reported" ? (rep.accountId || acc || "Reported on NEAR") : (rep ? `Report ${pretty(rep.status).toLowerCase()}` : human(v?.reason) || "") });
       }
-      if (run.cross_chain?.status === "quoted") items.push({ at: t, what: "Price quote allowed", detail: `by memory commit ${head(run.cross_chain.memory_tx, 10)}` });
+      if (run.cross_chain?.status === "quoted") items.push({ at: t, what: "Price quote allowed", detail: "Unlocked by the memory record" });
     }
   }
-  for (const r of d.x402?.recent || []) items.push({ at: r.at, what: `x402 check · ${r.match ? "match" : "no match"}`, detail: `${r.match ? r.citation_id + " · " : ""}${short(r.receipt_id, 8, 4)}` });
+  for (const r of d.x402?.recent || []) items.push({ at: r.at, what: `Paid check · ${r.match ? "match" : "no match"}`, detail: `${r.match ? r.citation_id + " · " : ""}${short(r.receipt_id, 8, 4)}` });
   items.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const list = items.slice(0, 10);
-  if (!list.length) return fill($("feed"), h("li", {}, h("div", { class: "detail" }, "Nothing yet.")));
+  if (!list.length) return fill($("feed"), h("li", {}, h("div", { class: "detail" }, "Nothing has happened yet.")));
   fill($("feed"), list.map((i) => h("li", {}, h("div", { class: "when", title: i.at }, when(i.at)), h("div", {}, i.what), i.detail ? h("div", { class: "detail" }, i.detail) : null)));
 }
 
@@ -1070,68 +1136,68 @@ function logSteps(c) {
   const add = (s, cls, ...parts) => s.lines.push({ cls, parts });
   const stopped = !run || run.committed === false;   // nothing after the commit ran, or we can't tell
 
-  const read = step("READ", `reading swarm state (${run?.swarm_source === "onchain" ? "real wNEAR balances, simulated losses" : "simulated"})`);
-  add(read, "faint", `prev_memory_hash: ${r.prev_memory_hash ?? "(none — first cycle)"}`);
+  const read = step("Read the state", run?.swarm_source === "onchain" ? "real balances on NEAR, simulated losses" : "simulated balances");
+  add(read, "faint", `follows: ${r.prev_memory_hash ?? "nothing — this was the first cycle"}`);
 
   let decide;
   if (isTee(r) && r.tee) {
     const k = r.tee.checks || {};
     const okAll = teeVerified(r);
-    decide = step("DECIDE", `private reasoning in a NEAR AI Cloud TEE (${r.tee.model})`, okAll ? "done" : "failed");
-    const tdx = k.tdx === "not_checked" ? "not checked" : `${k.tdx?.verified ? "OK" : "FAIL"} (${k.tdx?.status})`;
-    const gpu = k.gpu === "not_checked" ? "not checked" : k.gpu?.verdict && k.gpu?.token_signature_valid ? "OK" : "FAIL";
-    add(decide, okAll ? "ok" : "refuse", `TEE signer ${r.tee.signing_address}: signature ${k.signature_valid ? "OK" : "FAIL"}, nonce ${k.binds_nonce ? "bound" : "NOT bound"}, Intel TDX ${tdx}, NVIDIA GPU ${gpu}`);
-  } else if (r.decision_path === "local-policy") decide = step("DECIDE", "local policy rule (no NEAR_AI_API_KEY)");
-  else decide = step("DECIDE", "stub logic (recorded before private decisions)");
-  if (r.private_commitment) add(decide, "faint", `private_commitment: ${r.private_commitment} (blob stays local)`);
-  add(decide, "faint", `decision_hash: ${r.decision_hash}`);
+    decide = step("Decide, privately", `inside a sealed enclave (${r.tee.model})`, okAll ? "done" : "failed");
+    const tdx = k.tdx === "not_checked" ? "not checked" : `${k.tdx?.verified ? "passed" : "FAILED"} (${pretty(k.tdx?.status)})`;
+    const gpu = k.gpu === "not_checked" ? "not checked" : k.gpu?.verdict && k.gpu?.token_signature_valid ? "passed" : "FAILED";
+    add(decide, okAll ? "ok" : "refuse", `enclave key ${r.tee.signing_address}: signature ${k.signature_valid ? "passed" : "FAILED"}, challenge ${k.binds_nonce ? "answered" : "NOT answered"}, Intel chip ${tdx}, NVIDIA chip ${gpu}`);
+  } else if (r.decision_path === "local-policy") decide = step("Decide", "the built-in rule, because no enclave key is set");
+  else decide = step("Decide", "an early version, recorded before sealed decisions");
+  if (r.private_commitment) add(decide, "faint", `sealed reasoning: ${r.private_commitment} (the reasoning itself stays here)`);
+  add(decide, "faint", `record: ${r.decision_hash}`);
 
-  const commit = step("MEMORY COMMIT", `writing memory record (on-chain, ${r.governor})`, !run ? "unknown" : run.committed === false ? "failed" : "done");
-  if (!run) add(commit, "faint", "outcome not recorded on this machine — run a fresh cycle");
-  else if (run.committed === false) add(commit, "refuse", `FAIL-CLOSED: memory commit failed (${run.error}). Cycle ends. No allocation performed.`);
+  const commit = step("Write to NEAR", `saving the record to ${r.governor}`, !run ? "unknown" : run.committed === false ? "failed" : "done");
+  if (!run) add(commit, "faint", "the outcome wasn't saved here — run a fresh cycle");
+  else if (run.committed === false) add(commit, "refuse", `the write failed (${human(run.error)}). The cycle ends here and nothing moves.`);
   else {
-    add(commit, "ok", "committed.");
-    if (txUrl(run.commit_tx)) add(commit, "faint", "tx: ", ext(txUrl(run.commit_tx), txUrl(run.commit_tx)));
+    add(commit, "ok", "written.");
+    if (txUrl(run.commit_tx)) add(commit, "faint", "proof: ", ext(txUrl(run.commit_tx), txUrl(run.commit_tx)));
   }
 
-  const alloc = step("ALLOCATE", run?.allocate_mode === "wnear" ? "real wNEAR top-ups on testnet, tiny amounts" : "applying decisions (print-only — no real transfers)", stopped ? "skip" : "done");
-  const window = step("SUB-AGENT WINDOW", "mandate checks + on-chain report()", stopped ? "skip" : "done");
-  const publish = step("PUBLIC LOG", "cycle complete", stopped ? "skip" : "done");
+  const alloc = step("Allocate", run?.allocate_mode === "wnear" ? "real top-ups on testnet, tiny amounts" : "applying the decisions, nothing actually moves", stopped ? "skip" : "done");
+  const window = step("Sub-agents report", "each one checks its own job, then reports on NEAR", stopped ? "skip" : "done");
+  const publish = step("Publish", "cycle complete", stopped ? "skip" : "done");
   if (!stopped) {
     if (run.allocations && run.allocations.length) {
       for (const e of run.allocations) {
-        add(alloc, e.kind === "transfer" || e.kind === "quote" ? "ok" : e.kind === "none" ? "" : "refuse", `sub ${e.sub}: ${e.note}`);
-        if (e.tx && txUrl(e.tx)) add(alloc, "faint", "  tx: ", ext(txUrl(e.tx), txUrl(e.tx)));
+        add(alloc, e.kind === "transfer" || e.kind === "quote" ? "ok" : e.kind === "none" ? "" : "refuse", `sub ${e.sub}: ${human(e.note)}`);
+        if (e.tx && txUrl(e.tx)) add(alloc, "faint", "  proof: ", ext(txUrl(e.tx), txUrl(e.tx)));
         if (e.kind === "failed") alloc.state = "failed";
       }
       const cc = run.cross_chain;
-      if (cc && cc.status === "quoted" && txUrl(cc.memory_tx)) add(alloc, "faint", "  allowed by memory commit: ", ext(txUrl(cc.memory_tx), txUrl(cc.memory_tx)));
+      if (cc && cc.status === "quoted" && txUrl(cc.memory_tx)) add(alloc, "faint", "  unlocked by the memory record: ", ext(txUrl(cc.memory_tx), txUrl(cc.memory_tx)));
     } else for (const x of r.decisions || []) {
-      add(alloc, "", x.action === "PAUSE" ? `sub ${x.sub}: PAUSE (${x.reason_code})` : `sub ${x.sub}: ${x.action} -> target_capital=${x.target_capital}, max_position=${x.max_position}, max_loss_cycle=${x.max_loss_cycle}, mandate=${x.mandate}`);
+      add(alloc, "", x.action === "PAUSE" ? `sub ${x.sub}: paused (${pretty(x.reason_code)})` : `sub ${x.sub}: ${pretty(x.action)} — target ${nfmt(x.target_capital)}, biggest position ${nfmt(x.max_position)}, most it may lose ${nfmt(x.max_loss_cycle)}, job ${pretty(x.mandate)}`);
     }
     for (const x of r.decisions || []) {
-      if (x.action === "PAUSE") { add(window, "faint", `sub ${x.sub}: PAUSE -> inactive this cycle, nothing to report`); continue; }
+      if (x.action === "PAUSE") { add(window, "faint", `sub ${x.sub}: paused, so it has nothing to report`); continue; }
       const v = (run.verdicts || []).find((y) => y.sub === x.sub);
-      if (v) add(window, v.action === "ACT" ? "ok" : "refuse", `sub ${x.sub}: ${v.action} (${v.reason})`);
+      if (v) add(window, v.action === "ACT" ? "ok" : "refuse", `sub ${x.sub}: ${pretty(v.action)} (${human(v.reason)})`);
     }
     for (const x of run.reports || []) {
       if (x.status === "reported") {
-        add(window, "", `sub ${x.sub} -> on-chain ${x.action} as ${x.accountId}`);
-        if (txUrl(x.txHash)) add(window, "faint", "  tx: ", ext(txUrl(x.txHash), txUrl(x.txHash)));
-      } else { window.state = "failed"; add(window, "refuse", `sub ${x.sub} -> REPORT ${String(x.status).toUpperCase()}${x.error ? ": " + x.error : ""}`); }
+        add(window, "", `sub ${x.sub} reported ${pretty(x.action)} on NEAR as ${x.accountId}`);
+        if (txUrl(x.txHash)) add(window, "faint", "  proof: ", ext(txUrl(x.txHash), txUrl(x.txHash)));
+      } else { window.state = "failed"; add(window, "refuse", `sub ${x.sub}: its report ${pretty(x.status).toLowerCase()}${x.error ? ": " + human(x.error) : ""}`); }
     }
   }
   return S;
 }
 
-const STEP_STATE = { done: ["done", "ok"], failed: ["failed", "bad"], skip: ["not run", ""], unknown: ["no record", ""] };
+const STEP_STATE = { done: ["Done", "ok"], failed: ["Failed", "bad"], skip: ["Not run", ""], unknown: ["No record", ""] };
 let auditPick = "";   // cycle_id chosen in the Audit select; empty = newest
 
 function renderLog(d) {
   const sel = $("cycSel"), box = $("logBox");
-  if (!d.cycles.length) { fill(sel); return fill(box, emptyBox("No cycle recorded on this machine yet.")); }
+  if (!d.cycles.length) { fill(sel); return fill(box, emptyBox("No cycle has run on this machine yet.")); }
   if (!d.cycles.some((c) => c.record.cycle_id === auditPick)) auditPick = d.cycles[0].record.cycle_id;
-  fill(sel, d.cycles.map((c) => h("option", { value: c.record.cycle_id, selected: c.record.cycle_id === auditPick }, `${cycleLabel(c.record.cycle_id)}${c.run?.committed === false ? " · not committed" : ""}`)));
+  fill(sel, d.cycles.map((c) => h("option", { value: c.record.cycle_id, selected: c.record.cycle_id === auditPick }, `${when(cycleIso(c.record.cycle_id))}${c.run?.committed === false ? " · not written" : ""}`)));
   const c = d.cycles.find((x) => x.record.cycle_id === auditPick);
   const steps = logSteps(c);
   fill(box, steps.map((s, i) => h("div", { class: "log-step " + s.state },
@@ -1165,7 +1231,7 @@ function renderLimits(d) {
   const L = d.limits;
   if (!L) { $("limitsNote").textContent = ""; return fill($("limitsBox"), emptyBox("Limits are not configured on this server.")); }
   lastLimits = L;
-  $("limitsNote").textContent = L.source === "owner" ? `set by the owner · ${ago(L.updated_at)}` : "built-in defaults";
+  $("limitsNote").textContent = L.source === "owner" ? `Set by the owner · ${ago(L.updated_at)}` : "Built-in defaults";
   if (limitsEditing) return;       // never wipe what someone is in the middle of typing
   drawLimits(L, null);
 }
@@ -1198,7 +1264,7 @@ function drawLimits(L, msg) {
   } else {
     actions.append(
       h("label", { class: "token-row", for: "lim-token" }, "Admin token",
-        h("input", { id: "lim-token", type: "password", autocomplete: "off", value: ADMIN, placeholder: "ADMIN_TOKEN from your .env" })),
+        h("input", { id: "lim-token", type: "password", autocomplete: "off", value: ADMIN, placeholder: "Admin token" })),
       h("button", { class: "btn primary", type: "button", id: "limSave" }, "Save"),
       h("button", { class: "btn", type: "button", id: "limCancel" }, "Cancel"),
       h("button", { class: "btn", type: "button", id: "limReset" }, resetArmed ? "Click again to reset" : "Reset to defaults"));
@@ -1208,10 +1274,7 @@ function drawLimits(L, msg) {
   }
 
   const hist = (L.history || []).slice(-3).reverse();
-  fill(box,
-    h("p", { class: "intro" }, "The rails the governor works inside. Every cycle writes the limits it used into its on-chain memory record, so you can see which rules applied to which decision."),
-    h("p", { class: "intro" }, "Each sub's target, max position and max loss stay the governor's call. Their hash is committed on-chain, so they can't be edited by hand. Sub-agents also keep their own hard ceilings and will refuse, on-chain, anything past them."),
-    grid, actions,
+  fill(box, grid, actions,
     hist.length ? h("ul", { class: "limits-hist", "aria-label": "Recent changes" }, hist.map((c) => h("li", {}, `${ago(c.at)} · ` + Object.entries(c.changes).map(([k, x]) => { const sp = L.specs.find((q) => q.key === k); return `${label[k] || k} ${sp ? showLimit(sp, x.from) : x.from} → ${sp ? showLimit(sp, x.to) : x.to}`; }).join(", ")))) : null);
   if (msg) limitMsg(box, msg.kind, ...msg.parts);
 }
@@ -1219,8 +1282,8 @@ function drawLimits(L, msg) {
 function explainAdminError(res) {
   if (res.status === 401) return ["That token isn't right."];
   if (res.status === 429) return ["Too many wrong tokens. Wait a minute and try again."];
-  if (res.status === 503) return ["Admin routes are switched off on this server. Set ADMIN_TOKEN in .env, restart npm run server, then try again."];
-  return errLines(res);
+  if (res.status === 503) return ["This server has no admin token set, so owner changes are switched off."];
+  return errLines(res).map(human);
 }
 
 async function saveLimits(L) {
@@ -1229,7 +1292,7 @@ async function saveLimits(L) {
   for (const s of L.specs) {
     const el = $("lim-" + s.key), n = Number(el.value.trim());
     el.removeAttribute("aria-invalid");
-    if (el.value.trim() === "" || !Number.isFinite(n)) { el.setAttribute("aria-invalid", "true"); problems.push(`${s.label}: enter a number`); continue; }
+    if (el.value.trim() === "" || !Number.isFinite(n)) { el.setAttribute("aria-invalid", "true"); problems.push(`${s.label}: enter a number.`); continue; }
     body[s.key] = s.unit === "%" ? Math.round(n * 100) / 10000 : n;   // 20 (%) -> 0.2
   }
   const token = $("lim-token").value;
@@ -1241,9 +1304,9 @@ async function saveLimits(L) {
     if (res.status === 200) {
       ADMIN = token; limitsEditing = false;
       lastLimits = res.body;
-      $("limitsNote").textContent = res.body.source === "owner" ? "set by the owner · just now" : "built-in defaults";
-      addFeed("Governor limits saved", "next cycle uses them");
-      return drawLimits(res.body, { kind: "good", parts: ["Saved. The next cycle uses these limits, and its memory record will carry them on-chain."] });
+      $("limitsNote").textContent = res.body.source === "owner" ? "Set by the owner · just now" : "Built-in defaults";
+      addFeed("Governor limits saved", "The next cycle uses them");
+      return drawLimits(res.body, { kind: "good", parts: ["Saved. The next cycle uses these, and writes them to NEAR."] });
     }
     limitMsg(box, "err", "Not saved:", h("ul", {}, explainAdminError(res).map((p) => h("li", {}, p))));
   } catch (err) {
@@ -1263,7 +1326,7 @@ async function resetLimits(L) {
     const res = await api("POST", "/limits/reset", null, token);
     if (res.status === 200) {
       ADMIN = token; limitsEditing = false; lastLimits = res.body;
-      $("limitsNote").textContent = "built-in defaults";
+      $("limitsNote").textContent = "Built-in defaults";
       return drawLimits(res.body, { kind: "good", parts: ["Back to the built-in defaults. The next cycle uses them."] });
     }
     $("limReset").textContent = "Reset to defaults";
@@ -1288,20 +1351,20 @@ async function runCycleNow() {
   cycleBusy = true;
   const endBusy = () => { cycleBusy = false; $("btnCycle").disabled = false; $("btnCycle").textContent = "Run cycle"; $("cycGo").disabled = false; };
   $("btnCycle").disabled = true; $("btnCycle").textContent = "Running…"; $("cycGo").disabled = true;
-  flash("", "Cycle running: private decision in the TEE, memory commit on NEAR, then the sub-agents report. This can take a minute or two.");
+  flash("", "Running a cycle. This takes a minute or two.");
   try {
     const res = await api("POST", "/cycle/run", null, token);
     if (res.status === 200 && res.body?.result) {
       ADMIN = token; togglePop(false);
       const r = res.body.result;
       flash(r.committed ? "good" : "err", r.committed
-        ? `Cycle ${cycleLabel(r.cycle_id)} committed to NEAR (${head(bare(r.decision_hash), 12)}).`
-        : `Cycle ${cycleLabel(r.cycle_id)} did not commit, so nothing moved. See Audit.`);
-      addFeed(r.committed ? "Cycle committed" : "Cycle stopped at commit", head(bare(r.decision_hash), 12));
+        ? `Done. The decision is on NEAR (${head(bare(r.decision_hash), 12)}).`
+        : "The decision could not be written to NEAR, so nothing moved. Open the activity log for the detail.");
+      addFeed(r.committed ? "Cycle finished" : "Cycle stopped before writing", head(bare(r.decision_hash), 12));
       endBusy();                // the cycle is over; re-reading the chain below can take a few seconds
       await load();
     } else {
-      flash("err", `The cycle did not run: ${explainAdminError(res).join(" ")}`);
+      flash("err", `The cycle did not run. ${explainAdminError(res).join(" ")}`);
     }
   } catch (err) {
     flash("err", `Couldn't reach the server: ${err.message}`);
@@ -1313,18 +1376,19 @@ async function runCycleNow() {
 /* ---------- load ---------- */
 async function load() {
   const btn = $("refresh");
-  btn.disabled = true; btn.textContent = "Reading…";
+  btn.disabled = true; btn.textContent = "Refreshing…";
   try {
     const [r] = await Promise.all([fetch("/dashboard.json", { cache: "no-store" }), loadMe()]);
     if (!r.ok) throw new Error(`the server answered ${r.status}`);
     const d = await r.json();
     DATA = d;
     const problems = [];
-    if (!d.chain.ok) problems.push(`Couldn't read the chain (${d.chain.error}). Showing records stored on this machine.`);
-    if (d.subs.some((s) => s.keys?.error)) problems.push("Couldn't read the sub-agents' keys from NEAR.");
-    if (d.swarm?.error) problems.push(`Couldn't read the sub-agents' wNEAR balances (${d.swarm.error}).`);
+    if (!d.chain.ok) problems.push("Can't reach NEAR right now, so this shows what is saved on this machine.");
+    else if (d.subs.some((s) => s.keys?.error)) problems.push("Can't read the sub-agents' keys from NEAR right now.");
+    else if (d.swarm?.error) problems.push("Can't read the sub-agents' balances from NEAR right now.");
     $("problem").hidden = !problems.length;
     $("problem").textContent = problems.join(" ");
+    $("problem").title = [d.chain.error, d.swarm?.error].filter(Boolean).join(" · ");
     fill($("governorBadge"), accLink(d.contract));
     renderTop(d); renderDesk(d); renderChain(d); renderDecision(d); renderSwarm(d); renderX402(d); renderLimits(d); renderLog(d); renderFeed(d);
     // never wipe a box someone is typing in
@@ -1333,11 +1397,12 @@ async function load() {
     renderAccountSlot(); renderMyReceipts();
     if (!typingRail) renderRail();
     if (!typingAcct) renderAccountPanel();
-    $("updated").textContent = `live from NEAR testnet · updated ${new Date(d.generated_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+    $("updated").textContent = `NEAR testnet · updated ${new Date(d.generated_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
   } catch (err) {
     $("problem").hidden = false;
-    $("problem").textContent = `Couldn't load the dashboard data: ${err.message}. Is npm run server still running?`;
-    $("pillGate").className = "pill bad"; $("pillGate").textContent = "server unreachable";
+    $("problem").textContent = "Can't reach the Mnemosyne server. Check that it is still running, then press Refresh.";
+    $("problem").title = err.message;
+    $("pillGate").className = "pill bad"; $("pillGate").textContent = "Server offline";
   } finally {
     btn.disabled = false; btn.textContent = "Refresh";
   }
