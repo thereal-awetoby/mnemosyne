@@ -1,0 +1,64 @@
+{
+  "cycle_id": "2026-11-01T13:45:36.225Z-d95f8",
+  "finished_at": "2026-11-01T13:48:01.411Z",
+  "committed": true,
+  "commit_tx": "BRKrneuo59Xjk6tGDR5Pjfopxqj4pJ2ErYXw2a9RLUXy",
+  "error": null,
+  "verdicts": [
+    {
+      "sub": "B",
+      "action": "ACT",
+      "reason": "within mandate"
+    },
+    {
+      "sub": "C",
+      "action": "REFUSE",
+      "reason": "max_position 200 exceeds mandate ceiling 150"
+    }
+  ],
+  "reports": [
+    {
+      "sub": "B",
+      "status": "reported",
+      "action": "ACT",
+      "accountId": "mnemosyne-sub-b.testnet",
+      "txHash": "BDDpNEcrnPsTerun8Rk3ompg6ybrvb4BweyNYpRpMAD"
+    },
+    {
+      "sub": "C",
+      "status": "reported",
+      "action": "REFUSE",
+      "accountId": "mnemosyne-sub-c2.testnet",
+      "txHash": "9jruZAB8FcxkdmXrj6WM25nKsqEkLAKwEt8gWyrkqCf3"
+    }
+  ],
+  "swarm_source": "simulated",
+  "allocate_mode": "print",
+  "allocations": [
+    {
+      "sub": "A",
+      "action": "PAUSE",
+      "rail": "print",
+      "units": 0,
+      "kind": "none",
+      "note": "PAUSE (governor_pause) (print-only, nothing moved)"
+    },
+    {
+      "sub": "B",
+      "action": "KEEP",
+      "rail": "print",
+      "units": 0,
+      "kind": "none",
+      "note": "KEEP -> target_capital=1000, max_position=200, max_loss_cycle=50, mandate=inventory_liquidity_only (print-only, nothing moved)"
+    },
+    {
+      "sub": "C",
+      "action": "KEEP",
+      "rail": "print",
+      "units": 0,
+      "kind": "none",
+      "note": "KEEP -> target_capital=1000, max_position=200, max_loss_cycle=50, mandate=defensive_reduce_only (print-only, nothing moved)"
+    }
+  ],
+  "limits_source": "owner"
+}

@@ -1,0 +1,76 @@
+{
+  "cycle_id": "2026-11-01T09:18:40.968Z-a4262",
+  "finished_at": "2026-11-01T09:19:44.864Z",
+  "committed": true,
+  "commit_tx": "B7Npf7hhmH8E6Q72tRMp5rGUAbtYLe5kGbihD9FvuuoP",
+  "error": null,
+  "verdicts": [
+    {
+      "sub": "A",
+      "action": "ACT",
+      "reason": "within mandate"
+    },
+    {
+      "sub": "B",
+      "action": "ACT",
+      "reason": "within mandate"
+    },
+    {
+      "sub": "C",
+      "action": "REFUSE",
+      "reason": "max_loss_cycle 35 exceeds mandate ceiling 30"
+    }
+  ],
+  "reports": [
+    {
+      "sub": "A",
+      "status": "reported",
+      "action": "ACT",
+      "accountId": "mnemosyne-sub-a.testnet",
+      "txHash": "2Ehqbkh3G5HShZP2iCjnwoPumLuRMiQf8kABweyrZKf4"
+    },
+    {
+      "sub": "B",
+      "status": "reported",
+      "action": "ACT",
+      "accountId": "mnemosyne-sub-b.testnet",
+      "txHash": "GX3jKVXbkWvs4jYHC3LCuscZkj2kd7go7C1htLDNCaQ9"
+    },
+    {
+      "sub": "C",
+      "status": "reported",
+      "action": "REFUSE",
+      "accountId": "mnemosyne-sub-c2.testnet",
+      "txHash": "HmkaMHUwMSRp411ijHjgbswZtHoDLZpX97xFtES1hE4F"
+    }
+  ],
+  "swarm_source": "onchain",
+  "allocate_mode": "wnear",
+  "allocations": [
+    {
+      "sub": "A",
+      "action": "KEEP",
+      "rail": "wnear",
+      "units": 0,
+      "kind": "none",
+      "note": "KEEP at 800 units: nothing to move"
+    },
+    {
+      "sub": "B",
+      "action": "CUT",
+      "rail": "wnear",
+      "units": 0,
+      "kind": "none",
+      "note": "CUT to 700 units: no transfer, 100 units above the new ceiling stay in the sub account (its report-only key cannot send funds back)"
+    },
+    {
+      "sub": "C",
+      "action": "CUT",
+      "rail": "wnear",
+      "units": 0,
+      "kind": "none",
+      "note": "CUT to 700 units: no transfer, 100 units above the new ceiling stay in the sub account (its report-only key cannot send funds back)"
+    }
+  ],
+  "limits_source": "default"
+}

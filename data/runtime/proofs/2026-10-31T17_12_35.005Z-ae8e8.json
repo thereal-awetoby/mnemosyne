@@ -1,0 +1,110 @@
+{
+  "built_at": "2026-11-02T12:52:20.336Z",
+  "network": "testnet",
+  "explorer": "https://testnet.nearblocks.io",
+  "governor": "mnemosyne-gov.testnet",
+  "cycle_id": "2026-10-31T17:12:35.005Z-ae8e8",
+  "decision": {
+    "path": "near-ai-tee",
+    "decision_hash": "sha256:836c62897ac6d9cae05fcbf9b74d9eb4a4b85bc140c8ab78e489b4b75ed44b7e",
+    "prev_memory_hash": "sha256:301228bab6f26de932ed76c7ed6d0b9329bf3fba9d3bb7375e49bcef63b2aa0d",
+    "private_commitment": "sha256:095ed02d3e624a071b9a8b89bffbaf78ebc23816083390aba53d2c7323a0a069",
+    "tee": {
+      "model": "Qwen/Qwen3.8-27B",
+      "signer": "0x835ab53d20294ef795906dff21ae4c045336aa26",
+      "tdx": "[object Object]",
+      "gpu": "[object Object]"
+    }
+  },
+  "memory_commit": {
+    "committed": null,
+    "tx": null,
+    "url": null,
+    "error": null
+  },
+  "limits": {
+    "max_total_exposure": "3000",
+    "max_daily_loss": "150"
+  },
+  "limits_source": null,
+  "subs": [
+    {
+      "sub": "A",
+      "account": null,
+      "action": null,
+      "reason": null,
+      "status": "no report recorded",
+      "tx": null,
+      "url": null
+    },
+    {
+      "sub": "B",
+      "account": null,
+      "action": null,
+      "reason": null,
+      "status": "no report recorded",
+      "tx": null,
+      "url": null
+    },
+    {
+      "sub": "C",
+      "account": null,
+      "action": "PAUSE",
+      "reason": null,
+      "status": "paused",
+      "tx": null,
+      "url": null
+    }
+  ],
+  "cross_chain": null,
+  "checks": [
+    {
+      "id": "record_hashes_to_commitment",
+      "claim": "The published record hashes to the commitment on NEAR",
+      "ok": true,
+      "detail": "sha256 of this file without decision_hash = 836c62897ac6d9ca…, which is the committed hash"
+    },
+    {
+      "id": "chain_links_to_previous",
+      "claim": "Each record names the one before it",
+      "ok": null,
+      "detail": "it follows 301228bab6f26de9…, which is not in this copy of the records"
+    },
+    {
+      "id": "no_move_without_commit",
+      "claim": "No capital moves and no sub acts unless the memory commit landed",
+      "ok": null,
+      "detail": "no run log was kept for this cycle"
+    },
+    {
+      "id": "reports_name_the_decision",
+      "claim": "Every sub report names the decision it answers",
+      "ok": null,
+      "detail": "no sub reported on-chain in this cycle"
+    },
+    {
+      "id": "quote_bound_to_decision",
+      "claim": "A cross-chain quote is bound to the decision that allowed it",
+      "ok": null,
+      "detail": "no cross-chain quote in this cycle"
+    },
+    {
+      "id": "quote_is_price_only",
+      "claim": "A cross-chain quote is a price, never a transfer",
+      "ok": null,
+      "detail": "no cross-chain quote in this cycle"
+    },
+    {
+      "id": "private_reasoning_absent",
+      "claim": "The public record carries a commitment to the reasoning, never the reasoning",
+      "ok": true,
+      "detail": "only a hash of it: 095ed02d3e624a07…, with the blob and its salt left on the operator's machine"
+    },
+    {
+      "id": "tee_claim_matches_evidence",
+      "claim": "A decision is only called sealed when the enclave evidence checks out",
+      "ok": true,
+      "detail": "signed by 0x835ab53d20294ef795906dff21ae4c045336aa26, bound to a fresh challenge, hashes match"
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "built_at": "2026-11-02T12:52:20.328Z",
+  "network": "testnet",
+  "explorer": "https://testnet.nearblocks.io",
+  "governor": "mnemosyne-gov.testnet",
+  "cycle_id": "2026-11-01T13:45:36.225Z-d95f8",
+  "decision": {
+    "path": "near-ai-tee",
+    "decision_hash": "sha256:2aebc163d50d2f48199b6cdffbac890f7072a2de42b18d773d7d24b2438f72f2",
+    "prev_memory_hash": "sha256:3f8a5e107da79a774ba9e873715a317a22de3d78fe67eeaaf9091a7c59441f32",
+    "private_commitment": "sha256:aee1ae73c9461ffbd8fb86a92354924c7b5e68389777704c0ad111bd306cca40",
+    "tee": {
+      "model": "Qwen/Qwen3.8-27B",
+      "signer": "0x835ab53d20294ef795906dff21ae4c045336aa26",
+      "tdx": "[object Object]",
+      "gpu": "[object Object]"
+    }
+  },
+  "memory_commit": {
+    "committed": true,
+    "tx": "BRKrneuo59Xjk6tGDR5Pjfopxqj4pJ2ErYXw2a9RLUXy",
+    "url": "https://testnet.nearblocks.io/txns/BRKrneuo59Xjk6tGDR5Pjfopxqj4pJ2ErYXw2a9RLUXy",
+    "error": null
+  },
+  "limits": {
+    "max_total_exposure": "2500",
+    "max_daily_loss": "150",
+    "per_sub_max_capital": "1500",
+    "pause_loss_threshold": "100",
+    "max_growth": "1.25",
+    "max_position_pct": "0.2",
+    "max_loss_pct": "0.05"
+  },
+  "limits_source": "owner",
+  "subs": [
+    {
+      "sub": "A",
+      "account": null,
+      "action": "PAUSE",
+      "reason": null,
+      "status": "paused",
+      "tx": null,
+      "url": null
+    },
+    {
+      "sub": "B",
+      "account": "mnemosyne-sub-b.testnet",
+      "action": "ACT",
+      "reason": "within mandate",
+      "status": "reported",
+      "tx": "BDDpNEcrnPsTerun8Rk3ompg6ybrvb4BweyNYpRpMAD",
+      "url": "https://testnet.nearblocks.io/txns/BDDpNEcrnPsTerun8Rk3ompg6ybrvb4BweyNYpRpMAD"
+    },
+    {
+      "sub": "C",
+      "account": "mnemosyne-sub-c2.testnet",
+      "action": "REFUSE",
+      "reason": "max_position 200 exceeds mandate ceiling 150",
+      "status": "reported",
+      "tx": "9jruZAB8FcxkdmXrj6WM25nKsqEkLAKwEt8gWyrkqCf3",
+      "url": "https://testnet.nearblocks.io/txns/9jruZAB8FcxkdmXrj6WM25nKsqEkLAKwEt8gWyrkqCf3"
+    }
+  ],
+  "cross_chain": null,
+  "checks": [
+    {
+      "id": "record_hashes_to_commitment",
+      "claim": "The published record hashes to the commitment on NEAR",
+      "ok": true,
+      "detail": "sha256 of this file without decision_hash = 2aebc163d50d2f48…, which is the committed hash"
+    },
+    {
+      "id": "chain_links_to_previous",
+      "claim": "Each record names the one before it",
+      "ok": true,
+      "detail": "follows 3f8a5e107da79a77…, the previous recorded cycle"
+    },
+    {
+      "id": "no_move_without_commit",
+      "claim": "No capital moves and no sub acts unless the memory commit landed",
+      "ok": true,
+      "detail": "the commit landed first (BRKrneuo59Xjk6tGDR5Pjfopxqj4pJ2ErYXw2a9RLUXy), then 2 sub report(s) followed"
+    },
+    {
+      "id": "reports_name_the_decision",
+      "claim": "Every sub report names the decision it answers",
+      "ok": true,
+      "detail": "each on-chain reason is prefixed \"cycle 2aebc163d50d\", so the report cannot be moved to another decision"
+    },
+    {
+      "id": "quote_bound_to_decision",
+      "claim": "A cross-chain quote is bound to the decision that allowed it",
+      "ok": null,
+      "detail": "no cross-chain quote in this cycle"
+    },
+    {
+      "id": "quote_is_price_only",
+      "claim": "A cross-chain quote is a price, never a transfer",
+      "ok": null,
+      "detail": "no cross-chain quote in this cycle"
+    },
+    {
+      "id": "private_reasoning_absent",
+      "claim": "The public record carries a commitment to the reasoning, never the reasoning",
+      "ok": true,
+      "detail": "only a hash of it: aee1ae73c9461ffb…, with the blob and its salt left on the operator's machine"
+    },
+    {
+      "id": "tee_claim_matches_evidence",
+      "claim": "A decision is only called sealed when the enclave evidence checks out",
+      "ok": true,
+      "detail": "signed by 0x835ab53d20294ef795906dff21ae4c045336aa26, bound to a fresh challenge, hashes match"
+    },
+    {
+      "id": "commit_tx_carries_this_hash",
+      "claim": "The commit transaction on NEAR carries this exact hash",
+      "ok": true,
+      "detail": "BRKrneuo59Xjk6tGDR5Pjfopxqj4pJ2ErYXw2a9RLUXy finished successfully and logged MNEMOSYNE_COMMIT:sha256:2aebc163d50d2f48199b6cdffbac890f7072a2de42b18d773d7d24b2438f72f2:sha…"
+    },
+    {
+      "id": "reports_are_on_chain",
+      "claim": "Each sub report is on NEAR, sent by the sub's own account",
+      "ok": true,
+      "detail": "sub B: ACT logged by mnemosyne-sub-b.testnet, naming this decision; sub C: REFUSE logged by mnemosyne-sub-c2.testnet, naming this decision"
+    },
+    {
+      "id": "chain_head_matches_newest_record",
+      "claim": "The hash NEAR holds is the newest record published here",
+      "ok": true,
+      "detail": "get_latest() on mnemosyne-gov.testnet returns 2aebc163d50d2f48… after 14 commits"
+    }
+  ]
+}

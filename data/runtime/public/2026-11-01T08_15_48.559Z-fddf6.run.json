@@ -1,0 +1,35 @@
+{
+  "cycle_id": "2026-11-01T08:15:48.559Z-fddf6",
+  "finished_at": "2026-11-01T08:16:58.377Z",
+  "committed": true,
+  "commit_tx": "HNbuxFbeDCnSz5Mjo4USaA8yXTWCwUCtjy7xYywnkbwx",
+  "error": null,
+  "verdicts": [
+    {
+      "sub": "A",
+      "action": "ACT",
+      "reason": "within mandate"
+    },
+    {
+      "sub": "B",
+      "action": "ACT",
+      "reason": "within mandate"
+    }
+  ],
+  "reports": [
+    {
+      "sub": "A",
+      "status": "reported",
+      "action": "ACT",
+      "accountId": "mnemosyne-sub-a.testnet",
+      "txHash": "DoZeky569BaUSf8Y8h2HehkAMC1EEJ4aapXuBbEFws9y"
+    },
+    {
+      "sub": "B",
+      "status": "reported",
+      "action": "ACT",
+      "accountId": "mnemosyne-sub-b.testnet",
+      "txHash": "927w7DAK5ZohnHRV5PMwKev9opDhLDHzugjmmjqjZAuQ"
+    }
+  ]
+}

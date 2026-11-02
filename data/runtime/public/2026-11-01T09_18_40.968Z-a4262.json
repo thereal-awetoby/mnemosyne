@@ -1,0 +1,70 @@
+{
+  "cycle_id": "2026-11-01T09:18:40.968Z-a4262",
+  "governor": "mnemosyne-gov.testnet",
+  "prev_memory_hash": "sha256:669cc468d314bf6f53c41279e444a65764622665d8a0d7ee9c7e500685adb4b9",
+  "decisions": [
+    {
+      "sub": "A",
+      "action": "KEEP",
+      "target_capital": "800",
+      "max_position": "160",
+      "max_loss_cycle": "40",
+      "mandate": "mean_reversion_only"
+    },
+    {
+      "sub": "B",
+      "action": "CUT",
+      "target_capital": "700",
+      "max_position": "140",
+      "max_loss_cycle": "35",
+      "mandate": "inventory_liquidity_only"
+    },
+    {
+      "sub": "C",
+      "action": "CUT",
+      "target_capital": "700",
+      "max_position": "140",
+      "max_loss_cycle": "35",
+      "mandate": "defensive_reduce_only"
+    }
+  ],
+  "swarm_risk": {
+    "max_total_exposure": "3000",
+    "max_daily_loss": "150",
+    "per_sub_max_capital": "1500",
+    "pause_loss_threshold": "100",
+    "max_growth": "1.25",
+    "max_position_pct": "0.2",
+    "max_loss_pct": "0.05"
+  },
+  "schema_version": 2,
+  "decision_path": "near-ai-tee",
+  "private_commitment": "sha256:38b84ef155a27bdc7e151ce5b94ac931caf479f8ef133af6cf4c80a687f1158c",
+  "tee": {
+    "provider": "near-ai-cloud",
+    "model": "Qwen/Qwen3.8-27B",
+    "chat_id": "f675deb6a71d4b4aa62be40c74966a7d",
+    "signing_address": "0x835ab53d20294ef795906dff21ae4c045336aa26",
+    "signature_kind": "provider_tee",
+    "signature": "0xf9d5b52de04a37d5c30554b882a5d875d33c552fc2021e5dbbb98d45f38e128c285a1fba0995af866d854fbc0cb0cf7b7e3d6d4ef9660492ddcf1eb550b742511c",
+    "request_hash": "99c0c3cfc852b91074397bca7170bc356ffa71895153a1391e2f1bffb9cad014",
+    "response_hash": "03e383e3641f642fd5b51ffc43ee545dee2c2699ffc58d558dbe90ea4be7095d",
+    "checks": {
+      "hashes_match": true,
+      "signature_valid": true,
+      "provider_tee": true,
+      "model_matches": true,
+      "binds_address": true,
+      "binds_nonce": true,
+      "tdx": {
+        "verified": true,
+        "status": "UpToDate"
+      },
+      "gpu": {
+        "verdict": true,
+        "token_signature_valid": true
+      }
+    }
+  },
+  "decision_hash": "sha256:9bc88d03d09cda8fd7b6f32c8258cbecddf119ebf2c521451173b0a857143f6e"
+}

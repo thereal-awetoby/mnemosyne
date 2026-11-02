@@ -1,0 +1,62 @@
+{
+  "cycle_id": "2026-11-01T08:59:38.518Z-47dbe",
+  "governor": "mnemosyne-gov.testnet",
+  "prev_memory_hash": "sha256:d063222698993c758611f04e2b1a3e70bf2423f4e1c25ef235574b35d4b92d92",
+  "decisions": [
+    {
+      "sub": "A",
+      "action": "KEEP",
+      "target_capital": "1000",
+      "max_position": "200",
+      "max_loss_cycle": "50",
+      "mandate": "mean_reversion_only"
+    },
+    {
+      "sub": "B",
+      "action": "CUT",
+      "target_capital": "800",
+      "max_position": "160",
+      "max_loss_cycle": "40",
+      "mandate": "inventory_liquidity_only"
+    },
+    {
+      "sub": "C",
+      "action": "PAUSE",
+      "reason_code": "local_loss_limit"
+    }
+  ],
+  "swarm_risk": {
+    "max_total_exposure": "3000",
+    "max_daily_loss": "150"
+  },
+  "schema_version": 2,
+  "decision_path": "near-ai-tee",
+  "private_commitment": "sha256:8f6a1bece6949a2b02681fa3f8bc606583759a133d97e1989ac7b3c5e04241a2",
+  "tee": {
+    "provider": "near-ai-cloud",
+    "model": "Qwen/Qwen3.8-27B",
+    "chat_id": "e8c0c81af55f49229ed78a7e3e6f0c70",
+    "signing_address": "0x835ab53d20294ef795906dff21ae4c045336aa26",
+    "signature_kind": "provider_tee",
+    "signature": "0x2fe2681a4d4977c657700e26a6ad2de990d2b2c9bd2cdde6c31d06571a4f6bac23e9f49d997eaff5c6c77e15f4c33374eac9a39ed79d04df68497f508b98a7011b",
+    "request_hash": "8bdf432d62e6150b6273d9b067c23c713c15733ba0e88d67ac216cf701338482",
+    "response_hash": "9b11d73577f10db96f061204736449d9889e9e083a51c1015d7f719f2f908e10",
+    "checks": {
+      "hashes_match": true,
+      "signature_valid": true,
+      "provider_tee": true,
+      "model_matches": true,
+      "binds_address": true,
+      "binds_nonce": true,
+      "tdx": {
+        "verified": true,
+        "status": "UpToDate"
+      },
+      "gpu": {
+        "verdict": true,
+        "token_signature_valid": true
+      }
+    }
+  },
+  "decision_hash": "sha256:669cc468d314bf6f53c41279e444a65764622665d8a0d7ee9c7e500685adb4b9"
+}

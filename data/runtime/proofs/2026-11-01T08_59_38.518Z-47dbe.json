@@ -1,0 +1,110 @@
+{
+  "built_at": "2026-11-02T12:52:20.335Z",
+  "network": "testnet",
+  "explorer": "https://testnet.nearblocks.io",
+  "governor": "mnemosyne-gov.testnet",
+  "cycle_id": "2026-11-01T08:59:38.518Z-47dbe",
+  "decision": {
+    "path": "near-ai-tee",
+    "decision_hash": "sha256:669cc468d314bf6f53c41279e444a65764622665d8a0d7ee9c7e500685adb4b9",
+    "prev_memory_hash": "sha256:d063222698993c758611f04e2b1a3e70bf2423f4e1c25ef235574b35d4b92d92",
+    "private_commitment": "sha256:8f6a1bece6949a2b02681fa3f8bc606583759a133d97e1989ac7b3c5e04241a2",
+    "tee": {
+      "model": "Qwen/Qwen3.8-27B",
+      "signer": "0x835ab53d20294ef795906dff21ae4c045336aa26",
+      "tdx": "[object Object]",
+      "gpu": "[object Object]"
+    }
+  },
+  "memory_commit": {
+    "committed": true,
+    "tx": "9m8E4Ma4B9qUMVcCNvQzTbVjw5LzUnYoxy3zfZ6DUtvt",
+    "url": "https://testnet.nearblocks.io/txns/9m8E4Ma4B9qUMVcCNvQzTbVjw5LzUnYoxy3zfZ6DUtvt",
+    "error": null
+  },
+  "limits": {
+    "max_total_exposure": "3000",
+    "max_daily_loss": "150"
+  },
+  "limits_source": null,
+  "subs": [
+    {
+      "sub": "A",
+      "account": "mnemosyne-sub-a.testnet",
+      "action": "ACT",
+      "reason": "within mandate",
+      "status": "reported",
+      "tx": "2c7z6nraxusZL1MS14iDrjsUhs9325bsv6gpi1XTJwfs",
+      "url": "https://testnet.nearblocks.io/txns/2c7z6nraxusZL1MS14iDrjsUhs9325bsv6gpi1XTJwfs"
+    },
+    {
+      "sub": "B",
+      "account": "mnemosyne-sub-b.testnet",
+      "action": "ACT",
+      "reason": "within mandate",
+      "status": "reported",
+      "tx": "6kWrvw7zcAQzqD9MhnqJvxNt3Np4rDTUaEsepB7QaAQ3",
+      "url": "https://testnet.nearblocks.io/txns/6kWrvw7zcAQzqD9MhnqJvxNt3Np4rDTUaEsepB7QaAQ3"
+    },
+    {
+      "sub": "C",
+      "account": null,
+      "action": "PAUSE",
+      "reason": null,
+      "status": "paused",
+      "tx": null,
+      "url": null
+    }
+  ],
+  "cross_chain": null,
+  "checks": [
+    {
+      "id": "record_hashes_to_commitment",
+      "claim": "The published record hashes to the commitment on NEAR",
+      "ok": true,
+      "detail": "sha256 of this file without decision_hash = 669cc468d314bf6f…, which is the committed hash"
+    },
+    {
+      "id": "chain_links_to_previous",
+      "claim": "Each record names the one before it",
+      "ok": true,
+      "detail": "follows d063222698993c75…, the previous recorded cycle"
+    },
+    {
+      "id": "no_move_without_commit",
+      "claim": "No capital moves and no sub acts unless the memory commit landed",
+      "ok": true,
+      "detail": "the commit landed first (9m8E4Ma4B9qUMVcCNvQzTbVjw5LzUnYoxy3zfZ6DUtvt), then 2 sub report(s) followed"
+    },
+    {
+      "id": "reports_name_the_decision",
+      "claim": "Every sub report names the decision it answers",
+      "ok": true,
+      "detail": "each on-chain reason is prefixed \"cycle 669cc468d314\", so the report cannot be moved to another decision"
+    },
+    {
+      "id": "quote_bound_to_decision",
+      "claim": "A cross-chain quote is bound to the decision that allowed it",
+      "ok": null,
+      "detail": "no cross-chain quote in this cycle"
+    },
+    {
+      "id": "quote_is_price_only",
+      "claim": "A cross-chain quote is a price, never a transfer",
+      "ok": null,
+      "detail": "no cross-chain quote in this cycle"
+    },
+    {
+      "id": "private_reasoning_absent",
+      "claim": "The public record carries a commitment to the reasoning, never the reasoning",
+      "ok": true,
+      "detail": "only a hash of it: 8f6a1bece6949a2b…, with the blob and its salt left on the operator's machine"
+    },
+    {
+      "id": "tee_claim_matches_evidence",
+      "claim": "A decision is only called sealed when the enclave evidence checks out",
+      "ok": true,
+      "detail": "signed by 0x835ab53d20294ef795906dff21ae4c045336aa26, bound to a fresh challenge, hashes match"
+    }
+  ]
+}

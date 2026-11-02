@@ -1,0 +1,121 @@
+{
+  "built_at": "2026-11-02T12:52:20.334Z",
+  "network": "testnet",
+  "explorer": "https://testnet.nearblocks.io",
+  "governor": "mnemosyne-gov.testnet",
+  "cycle_id": "2026-11-01T10:54:48.874Z-6fee1",
+  "decision": {
+    "path": "near-ai-tee",
+    "decision_hash": "sha256:3f8a5e107da79a774ba9e873715a317a22de3d78fe67eeaaf9091a7c59441f32",
+    "prev_memory_hash": "sha256:9bc88d03d09cda8fd7b6f32c8258cbecddf119ebf2c521451173b0a857143f6e",
+    "private_commitment": "sha256:b9116c2d18a6713ff04507693c29742b090f6ce08b4ec2e8771690aff2094eee",
+    "tee": {
+      "model": "Qwen/Qwen3.8-27B",
+      "signer": "0x835ab53d20294ef795906dff21ae4c045336aa26",
+      "tdx": "[object Object]",
+      "gpu": "[object Object]"
+    }
+  },
+  "memory_commit": {
+    "committed": true,
+    "tx": "4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN",
+    "url": "https://testnet.nearblocks.io/txns/4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN",
+    "error": null
+  },
+  "limits": {
+    "max_total_exposure": "2500",
+    "max_daily_loss": "150",
+    "per_sub_max_capital": "1500",
+    "pause_loss_threshold": "100",
+    "max_growth": "1.25",
+    "max_position_pct": "0.2",
+    "max_loss_pct": "0.05"
+  },
+  "limits_source": "owner",
+  "subs": [
+    {
+      "sub": "A",
+      "account": "mnemosyne-sub-a.testnet",
+      "action": "ACT",
+      "reason": "within mandate",
+      "status": "reported",
+      "tx": "EdLsnSLVusRtdUh1amTRiVRx6mVM28RNX5XyUF2TPrRw",
+      "url": "https://testnet.nearblocks.io/txns/EdLsnSLVusRtdUh1amTRiVRx6mVM28RNX5XyUF2TPrRw"
+    },
+    {
+      "sub": "B",
+      "account": "mnemosyne-sub-b.testnet",
+      "action": "ACT",
+      "reason": "within mandate",
+      "status": "reported",
+      "tx": "D8DkijkNAp3wzp1qwbe12akSPM2Pm1vpQRXPgRVc4ufR",
+      "url": "https://testnet.nearblocks.io/txns/D8DkijkNAp3wzp1qwbe12akSPM2Pm1vpQRXPgRVc4ufR"
+    },
+    {
+      "sub": "C",
+      "account": "mnemosyne-sub-c2.testnet",
+      "action": "REFUSE",
+      "reason": "max_loss_cycle 35 exceeds mandate ceiling 30",
+      "status": "reported",
+      "tx": "9YvZxbxgb8LTq1W2RednenkwGKRUVdC9yE4XFeAm87Ww",
+      "url": "https://testnet.nearblocks.io/txns/9YvZxbxgb8LTq1W2RednenkwGKRUVdC9yE4XFeAm87Ww"
+    }
+  ],
+  "cross_chain": {
+    "status": "quoted",
+    "quote_ref": "25b96fe3baf1af6d",
+    "decision_hash": "sha256:3f8a5e107da79a774ba9e873715a317a22de3d78fe67eeaaf9091a7c59441f32",
+    "memory_tx": "4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN",
+    "url": "https://testnet.nearblocks.io/txns/4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN"
+  },
+  "checks": [
+    {
+      "id": "record_hashes_to_commitment",
+      "claim": "The published record hashes to the commitment on NEAR",
+      "ok": true,
+      "detail": "sha256 of this file without decision_hash = 3f8a5e107da79a77…, which is the committed hash"
+    },
+    {
+      "id": "chain_links_to_previous",
+      "claim": "Each record names the one before it",
+      "ok": true,
+      "detail": "follows 9bc88d03d09cda8f…, the previous recorded cycle"
+    },
+    {
+      "id": "no_move_without_commit",
+      "claim": "No capital moves and no sub acts unless the memory commit landed",
+      "ok": true,
+      "detail": "the commit landed first (4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN), then 3 sub report(s) followed"
+    },
+    {
+      "id": "reports_name_the_decision",
+      "claim": "Every sub report names the decision it answers",
+      "ok": true,
+      "detail": "each on-chain reason is prefixed \"cycle 3f8a5e107da7\", so the report cannot be moved to another decision"
+    },
+    {
+      "id": "quote_bound_to_decision",
+      "claim": "A cross-chain quote is bound to the decision that allowed it",
+      "ok": true,
+      "detail": "quote_ref 25b96fe3baf1af6d is derived from this decision hash and the quote payload"
+    },
+    {
+      "id": "quote_is_price_only",
+      "claim": "A cross-chain quote is a price, never a transfer",
+      "ok": true,
+      "detail": "the quote was taken after the commit and nothing was sent"
+    },
+    {
+      "id": "private_reasoning_absent",
+      "claim": "The public record carries a commitment to the reasoning, never the reasoning",
+      "ok": true,
+      "detail": "only a hash of it: b9116c2d18a6713f…, with the blob and its salt left on the operator's machine"
+    },
+    {
+      "id": "tee_claim_matches_evidence",
+      "claim": "A decision is only called sealed when the enclave evidence checks out",
+      "ok": true,
+      "detail": "signed by 0x835ab53d20294ef795906dff21ae4c045336aa26, bound to a fresh challenge, hashes match"
+    }
+  ]
+}

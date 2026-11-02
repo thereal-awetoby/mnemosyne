@@ -1,0 +1,105 @@
+{
+  "cycle_id": "2026-11-01T10:54:48.874Z-6fee1",
+  "finished_at": "2026-11-01T10:56:00.614Z",
+  "committed": true,
+  "commit_tx": "4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN",
+  "error": null,
+  "verdicts": [
+    {
+      "sub": "A",
+      "action": "ACT",
+      "reason": "within mandate"
+    },
+    {
+      "sub": "B",
+      "action": "ACT",
+      "reason": "within mandate"
+    },
+    {
+      "sub": "C",
+      "action": "REFUSE",
+      "reason": "max_loss_cycle 35 exceeds mandate ceiling 30"
+    }
+  ],
+  "reports": [
+    {
+      "sub": "A",
+      "status": "reported",
+      "action": "ACT",
+      "accountId": "mnemosyne-sub-a.testnet",
+      "txHash": "EdLsnSLVusRtdUh1amTRiVRx6mVM28RNX5XyUF2TPrRw"
+    },
+    {
+      "sub": "B",
+      "status": "reported",
+      "action": "ACT",
+      "accountId": "mnemosyne-sub-b.testnet",
+      "txHash": "D8DkijkNAp3wzp1qwbe12akSPM2Pm1vpQRXPgRVc4ufR"
+    },
+    {
+      "sub": "C",
+      "status": "reported",
+      "action": "REFUSE",
+      "accountId": "mnemosyne-sub-c2.testnet",
+      "txHash": "9YvZxbxgb8LTq1W2RednenkwGKRUVdC9yE4XFeAm87Ww"
+    }
+  ],
+  "swarm_source": "onchain",
+  "allocate_mode": "wnear",
+  "allocations": [
+    {
+      "sub": "A",
+      "action": "KEEP",
+      "rail": "wnear",
+      "units": 0,
+      "kind": "none",
+      "note": "KEEP at 801 units: nothing to move"
+    },
+    {
+      "sub": "B",
+      "action": "CUT",
+      "rail": "wnear",
+      "units": 0,
+      "kind": "none",
+      "note": "CUT to 700 units: no transfer, 100 units above the new ceiling stay in the sub account (its report-only key cannot send funds back)"
+    },
+    {
+      "sub": "C",
+      "action": "CUT",
+      "rail": "wnear",
+      "units": 0,
+      "kind": "none",
+      "note": "CUT to 700 units: no transfer, 100 units above the new ceiling stay in the sub account (its report-only key cannot send funds back)"
+    },
+    {
+      "sub": "A",
+      "action": "KEEP",
+      "rail": "cross_chain",
+      "kind": "quote",
+      "units": 100,
+      "note": "CROSS-CHAIN QUOTE via near-intents: 0.00100 wNEAR -> about 0.001957 USDC on Base (at least 0.001947), quote 7cefc589-e2fa-4150-bb68-549336e1cd0a; quote only, nothing was sent"
+    }
+  ],
+  "cross_chain": {
+    "mode": "quote_only",
+    "decision_hash": "sha256:3f8a5e107da79a774ba9e873715a317a22de3d78fe67eeaaf9091a7c59441f32",
+    "cycle_id": "2026-11-01T10:54:48.874Z-6fee1",
+    "memory_tx": "4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN",
+    "memory_tx_url": "https://testnet.nearblocks.io/txns/4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN",
+    "note": "A quote is a price, not a fill. Nothing was sent. The networks quoted are mainnet; no funds are involved.",
+    "status": "quoted",
+    "provider": "oneclick",
+    "router": "near-intents",
+    "sub": "A",
+    "destination": "base:USDC",
+    "units": 100,
+    "amount_in": "1000000000000000000000",
+    "amount_out": "1957",
+    "min_amount_out": "1947",
+    "provider_quote_id": "7cefc589-e2fa-4150-bb68-549336e1cd0a",
+    "quote_ref": "25b96fe3baf1af6d",
+    "expires_at": 1793530580131,
+    "reason": null
+  },
+  "limits_source": "owner"
+}
