@@ -3,6 +3,31 @@
 Non-trading governor agent on NEAR: private decisions, on-chain memory
 commitments, capability-limited sub-agents, and x402-paid memory queries.
 
+> Mnemosyne is the memory and mandate layer for agent swarms on NEAR:
+> decisions stay private, commitments go on-chain before any move, sub-agents
+> act only under limited keys, and other agents pay to query that memory.
+
+**One sentence to hold us to:** no capital path without an on-chain memory
+commit; strategy stays private; subs only report under limited keys; other
+agents pay to read the memory.
+
+**[`PROOFS.md`](PROOFS.md) is the short way in** — every claim, its verdict, and
+the transaction that settles it. It is generated from the cycle records by
+`npm run prove`, so it cannot claim more than the records hold. Run
+`npm run prove -- --live` and it re-checks itself against NEAR.
+
+### Where to look
+
+| What we claim | Open this | Or run |
+|---------------|-----------|--------|
+| A swarm with mandates, not a bot | [`src/subAgents.ts`](src/subAgents.ts), [`src/refuse.ts`](src/refuse.ts) | `npm run sub:check -- C` |
+| The decision is private | [`src/private/`](src/private/) | `npm run tee:check` |
+| The keys cannot spend | [`src/report.ts`](src/report.ts), [`contract/src/lib.rs`](contract/src/lib.rs) | `npm run sub:check -- A` |
+| Memory is the gate | [`src/cycle.ts`](src/cycle.ts), [`src/memory.ts`](src/memory.ts) | `npm run prove -- --live` |
+| Other agents pay for it | [`src/x402/`](src/x402/) | `npm run x402:client -- "your situation"` |
+| The limits are the owner's, and public | [`src/limits/`](src/limits/) | `curl localhost:8402/limits` |
+| A quote is a price, never a fill | [`src/allocate/cross_chain.ts`](src/allocate/cross_chain.ts) | `npm run crosschain:check` |
+
 Full build plan: [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
 Build progress / what's been done in each step: [`HANDOFF.md`](HANDOFF.md).
 
@@ -22,11 +47,11 @@ Proven 2026-10-31: a cycle decided in the TEE (signature, nonce binding, Intel T
 
 **Real balances and the owner's limits:** by default the swarm state and ALLOCATE are simulated and labelled as such. With `SWARM_STATE=onchain` READ uses each sub's real wNEAR balance, and with `ALLOCATE_MODE=wnear` the governor tops a sub up with a tiny real transfer, only after the memory commit and never above the committed target (no committed memory, no allocation). Losses stay a labelled simulation, because Mnemosyne doesn't trade. The owner can change the risk limits from the dashboard (admin token); each cycle writes the limits it used into its on-chain record. The per-cycle targets are the governor's decision and are not hand-editable. Details: [`docs/BALANCES_AND_LIMITS.md`](docs/BALANCES_AND_LIMITS.md).
 
-**Cross-chain allocation (Phase 7, optional, quote only):** with `CROSS_CHAIN_ALLOCATE=1`, after the memory commit ALLOCATE asks Rhea (`@rhea-finance/cross-chain-aggregation-dex`) or NEAR Intents' 1Click API what it would cost to move a small slice of one sub's allocation from wNEAR on NEAR to USDC on Base. It only runs if the memory gate passes, only for a sub the committed record leaves at KEEP or INCREASE, never above that sub's committed target, only to an allowlisted destination, and every quote is logged with the decision hash and the memory tx that allowed it. **It is a price, not a fill: nothing is sent, signed or deposited.** Both networks are mainnet and this project is testnet-only, so executing is deliberately not wired. Off by default. Proven live on 2026-11-01 with NEAR Intents' 1Click (price only): 0.001 wNEAR -> about 0.001989 USDC on Base, allowed by memory commit [`B7Npf7hh...`](https://testnet.nearblocks.io/txns/B7Npf7hhmH8E6Q72tRMp5rGUAbtYLe5kGbihD9FvuuoP), quote id `5390e7af-7921-45a0-bc6d-8601974d99ad`; and again inside a full cycle (decided in the TEE, memory commit [`4ZFT4xBh...`](https://testnet.nearblocks.io/txns/4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN), quote, then the sub reports). Details: [`docs/CROSS_CHAIN.md`](docs/CROSS_CHAIN.md). 
+**Cross-chain allocation (Phase 7, optional, quote only):** with `CROSS_CHAIN_ALLOCATE=1`, after the memory commit ALLOCATE asks Rhea (`@rhea-finance/cross-chain-aggregation-dex`) or NEAR Intents' 1Click API what it would cost to move a small slice of one sub's allocation from wNEAR on NEAR to USDC on Base. It only runs if the memory gate passes, only for a sub the committed record leaves at KEEP or INCREASE, never above that sub's committed target, only to an allowlisted destination, and every quote is logged with the decision hash and the memory tx that allowed it. **It is a price, not a fill: nothing is sent, signed or deposited.** Both networks are mainnet and this project is testnet-only, so executing is deliberately not wired. Off by default. Proven live on 2026-11-01 with NEAR Intents' 1Click (price only): 0.001 wNEAR -> about 0.001989 USDC on Base, allowed by memory commit [`B7Npf7hh...`](https://testnet.nearblocks.io/txns/B7Npf7hhmH8E6Q72tRMp5rGUAbtYLe5kGbihD9FvuuoP), quote id `5390e7af-7921-45a0-bc6d-8601974d99ad`; and again inside a full cycle (decided in the TEE, memory commit [`4ZFT4xBh...`](https://testnet.nearblocks.io/txns/4ZFT4xBhzunfhVfuNtjiLEt4VFVuucabaj7ckR4oHoiN), quote, then the sub reports). Details: [`docs/CROSS_CHAIN.md`](docs/CROSS_CHAIN.md).
 
 **Sign in or sign up with a NEAR wallet (`/login`):** one button does both. The wallet signs a one-time NEP-413 message (not a transaction), the server checks the signature and that the key is a FullAccess key of that account, and sets an `HttpOnly` session cookie. A signed-up person gets personal guardrails for paid memory checks (daily query cap, daily spend cap, a pause switch) and their own receipts. **Login is never root:** it cannot run a cycle, change the governor's limits, write memory or touch a key; the tests prove it. Details: [`docs/LOGIN.md`](docs/LOGIN.md), plan and reasoning: [`docs/MULTIUSER_PLAN.md`](docs/MULTIUSER_PLAN.md).
 
-**The desk (`/dashboard`):** one dark, flat page with Desk, Memory, Sub-agents, x402 checks, Guardrails and Audit views and an activity rail, live from NEAR testnet. "Run cycle" is the operator's button and needs the admin token.
+**The desk (`/dashboard`):** one dark page, live from NEAR testnet, with Overview, Memory, Sub-agents, Paid checks, Settings and Activity log, plus an activity rail. Anyone can read all of it and pay for a memory check; nothing on screen is written in field names or raw errors. The operator's controls (Run cycle, Edit limits) are hidden until that browser is unlocked with the admin token from the *Operator* link at the foot of the sidebar, and `/dashboard.json` carries only whether an operator exists, never the token.
 
 Still simulated by default, and labeled as such: swarm losses (`SWARM_SCENARIO`), and x402 settlement in the default mock rail.
 
@@ -41,7 +66,9 @@ npm run sub:keygen -- A       (new report-only key for a sub)
 npm run sub:check -- A        (prove a sub key is scoped: report ok, commit/transfer rejected)
 npm run verify:contract       (deployed wasm == local build, read-only)
 npm run server                (x402 memory API + dashboard at http://localhost:8402/dashboard, sign-in at /login)
-npm run x402:demo             (an external agent pays for a memory check)
+npm run x402:client -- "..."  (a third party, with no account or API key, pays for a memory check)
+npm run prove                 (check every claim against the recorded cycles)
+npm run prove:live            (the same, re-checked against NEAR: commit tx, sub reports, chain head)
 npm run tee:check             (one verified private decision in the NEAR AI TEE, nothing on-chain)
 npm run swarm:setup           (one-time: fund the subs with tiny testnet wNEAR for real balances)
 npm run rail:check            (send 1 unit of real testnet wNEAR to a sub, only if the newest memory commit checks out)
@@ -62,7 +89,7 @@ No NEAR keys needed for these steps. Use Node.js 22+ and two terminals at the re
 3. `npm run x402:demo` -> an external agent (a fresh NEAR implicit account) gets the 402, signs the quoted price, retries, and receives `match: true (citation M-001, key-management)` plus one line of advice and a `receipt: R-...`. It then fetches the receipt and checks both hashes (`answer hash matches ... YES`), replays the same payment and gets `HTTP 402: nonce_already_used`. Last line: `DEMO OK`.
 4. `npm run x402:demo -- "planning the team lunch menu"` -> still paid, but `match: false`: unrelated situations don't produce false citations.
 5. Open `http://localhost:8402/audit` -> every paid check (receipt id, payer, amount, citation, `mock_` settlement id), and never the query text.
-6. `npm test` -> 28 tests: wrong amount, recipient, network, payer key, endpoint, expired or over-long window, tampered signature, replay, 8 concurrent uses of one payment (exactly 1 settles), restart persistence, admin-only routes, and that `private_detail` never appears in any response.
+6. `npm test` -> 218 tests, no network needed. Among them: wrong amount, recipient, network, payer key, endpoint, expired or over-long window, tampered signature, replay, 8 concurrent uses of one payment (exactly 1 settles), restart persistence, admin-only routes, that `private_detail` never appears in any response, that a wallet session cannot reach an operator route, and that a record with one byte changed no longer hashes to its commitment.
 
 For a remote deployment, set `PUBLIC_URL` to its public HTTPS origin and point
 `MNEMOSYNE_URL` at the same origin. Without a pinned URL, the demo also works

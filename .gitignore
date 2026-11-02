@@ -9,5 +9,13 @@ memory-log.json
 contract/target/
 target/
 
-# Mnemosyne API runtime state (receipts, spent nonces, private memory)
-data/runtime/
+# Everything the runtime writes is local: private reasoning blobs, user
+# accounts, sessions, receipts, spent nonces.
+data/runtime/*
+
+# ...except the evidence. The public records and the proof packs carry no
+# private reasoning (only a hash of it) and no personal data, and judges
+# review the repository, so they belong in it. `npm run prove` checks that
+# nothing private ever reached them.
+!data/runtime/public/
+!data/runtime/proofs/

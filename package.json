@@ -16,7 +16,7 @@
     "sub:check": "tsx src/tools/subKeyCheck.ts",
     "server": "tsx src/serve.ts",
     "x402:demo": "tsx src/tools/x402Demo.ts",
-    "test": "tsx --test src/x402/*.test.ts src/private/*.test.ts src/dashboard/*.test.ts src/allocate/*.test.ts src/limits/*.test.ts src/auth/*.test.ts",
+    "test": "tsx --test src/x402/*.test.ts src/private/*.test.ts src/dashboard/*.test.ts src/allocate/*.test.ts src/limits/*.test.ts src/auth/*.test.ts src/proof/*.test.ts",
     "x402:setup": "tsx src/tools/x402Setup.ts",
     "x402:demo:real": "tsx src/tools/x402RealDemo.ts",
     "tee:check": "tsx src/tools/teeCheck.ts",
@@ -24,7 +24,10 @@
     "rail:check": "tsx src/tools/railCheck.ts",
     "crosschain:check": "tsx src/tools/crossChainCheck.ts",
     "crosschain:probe": "tsx src/tools/crossChainProbe.ts",
-    "build:wallet": "node scripts/build-wallet.mjs"
+    "build:wallet": "node scripts/build-wallet.mjs",
+    "prove": "tsx src/tools/prove.ts",
+    "prove:live": "tsx src/tools/prove.ts --live",
+    "x402:client": "tsx src/tools/x402Demo.ts"
   },
   "dependencies": {
     "@fastnear/x402": "2.5.0",
