@@ -110,7 +110,10 @@ const ACRO = { near: "NEAR", api: "API", id: "ID", url: "URL", wnear: "wNEAR" };
 const splitWords = (t) => String(t).split(/[_-]+/).filter(Boolean).map((w) => ACRO[w.toLowerCase()] || w.toLowerCase()).join(" ");
 const human = (v) => { const t = String(v ?? "").replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (m) => splitWords(m)).trim(); return t ? t[0].toUpperCase() + t.slice(1) : t; };
 const errText = (res) => human((Array.isArray(res.body?.errors) && res.body.errors.join(" ")) || res.body?.error) || `The server answered ${res.status}.`;
-const money = (yocto, decimals = 18) => `${(Number(BigInt(yocto)) / 10 ** decimals).toFixed(6)} wNEAR`;
+/* wNEAR is a NEP-141 token with the SAME 24 decimals as native yoctoNEAR
+ * (confirmed in docs/X402.md and web/dashboard.html's own YOCTO constant) --
+ * not 18, which is an Ethereum-token assumption that doesn't hold here. */
+const money = (yocto, decimals = 24) => `${(Number(BigInt(yocto)) / 10 ** decimals).toFixed(6)} wNEAR`;
 
 function outLines(lines) {
   const box = $("out"); box.replaceChildren();

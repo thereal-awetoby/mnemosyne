@@ -2,7 +2,13 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
-## 2026-11-02 — `/pay`: show who's actually paying, and recognize `insufficient_funds`
+## 2026-11-02 — `/pay` was showing a price 1,000,000x too high
+
+**Not a pricing decision -- a wrong constant.** The actual price never changed: `X402_PRICE_YOCTO` is still `1000000000000000000000` = 0.001 wNEAR, exactly what `docs/X402.md` and the dashboard have always shown, and exactly what the server asked the wallet to sign (the on-chain transfer amount is the raw yoctoNEAR string from the quote, untouched by this bug). `/pay`'s own price display just divided by the wrong number of decimals: `money()` defaulted to 18 (an Ethereum-token assumption) instead of wNEAR's actual 24 -- the same 24 `web/dashboard.html`'s own `YOCTO` constant has always used. 0.001 wNEAR divided by 10^18 instead of 10^24 reads as "1000.000000 wNEAR", a million times too large, which is exactly the number that made this look like an absurd ask on a testnet account that can only request ~2 NEAR from a faucet.
+
+- Fixed: `money()`'s default is now 24, with a comment pointing at why (wNEAR is NEP-141 but keeps native NEAR's own precision, not a borrowed 18).
+- **Caught by actually running the fixed code, not by re-reading it.** `src/auth/auth.test.ts` now pulls the real `money()` function out of the shipped page with a regex, evaluates it in a `vm` context, and checks the documented default price reads back as `"0.001000 wNEAR"` -- so a reintroduced wrong constant fails a test instead of only looking wrong on screen.
+- No other display on `/pay` used the same wrong constant (checked): the account rows and settlement-error text don't format amounts, only `money()` does.
 
 **The wallet-compatibility fix worked, and the next live test got further than any before it**: connect Meteor Wallet, sign the delegate action, send it, the server's real facilitator verifies it and tries to settle on chain -- refused, but for an honest reason: `insufficient_funds`. This is the first live run that reached actual settlement with a real signature, not a dispatch error. The gap it exposed is real, though: the page showed "Signed in as" (the `/login` session identity) but never said which NEAR account the *connected-for-paying* wallet actually was -- and those can differ, since `/pay`'s wallet picker is independent of what `/login` used. Someone staring at the error had no way to know which account needed wNEAR.
 

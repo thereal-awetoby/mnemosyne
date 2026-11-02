@@ -590,6 +590,15 @@ describe("the real pages on disk", () => {
     assert.match(inline[0], /Meteor Wallet/, "names a wallet that is actually known to support this, for when the reused one can't");
     assert.doesNotMatch(inline[0], /\.innerHTML|insertAdjacentHTML|document\.write/);
     assert.doesNotMatch(html, /ADMIN|GOVERNOR_PRIVATE_KEY|\/cycle\/run|\/limits/, "the pay page knows nothing of operator routes");
+
+    // wNEAR has the SAME 24 decimals as native yoctoNEAR, not the 18 an Ethereum-token
+    // assumption would give it -- a wrong constant here once showed "1000 wNEAR" for a
+    // 0.001 wNEAR price. Pull the real function out of the page and run it, rather than
+    // trust a number in a comment: the default price from docs/X402.md must read back as 0.001.
+    const moneySrc = inline[0].match(/const money = (\([^)]*\) => `[^`]*`);/)?.[1];
+    assert.ok(moneySrc, "money() helper found in the page");
+    const money = new vm.Script(`(${moneySrc})`).runInNewContext({});
+    assert.equal(money("1000000000000000000000"), "0.001000 wNEAR", "the documented default price (X402_PRICE_YOCTO) must read back correctly, not off by a million");
   });
 
   it("the /pay wiring reads web/pay.html (serve.ts would fail at start-up without it)", () => {
