@@ -75,6 +75,8 @@ export interface ServerConfig {
     rpcUrl: string;
     loginHtml?: string;
     loginScript?: Buffer;
+    /** /pay: pay for one memory check with a connected wallet instead of the terminal demo. */
+    payHtml?: string;
     /** tests only */
     fetch?: typeof fetch;
   };
@@ -181,6 +183,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       price: () => BigInt(requirements.amount),
       loginHtml: cfg.auth.loginHtml,
       loginScript: cfg.auth.loginScript,
+      payHtml: cfg.auth.payHtml,
       receiptsFor: (payer, limit) =>
         Object.values(receipts.get().receipts)
           .filter((r) => r.payer === payer)

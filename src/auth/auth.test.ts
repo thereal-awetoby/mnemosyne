@@ -351,7 +351,7 @@ describe("over HTTP", () => {
       limits: { get: () => ({}), set: () => ({ ok: true, view: {} }), reset: () => ({ ok: true, view: {} }) },
       runCycle: async () => ({ ran: "should never be reachable with a session" }),
       dashboardHtml: "<title>dash</title>", dashboardData: async () => ({ cycles: [] }),
-      auth: { rpcUrl: "http://rpc", fetch: fakeRpc(KEYS), loginHtml: "<title>login</title>", loginScript: Buffer.from("window.NearConnector=1;") },
+      auth: { rpcUrl: "http://rpc", fetch: fakeRpc(KEYS), loginHtml: "<title>login</title>", loginScript: Buffer.from("window.NearConnector=1;"), payHtml: "<title>pay</title>" },
     });
     await new Promise<void>((r) => s.server.listen(0, "127.0.0.1", () => r()));
     const port = (s.server.address() as AddressInfo).port;
@@ -372,6 +372,14 @@ describe("over HTTP", () => {
     const js = await call("/login/near-connect.js");
     assert.equal(js.status, 200);
     assert.match(js.headers.get("content-type")!, /javascript/);
+  });
+
+  it("/pay carries the same relaxed lock-down as /login (it loads the same wallet bundle)", async () => {
+    const pay = await call("/pay");
+    assert.equal(pay.status, 200);
+    assert.match(pay.headers.get("content-security-policy")!, /connect-src 'self' https:/);
+    assert.match(pay.headers.get("content-security-policy")!, /frame-ancestors 'none'/);
+    assert.match(pay.headers.get("cache-control")!, /no-store/);
   });
 
   it("nothing about me without a session", async () => {
@@ -561,5 +569,33 @@ describe("the real pages on disk", () => {
     assert.match(serve, /web\/login\.html/);
     assert.ok(readFileSync(join(WEB, "login.html"), "utf8").length > 1000);
     assert.ok(readFileSync(join(WEB, "vendor/near-connect.js")).length > 10_000);
+  });
+
+  it("web/pay.html: script parses, loads the wallet bundle from this server only, pays only through /memory/check", async () => {
+    const vm = await import("node:vm");
+    const html = readFileSync(join(WEB, "pay.html"), "utf8");
+    const inline = scriptsOf(html);
+    assert.equal(inline.length, 1);
+    assert.doesNotThrow(() => new vm.Script(inline[0]));
+    const srcs = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(srcs, ["/login/near-connect.js"], "no third-party script");
+    assert.doesNotMatch(html, /https?:\/\//, "no absolute URLs in the pay page");
+    for (const route of ["/me", "/memory/check"]) assert.ok(inline[0].includes(route), route);
+    assert.match(inline[0], /next=/, "bounces a signed-out visitor through /login with a way back here");
+    assert.match(inline[0], /signDelegateActions/, "signs a NEP-366 delegate action, never a private key held on the page");
+    assert.doesNotMatch(inline[0], /\.innerHTML|insertAdjacentHTML|document\.write/);
+    assert.doesNotMatch(html, /ADMIN|GOVERNOR_PRIVATE_KEY|\/cycle\/run|\/limits/, "the pay page knows nothing of operator routes");
+  });
+
+  it("the /pay wiring reads web/pay.html (serve.ts would fail at start-up without it)", () => {
+    const serve = readFileSync(resolve(__dirname, "../serve.ts"), "utf8");
+    assert.match(serve, /web\/pay\.html/);
+    assert.ok(readFileSync(join(WEB, "pay.html"), "utf8").length > 1000);
+  });
+
+  it("web/dashboard.html links to /pay for a real, wallet-signed payment, but never embeds wallet code itself", () => {
+    const html = readFileSync(join(WEB, "dashboard.html"), "utf8");
+    assert.match(html, /\/pay(\?|")/, "the dashboard offers a way to the wallet-payment page");
+    assert.doesNotMatch(html, /signDelegateActions/, "wallet-signing code lives only on /pay, never the dashboard");
   });
 });

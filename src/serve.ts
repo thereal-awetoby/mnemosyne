@@ -138,6 +138,7 @@ const { server, memory } = createMnemosyneServer({
     rpcUrl: RPC_URL,
     loginHtml: readFileSync(join(REPO_ROOT, "web/login.html"), "utf8"),
     loginScript: readFileSync(join(REPO_ROOT, "web/vendor/near-connect.js")),
+    payHtml: readFileSync(join(REPO_ROOT, "web/pay.html"), "utf8"),
   },
   dashboardData: async () => {
     const { buildDashboard } = await import("./dashboard/data.js");

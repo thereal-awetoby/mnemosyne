@@ -992,6 +992,7 @@ function canonicalJson(v) {
 function outLines(lines) {
   fill($("x402Out"), lines.map((l) => {
     if (typeof l === "string") return h("div", {}, l);
+    if (l instanceof Node) return h("div", {}, l);
     const [k, v, cls] = l;
     return h("div", {}, h("span", { class: "k" }, k + " · "), h("span", { class: cls || "" }, v));
   }));
@@ -1034,8 +1035,15 @@ async function demoPayer() {
 async function payAndRetry() {
   if (!DATA?.x402) return outLines([["Problem", "Paid checks are not set up on this server.", "bad"]]);
   if (!DATA.x402.mock_settlement) {
+    const q = $("q").value.trim();
+    const payUrl = "/pay" + (q ? "?q=" + encodeURIComponent(q) : "");
+    if (ME && ME.signed_up) {
+      return outLines([["Real payments are on", "pay with your own connected wallet instead.", "warn"],
+        h("a", { class: "btn primary", href: payUrl }, "Pay with my wallet")]);
+    }
     return outLines([["Real payments are on", "this page has no wallet to pay with.", "warn"],
-      "Run the paying agent from your terminal, then press Refresh. The check shows up below with its proof."]);
+      "Run the paying agent from your terminal, then press Refresh. The check shows up below with its proof.",
+      h("a", { href: "/login?next=" + encodeURIComponent(payUrl) }, "Or sign in to pay with a wallet instead.")]);
   }
   if (!LAST_QUOTE || LAST_QUOTE.query !== $("q").value.trim()) await requestCheck();
   if (!LAST_QUOTE) return;

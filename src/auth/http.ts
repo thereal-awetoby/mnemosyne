@@ -3,8 +3,10 @@
  * createMnemosyneServer; nothing here can reach the operator's admin routes,
  * the governor, the cycle or any allocation rail.
  *
- *   GET    /login                  the sign-in / sign-up page (the only page that loads wallet code)
+ *   GET    /login                  the sign-in / sign-up page (loads wallet code)
  *   GET    /login/near-connect.js  the wallet connector bundle (served from this server, not a CDN)
+ *   GET    /pay                    pay for one memory check with your own connected wallet (also loads wallet
+ *                                   code, via the same bundle; redirects to /login first if not signed in)
  *   POST   /auth/challenge         a one-time message for the wallet to sign
  *   POST   /auth/verify            the signed message -> a session cookie (HttpOnly, SameSite=Strict)
  *   POST   /auth/logout
@@ -37,6 +39,7 @@ export interface AuthRoutesConfig {
   receiptsFor: (payer: string, limit: number) => ReceiptView[];
   loginHtml?: string;
   loginScript?: Buffer;
+  payHtml?: string;
   now?: () => number;
 }
 
@@ -123,6 +126,12 @@ export function createAuthRoutes(cfg: AuthRoutesConfig) {
         if (!cfg.loginScript) throw new HttpError(404, "not found");
         res.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600", "x-content-type-options": "nosniff" });
         res.end(cfg.loginScript);
+        return true;
+      }
+      if (method === "GET" && path === "/pay") {
+        if (!cfg.payHtml) throw new HttpError(404, "not configured");
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "content-security-policy": LOGIN_CSP });
+        res.end(cfg.payHtml);
         return true;
       }
 

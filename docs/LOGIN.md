@@ -21,11 +21,25 @@ An account with no profile has no personal limits, exactly as before. Sign-up is
 5. On success the server sets one cookie, `mn_session`: a random 32-byte token, `HttpOnly`, `SameSite=Strict` (and `Secure` over https), 7 days. Only its SHA-256 is stored.
 6. First time here: **Create your account**, an optional display name and a tick-box that says in plain words what login does not give you. Then `/dashboard`. Next time the same button signs you straight in.
 
+## Paying with your own wallet
+
+`GET /pay?q=<question>` pays for one memory check with the same wallet just
+signed in on `/login` — a real NEP-366 delegate action, signed by the
+visitor, relayed by the server so they never pay gas. It shares `/login`'s
+CSP (the only other page allowed to load wallet code) and bounces a
+signed-out visitor to `/login?next=/pay?q=...` first, landing back here
+after sign-in. The dashboard's "Pay & retry" links here when real payments
+are on and the visitor is signed in; signed out, it offers a link to sign
+in first. See `docs/X402.md` for how the payment itself is built and what
+it does and doesn't cover (real `near-exact` rail only; no automatic wNEAR
+registration or wrapping).
+
 ## Routes
 
 | route | needs | does |
 | --- | --- | --- |
 | `GET /login`, `GET /login/near-connect.js` | nothing | the page and its wallet bundle |
+| `GET /pay` | nothing (redirects to `/login` if not signed in) | pay for one check with your own connected wallet |
 | `POST /auth/challenge`, `POST /auth/verify`, `POST /auth/logout` | same-origin, JSON | sign in / out |
 | `GET /me` | session | account, profile, guardrails, usage in the last 24 h, price, protocol bounds |
 | `POST /me/signup` | session | create the profile (needs `accepted: true`) |
@@ -55,5 +69,6 @@ Proven live on 2026-11-01 (Windows machine): sign-in and sign-up with a real NEA
 
 ## Not built
 
-- The browser paying x402 from the user's wallet. A wallet can sign delegate actions (`signDelegateActions`), so a real in-browser payment is possible later. Today the dashboard's "Pay & retry" is a clearly labelled demo agent on the mock rail, and on the real rail it points to `npm run x402:demo:real`.
+- Registering a payer for wNEAR storage, or wrapping NEAR into wNEAR, on their behalf. `/pay` tells them plainly when settlement fails for either reason and points at their wallet's own "wrap" feature, rather than doing it itself.
+- A live browser + a real wallet extension signing a real delegate action has not been exercised from this sandbox. `/pay`'s wire format is proven by `src/x402/nearRail.test.ts` against the same facilitator code the server runs, offline; the wallet-signing step itself needs testing with a real NEAR wallet (Meteor, MyNearWallet, etc.) on a machine that has one.
 - Per-user trading-style limits: allocation is not user-scoped, so there is nothing to limit yet.

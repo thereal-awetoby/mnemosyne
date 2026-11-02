@@ -96,24 +96,35 @@ class FakeChain implements FacilitatorNearSigner {
   }
 }
 
+/** Builds and signs exactly the delegate action a wallet's own
+ *  `signDelegateActions` would hand back for one ft_transfer -- the same
+ *  construction as @x402/near's createClientNearSigner, minus the RPC
+ *  (nonce and block height come from the simulated chain instead).
+ *  Lets tests tamper with the terms. */
+async function signDelegateLikeAWallet(chain: FakeChain, payer: { accountId: string; secretKey: string; publicKey: string },
+  req: { payTo: string; amount: string; asset: string },
+  tamper: { amount?: string; payTo?: string; token?: string; deposit?: bigint; extraAction?: boolean } = {}): Promise<string> {
+  const signer = KeyPairSigner.fromSecretKey(payer.secretKey as any);
+  const publicKey = await signer.getPublicKey();
+  const nonce = chain.keys.get(`${payer.accountId}|${payer.publicKey}`)!.nonce + 1n;
+  const transfer = actionCreators.functionCall("ft_transfer",
+    { receiver_id: tamper.payTo ?? req.payTo, amount: tamper.amount ?? req.amount }, 30_000_000_000_000n, tamper.deposit ?? 1n);
+  const delegateAction = buildDelegateAction({
+    actions: tamper.extraAction ? [transfer, transfer] : [transfer],
+    maxBlockHeight: chain.height + 300n, nonce, publicKey,
+    receiverId: tamper.token ?? req.asset, senderId: payer.accountId,
+  });
+  const [, signed] = await signer.signDelegateAction(delegateAction);
+  return toBase64(encodeSignedDelegate(signed));
+}
+
 /** Same construction as @x402/near's createClientNearSigner, minus the RPC:
  *  nonce and block height come from the simulated chain. Lets tests tamper. */
 function offlineSigner(chain: FakeChain, payer: { accountId: string; secretKey: string; publicKey: string },
   tamper: { amount?: string; payTo?: string; token?: string; deposit?: bigint; extraAction?: boolean } = {}): ClientNearSigner {
-  const signer = KeyPairSigner.fromSecretKey(payer.secretKey as any);
   return {
     async createSignedDelegateAction({ paymentRequirements: req }) {
-      const publicKey = await signer.getPublicKey();
-      const nonce = chain.keys.get(`${payer.accountId}|${payer.publicKey}`)!.nonce + 1n;
-      const transfer = actionCreators.functionCall("ft_transfer",
-        { receiver_id: tamper.payTo ?? req.payTo, amount: tamper.amount ?? req.amount }, 30_000_000_000_000n, tamper.deposit ?? 1n);
-      const delegateAction = buildDelegateAction({
-        actions: tamper.extraAction ? [transfer, transfer] : [transfer],
-        maxBlockHeight: chain.height + 300n, nonce, publicKey,
-        receiverId: tamper.token ?? req.asset, senderId: payer.accountId,
-      });
-      const [, signed] = await signer.signDelegateAction(delegateAction);
-      return toBase64(encodeSignedDelegate(signed));
+      return signDelegateLikeAWallet(chain, payer, req, tamper);
     },
   };
 }
@@ -197,6 +208,28 @@ test("real payment: verified, transferred on chain, answered, receipted", async 
   assert.equal(rec.explorer, `https://testnet.nearblocks.io/txns/${settle.transaction}`);
   assert.equal(rec.asset, TOKEN);
   assert.equal(rec.payer, payer.accountId);
+});
+
+test("web/pay.html's hand-built envelope (no @x402/core client, just signDelegateActions + btoa(JSON)) is accepted the same way", async () => {
+  // This is what a browser wallet's `signDelegateActions` call returns -- near-connect's
+  // own version of the same construction `signDelegateLikeAWallet` does here offline.
+  const payer = chain.addPayer();
+  const before = { payer: chain.balances.get(payer.accountId)!, payTo: chain.balances.get(PAY_TO)! };
+  const q = await quote();
+  const req = q.accepts[0];
+  const signedDelegateAction = await signDelegateLikeAWallet(chain, payer, req);
+  // Exactly the envelope web/pay.html assembles by hand in the browser, and exactly
+  // how it encodes the header: btoa(JSON.stringify(payment)) -- here, its Node equivalent.
+  const payment = { x402Version: q.x402Version, payload: { signedDelegateAction }, resource: q.resource, accepted: req };
+  const header = Buffer.from(JSON.stringify(payment)).toString("base64");
+  const r = await check({ "PAYMENT-SIGNATURE": header });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.match, true);
+  const settle = decodePaymentResponseHeader(r.headers.get("payment-response")!);
+  assert.equal(settle.success, true);
+  assert.equal(settle.payer, payer.accountId);
+  assert.equal(chain.balances.get(payer.accountId), before.payer - PRICE);
+  assert.equal(chain.balances.get(PAY_TO), before.payTo + PRICE);
 });
 
 test("replaying a settled payment is refused and charges nothing", async () => {

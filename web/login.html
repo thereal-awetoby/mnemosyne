@@ -114,6 +114,12 @@ function bytesFromB64(b64) {
   return out;
 }
 
+/* where to go after signing in -- only a same-site relative path, so this can never redirect off this server */
+const NEXT = (() => {
+  const n = new URLSearchParams(location.search).get("next");
+  return n && n.startsWith("/") && !n.startsWith("//") ? n : "/dashboard";
+})();
+
 async function call(method, path, body) {
   const r = await fetch(path, {
     method, cache: "no-store", credentials: "same-origin",
@@ -177,7 +183,7 @@ async function signIn() {
     if (!v.ok) throw new Error(errText(v));
 
     setStatus("", null);
-    if (v.body.signed_up) return location.assign("/dashboard");
+    if (v.body.signed_up) return location.assign(NEXT);
     showSignup(v.body.account_id);
   } catch (err) {
     setStatus("err", err.message || String(err));
@@ -195,7 +201,7 @@ async function signUp() {
   say($("signupMsg"), "", "Creating your account…");
   const name = $("displayName").value.trim();
   const res = await call("POST", "/me/signup", { accepted: $("accept").checked, display_name: name || undefined });
-  if (res.ok || res.status === 409) return location.assign("/dashboard");   // 409: already has a profile
+  if (res.ok || res.status === 409) return location.assign(NEXT);   // 409: already has a profile
   say($("signupMsg"), "err", errText(res));
   syncSignupButton();
 }
@@ -220,7 +226,7 @@ $("displayName").addEventListener("keydown", (e) => { if (e.key === "Enter" && !
   try {
     const me = await call("GET", "/me");
     if (!me.ok) return;
-    if (me.body.signed_up) location.replace("/dashboard"); else showSignup(me.body.account_id);
+    if (me.body.signed_up) location.replace(NEXT); else showSignup(me.body.account_id);
   } catch {}
 })();
 </script>

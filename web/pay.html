@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Mnemosyne · Pay for a check</title>
+<style>
+:root {
+  --bg: #0c0c0c; --panel: #151515; --panel-2: #1b1b1b; --line: #282828; --line-soft: #202020;
+  --text: #e8e8e6; --muted: #8e8e8a; --dim: #626260;
+  --ok: #6f9f7a; --warn: #c4a35a; --bad: #c45c4a; --accent: #d4d0c8;
+  --r: 12px; --r-sm: 7px;
+  --mono: "SF Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+.brand h1 { font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.top a { color: var(--muted); font-size: 12px; text-decoration: none; }
+.top a:hover { color: var(--text); }
+main { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding: 24px 16px 64px; }
+.card { width: 100%; max-width: 460px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 28px 26px; margin-top: 24px; }
+.card-h { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); margin-bottom: 18px; }
+.card-b { display: flex; flex-direction: column; gap: 16px; }
+h2 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+p { color: var(--muted); font-size: 13px; }
+p.small, .small { font-size: 12px; color: var(--dim); }
+label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 7px; }
+input[type=text] { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; width: 100%; transition: border-color .15s; }
+input[type=text]:focus { outline: none; border-color: #4a4a4a; }
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 12px 14px; font-size: 13px; cursor: pointer; font-family: inherit; width: 100%; transition: background .15s, border-color .15s; }
+.btn:hover:not(:disabled) { border-color: #4a4a4a; background: #222; }
+.btn.primary { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover:not(:disabled) { background: #e4e0d8; border-color: #e4e0d8; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:focus-visible, input:focus-visible, a:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.acct { font-family: var(--mono); font-size: 13px; color: var(--text); word-break: break-all; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.row { display: flex; gap: 10px; }
+.row .btn { flex: 1; }
+.msg { font-size: 12px; padding: 9px 12px; border-radius: var(--r-sm); background: var(--panel-2); color: var(--muted); white-space: pre-wrap; }
+.msg.err { color: var(--bad); background: rgba(196,92,74,.1); }
+.msg.good { color: var(--ok); background: rgba(111,159,122,.1); }
+.msg[hidden] { display: none; }
+.out { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.out .k { color: var(--dim); text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+.out a { color: var(--accent); }
+[hidden] { display: none !important; }
+@media (max-width: 560px) { .top { padding: 14px 16px; } main { padding: 8px 16px 48px; } .card { padding: 24px 20px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="dot"></span><h1>Mnemosyne</h1></div>
+  <a href="/dashboard">&larr; Back to the desk</a>
+</header>
+
+<main>
+  <div class="card">
+    <div class="card-h">Pay with your wallet</div>
+    <div class="card-b">
+      <h2>Ask the memory</h2>
+      <p>This pays with your own connected NEAR wallet &mdash; a real testnet wNEAR transfer, signed by you and relayed by the server so you never pay gas.</p>
+      <div>
+        <label>Signed in as</label>
+        <div class="acct" id="acct">&hellip;</div>
+      </div>
+      <div>
+        <label for="q">Your question</label>
+        <input type="text" id="q" maxlength="500" autocomplete="off">
+      </div>
+      <div class="row">
+        <button class="btn" type="button" id="btnAsk">Ask without paying</button>
+        <button class="btn primary" type="button" id="btnPay" disabled>Pay with my wallet</button>
+      </div>
+      <div class="out" id="out"></div>
+      <div class="msg" id="status" role="status" hidden></div>
+      <p class="small" id="modeNote" hidden>This server is running test payments, not real ones. Use &ldquo;Pay &amp; retry&rdquo; on the desk instead &mdash; it needs no wNEAR.</p>
+    </div>
+  </div>
+</main>
+
+<script src="/login/near-connect.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const say = (el, kind, text) => { el.hidden = !text; el.className = "msg" + (kind ? " " + kind : ""); el.textContent = text || ""; };
+const setStatus = (kind, text) => say($("status"), kind, text);
+
+async function call(method, path, body, headers) {
+  const r = await fetch(path, {
+    method, cache: "no-store", credentials: "same-origin",
+    headers: { ...(body !== undefined ? { "content-type": "application/json" } : null), ...(headers || {}) },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  let j = null; try { j = await r.json(); } catch {}
+  return { ok: r.ok, status: r.status, body: j };
+}
+const ACRO = { near: "NEAR", api: "API", id: "ID", url: "URL", wnear: "wNEAR" };
+const splitWords = (t) => String(t).split(/[_-]+/).filter(Boolean).map((w) => ACRO[w.toLowerCase()] || w.toLowerCase()).join(" ");
+const human = (v) => { const t = String(v ?? "").replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (m) => splitWords(m)).trim(); return t ? t[0].toUpperCase() + t.slice(1) : t; };
+const errText = (res) => human((Array.isArray(res.body?.errors) && res.body.errors.join(" ")) || res.body?.error) || `The server answered ${res.status}.`;
+const money = (yocto, decimals = 18) => `${(Number(BigInt(yocto)) / 10 ** decimals).toFixed(6)} wNEAR`;
+
+function outLines(lines) {
+  const box = $("out"); box.replaceChildren();
+  for (const l of lines) {
+    if (typeof l === "string") { const d = document.createElement("div"); d.textContent = l; box.appendChild(d); continue; }
+    const [k, v, cls] = l;
+    const row = document.createElement("div");
+    const ks = document.createElement("span"); ks.className = "k"; ks.textContent = k + " · ";
+    const vs = document.createElement("span"); if (cls) vs.className = cls; vs.textContent = v;
+    row.append(ks, vs); box.appendChild(row);
+  }
+}
+
+/* where this page sends a signed-out visitor to sign in, and back here afterwards */
+const HERE = location.pathname + location.search;
+const Q = new URLSearchParams(location.search).get("q") || "";
+
+let ME = null;
+let LAST_QUOTE = null;   // the server's unpaid 402 answer: { x402Version, resource, accepts, extensions }
+let connector = null;
+let wallet = null;
+
+/* the wallet already connected from /login, found again silently -- never prompts unless this browser truly has none */
+async function ensureWallet() {
+  if (wallet) return wallet;
+  connector ||= new window.NearConnector({ network: "testnet", features: { testnet: true, signDelegateActions: true } });
+  try {
+    const got = await connector.getConnectedWallet();
+    wallet = got.wallet;
+    return wallet;
+  } catch {
+    wallet = await connector.connect();
+    if (!wallet) throw new Error("No wallet was chosen.");
+    return wallet;
+  }
+}
+
+async function askWithoutPaying() {
+  const q = $("q").value.trim();
+  if (!q) return setStatus("err", "Type a question first.");
+  $("btnAsk").disabled = true; $("btnPay").disabled = true;
+  setStatus("", "Asking, without paying…");
+  outLines([]);
+  try {
+    const r = await call("POST", "/memory/check", { query: q });
+    if (r.status === 402 && r.body?.accepts?.[0]) {
+      LAST_QUOTE = r.body;
+      const req = r.body.accepts[0];
+      const isMock = !!req.extra?.mock;
+      $("modeNote").hidden = !isMock;
+      outLines([["Price", money(req.amount)], ["Paid to", req.payTo], ["Network", req.network]]);
+      setStatus("", "No answer until it is paid.");
+      $("btnPay").disabled = isMock;
+    } else {
+      setStatus("err", human(r.body?.error) || "The server gave an unexpected answer.");
+    }
+  } catch (err) { setStatus("err", `Couldn't reach the server: ${err.message}`); }
+  finally { $("btnAsk").disabled = false; }
+}
+
+/** The one thing this page signs: a NEP-366 delegate action for a single
+ *  ft_transfer, built the same way @x402/near's own reference client signer
+ *  builds it (gas 30 TGas, deposit 1 yoctoNEAR -- see @x402/near's
+ *  createClientNearSigner) -- just signed by the connected wallet instead of
+ *  a key this page never holds. The wallet works out the nonce, the current
+ *  block height and max_block_height, and the signature itself; this page
+ *  only states which token, how much, and to whom. */
+async function signedDelegateFor(req) {
+  const w = await ensureWallet();
+  const { signedDelegateActions } = await w.signDelegateActions({
+    network: "testnet",
+    delegateActions: [{
+      receiverId: req.asset,
+      actions: [{
+        type: "FunctionCall",
+        params: { methodName: "ft_transfer", args: { receiver_id: req.payTo, amount: req.amount }, gas: "30000000000000", deposit: "1" },
+      }],
+    }],
+  });
+  if (!signedDelegateActions?.[0]) throw new Error("the wallet returned no signed delegate action");
+  return signedDelegateActions[0];
+}
+
+function friendlySettlementError(reason) {
+  const r = String(reason || "");
+  if (/receipt_not_successful|ft_transfer/i.test(r)) {
+    return "Your wallet isn't registered for wNEAR, or doesn't have enough of it. Open your wallet app, wrap a little testnet NEAR into wNEAR (most wallets have a “wrap” feature), then press Pay again. Nothing was charged.";
+  }
+  return `${human(r) || "The payment was not accepted."} Nothing was charged.`;
+}
+
+async function payWithWallet() {
+  if (!LAST_QUOTE || LAST_QUOTE.accepts?.[0]?.extra?.mock) { await askWithoutPaying(); if (!LAST_QUOTE || LAST_QUOTE.accepts?.[0]?.extra?.mock) return; }
+  const req = LAST_QUOTE.accepts.find((x) => x.scheme === "exact") || LAST_QUOTE.accepts[0];
+  if (req.network !== "near:testnet") return setStatus("err", "This page only pays on NEAR testnet.");
+  const resource = new URL(LAST_QUOTE.resource.url);
+  if (resource.pathname !== "/memory/check") return setStatus("err", "The quote is for a different resource; not paying.");
+  $("btnAsk").disabled = true; $("btnPay").disabled = true;
+  try {
+    setStatus("", "Opening your wallet to sign the payment…");
+    const signedDelegateAction = await signedDelegateFor(req);
+    const payment = { x402Version: LAST_QUOTE.x402Version || 2, payload: { signedDelegateAction }, resource: LAST_QUOTE.resource, accepted: req };
+    setStatus("", "Paying and asking again… this can take a few seconds while NEAR confirms it.");
+    const res = await call("POST", "/memory/check", { query: $("q").value.trim() }, { "PAYMENT-SIGNATURE": btoa(JSON.stringify(payment)) });
+    LAST_QUOTE = null;
+    if (res.status === 200) {
+      const j = res.body;
+      outLines([
+        ["Answer", j.match ? "This matches a lesson" : "No match", j.match ? "good" : ""],
+        j.match ? ["Lesson", `${j.citation_id} · ${j.category || ""}`] : null,
+        j.advice ? ["Advice", j.advice] : null,
+        ["Receipt", j.receipt_id],
+      ].filter(Boolean));
+      setStatus("good", "Paid with your own wallet — a real testnet wNEAR transfer.");
+    } else if (res.status === 402) {
+      outLines([]);
+      setStatus("err", friendlySettlementError(res.body?.error));
+    } else {
+      outLines([]);
+      setStatus("err", human(res.body?.error) || "The server gave an unexpected answer.");
+    }
+  } catch (err) {
+    setStatus("err", err.message || String(err));
+  } finally {
+    $("btnAsk").disabled = false; $("btnPay").disabled = !LAST_QUOTE;
+  }
+}
+
+$("btnAsk").addEventListener("click", askWithoutPaying);
+$("btnPay").addEventListener("click", payWithWallet);
+$("q").addEventListener("input", () => { LAST_QUOTE = null; $("btnPay").disabled = true; });
+
+(async () => {
+  const me = await call("GET", "/me");
+  if (!me.ok || !me.body.signed_up) return location.assign("/login?next=" + encodeURIComponent(HERE));
+  ME = me.body;
+  $("acct").textContent = ME.account_id;
+  $("q").value = Q || "delete the full access key";
+  try { await ensureWallet(); } catch { /* the Pay button will try again, and explain if it still fails */ }
+})();
+</script>
+</body>
+</html>
