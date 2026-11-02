@@ -422,6 +422,14 @@ input[aria-invalid=true] { border-color: var(--bad); }
         <p class="hint-text" hidden>The rails the governor works inside. Every cycle writes the limits it used to NEAR, so you can see which rules applied to which decision. Changing them needs the admin token.</p>
         <div class="panel-b" id="limitsBox"></div>
       </div>
+      <div class="panel">
+        <div class="panel-h">
+          <div class="lhs"><h3>Automatic cycles</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
+          <span class="tag" id="scheduleNote"></span>
+        </div>
+        <p class="hint-text" hidden>When this is on, the governor runs itself on this interval instead of waiting for someone to press Run cycle. A run that doesn't commit counts against it, and after three in a row it turns itself off rather than keep failing quietly.</p>
+        <div class="panel-b" id="scheduleBox"></div>
+      </div>
     </section>
 
     <!-- AUDIT -->
@@ -1419,6 +1427,99 @@ async function resetLimits(L) {
   }
 }
 
+/* ---------- automatic cycles (operator only to change) ---------- */
+let scheduleEditing = false;
+let lastSchedule = null;
+
+function inWords(iso) {
+  const t = Date.parse(iso); if (isNaN(t)) return "";
+  const s = Math.round((t - Date.now()) / 1000);
+  if (s <= 0) return "due now";
+  if (s < 60) return "in under a minute";
+  if (s < 3600) return `in ${Math.round(s / 60)} min`;
+  if (s < 86400) { const n = Math.round(s / 3600); return `in ${n} hour${n === 1 ? "" : "s"}`; }
+  const n = Math.round(s / 86400); return `in ${n} day${n === 1 ? "" : "s"}`;
+}
+
+function renderSchedule(d) {
+  const S = d.schedule;
+  if (!S) { $("scheduleNote").textContent = ""; return fill($("scheduleBox"), emptyBox("Automatic cycles are not configured on this server.")); }
+  lastSchedule = S;
+  $("scheduleNote").textContent = S.enabled ? `On · every ${S.interval_minutes} min` : "Off";
+  if (scheduleEditing) return; // never wipe what someone is in the middle of typing
+  drawSchedule(S, null);
+}
+
+function scheduleMsg(box, kind, ...kids) {
+  box.querySelector(".msg")?.remove();
+  box.append(h("div", { class: "msg " + kind, role: kind === "err" ? "alert" : "status", style: "margin-top:12px" }, ...kids));
+}
+
+function drawSchedule(S, msg) {
+  const box = $("scheduleBox");
+  const editing = scheduleEditing;
+
+  const rows = [
+    h("div", { class: "limit" },
+      h("span", { class: "name" }, "Status"),
+      h("span", { class: "val" }, S.enabled ? `Running every ${S.interval_minutes} min` : "Off"),
+      h("span", { class: "help" }, S.enabled ? `Next run ${inWords(S.next_run_at)}.` : "Turn it on and the governor runs itself, without anyone pressing Run cycle.")),
+  ];
+  if (S.last_run_at) {
+    rows.push(h("div", { class: "limit" },
+      h("span", { class: "name" }, "Last run"),
+      h("span", { class: "val" }, S.last_result === "committed" ? "Committed" : "Did not commit"),
+      h("span", { class: "help" }, `${ago(S.last_run_at)}${S.last_result !== "committed" && S.last_error ? " · " + S.last_error : ""}`)));
+  }
+
+  const actions = h("div", { class: "limits-actions" });
+  if (!editing) {
+    if (OPERATOR && ADMIN_POSSIBLE) {
+      const edit = h("button", { class: "btn", type: "button" }, S.enabled ? "Change" : "Turn on");
+      edit.addEventListener("click", () => { scheduleEditing = true; drawSchedule(lastSchedule, null); $("schedMinutes")?.focus(); });
+      actions.append(edit);
+    }
+  } else {
+    actions.append(
+      h("label", { class: "token-row" }, h("input", { id: "schedOn", type: "checkbox", checked: S.enabled }), " Run automatically"),
+      h("label", { class: "token-row", for: "schedMinutes" }, "Every",
+        h("input", { id: "schedMinutes", type: "number", min: 5, max: 1440, step: 1, value: S.interval_minutes, style: "width:70px" }), "minutes"),
+      h("label", { class: "token-row", for: "sched-token", hidden: !!ADMIN }, "Admin token",
+        h("input", { id: "sched-token", type: "password", autocomplete: "off", value: ADMIN, placeholder: "Admin token" })),
+      h("button", { class: "btn primary", type: "button", id: "schedSave" }, "Save"),
+      h("button", { class: "btn", type: "button", id: "schedCancel" }, "Cancel"));
+    actions.querySelector("#schedSave").addEventListener("click", () => saveScheduleNow());
+    actions.querySelector("#schedCancel").addEventListener("click", () => { scheduleEditing = false; drawSchedule(lastSchedule, null); });
+  }
+
+  fill(box, ...rows, actions);
+  if (msg) scheduleMsg(box, msg.kind, ...msg.parts);
+}
+
+async function saveScheduleNow() {
+  const box = $("scheduleBox");
+  const enabled = $("schedOn").checked;
+  const n = Number($("schedMinutes").value);
+  const token = $("sched-token").value;
+  if (!token) return scheduleMsg(box, "err", "Enter the admin token to save.");
+  if (!Number.isInteger(n) || n < 5 || n > 1440) return scheduleMsg(box, "err", "Minutes must be a whole number from 5 to 1440.");
+  const btn = $("schedSave"); btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const res = await api("PUT", "/schedule", { enabled, interval_minutes: n }, token);
+    if (res.status === 200) {
+      ADMIN = token; scheduleEditing = false; lastSchedule = res.body;
+      $("scheduleNote").textContent = res.body.enabled ? `On · every ${res.body.interval_minutes} min` : "Off";
+      addFeed(enabled ? "Automatic cycles turned on" : "Automatic cycles turned off", enabled ? `every ${n} min` : "");
+      return drawSchedule(res.body, { kind: "good", parts: ["Saved."] });
+    }
+    scheduleMsg(box, "err", "Not saved:", h("ul", {}, explainAdminError(res).map((p) => h("li", {}, p))));
+  } catch (err) {
+    scheduleMsg(box, "err", `Couldn't reach the server: ${err.message}`);
+  } finally {
+    const b = $("schedSave"); if (b) { b.disabled = false; b.textContent = "Save"; }
+  }
+}
+
 /* ---------- run a cycle (operator only) ---------- */
 let cycleBusy = false;
 function togglePop(open) {
@@ -1482,7 +1583,7 @@ async function load() {
     }
     applyOperator();
     fill($("governorBadge"), accLink(d.contract));
-    renderTop(d); renderDesk(d); renderChain(d); renderDecision(d); renderSwarm(d); renderX402(d); renderLimits(d); renderLog(d); renderFeed(d);
+    renderTop(d); renderDesk(d); renderChain(d); renderDecision(d); renderSwarm(d); renderX402(d); renderLimits(d); renderSchedule(d); renderLog(d); renderFeed(d);
     // never wipe a box someone is typing in
     const typingRail = railDirty || $("railGuard").contains(document.activeElement);
     const typingAcct = $("acctPanel").contains(document.activeElement);

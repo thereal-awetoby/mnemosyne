@@ -15,6 +15,10 @@
  *   ADMIN_TOKEN               enables POST /memory/confess, POST /cycle/run and changing the
  *                             risk limits (PUT /limits, the dashboard's Your limits panel)
  *   DATA_DIR                  default data/runtime (gitignored)
+ *   SCHEDULE_TICK_MS          how often the server checks whether an automatic cycle is due;
+ *                             default 60000 (1 minute). The schedule itself (on/off, interval)
+ *                             is set at runtime via PUT /schedule, not an env var, so it survives
+ *                             without a restart and the dashboard can show it to everyone.
  *
  * Real settlement (testnet only):
  *   X402_RAIL=near-testnet    official x402 NEAR "exact" scheme, wNEAR, real txs
@@ -30,6 +34,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMnemosyneServer } from "./x402/server.js";
 import { limitsView, resetLimits, saveLimits } from "./limits/index.js";
+import { recordRun as recordScheduleRun, saveSchedule, scheduleView, tick as scheduleTick } from "./schedule.js";
 import { HttpFacilitator, MockFacilitator, type Facilitator } from "./x402/facilitator.js";
 import { createNearExactRail, type PaymentRail } from "./x402/rails.js";
 
@@ -84,6 +89,22 @@ if (RAIL === "near-testnet") {
   });
 }
 
+// A manual run (POST /cycle/run) and the automatic schedule share this one
+// mutex, so a click from the dashboard and a due tick can never run two
+// cycles at once -- whichever gets here first wins, and the other is told
+// a cycle is already running rather than racing it.
+let cycleBusy = false;
+async function runGovernorCycle() {
+  if (cycleBusy) throw new Error("a cycle is already running");
+  cycleBusy = true;
+  try {
+    const { runCycle } = await import("./cycle.js");
+    return await runCycle();
+  } finally {
+    cycleBusy = false;
+  }
+}
+
 const realFacilitatorUrl = process.env.X402_FACILITATOR_URL;
 const facilitator: Facilitator = realFacilitatorUrl
   ? new HttpFacilitator(realFacilitatorUrl, process.env.X402_FACILITATOR_API_KEY)
@@ -128,9 +149,16 @@ const { server, memory } = createMnemosyneServer({
     set: (changes, by) => saveLimits(DATA_DIR, changes, by),
     reset: (by) => resetLimits(DATA_DIR, by),
   },
+  schedule: {
+    get: () => scheduleView(DATA_DIR),
+    set: (changes, by) => saveSchedule(DATA_DIR, changes, by),
+  },
   runCycle: async () => {
-    const { runCycle } = await import("./cycle.js");
-    const r = await runCycle();
+    const r = await runGovernorCycle();
+    // A manual run counts the same as a scheduled one: it resets the clock
+    // and the failure streak, so clicking "Run cycle" never leaves the
+    // automatic schedule thinking it is still owed a run from before.
+    recordScheduleRun(DATA_DIR, { committed: r.committed, error: r.committed ? null : "the cycle did not commit" });
     // Public parts only. privateDecision (the reasoning) never leaves.
     return {
       committed: r.committed,
@@ -146,6 +174,24 @@ const { server, memory } = createMnemosyneServer({
   },
 });
 
+// The automatic schedule's own clock: roughly once a minute, check whether
+// a run is due and nothing else is in flight. The schedule starts wherever
+// PUT /schedule last left it (off, by default) -- a restart does not turn
+// it on by itself.
+const SCHEDULE_TICK_MS = Number(process.env.SCHEDULE_TICK_MS ?? 60_000);
+if (!Number.isFinite(SCHEDULE_TICK_MS) || SCHEDULE_TICK_MS < 1000) throw new Error("SCHEDULE_TICK_MS must be a number of milliseconds, at least 1000");
+const scheduleTimer = setInterval(() => {
+  scheduleTick({
+    dataDir: DATA_DIR,
+    isBusy: () => cycleBusy,
+    runCycle: async () => {
+      const r = await runGovernorCycle();
+      return { committed: r.committed, error: r.committed ? null : "the cycle did not commit" };
+    },
+  }).catch((err) => console.error("[schedule] tick failed:", err));
+}, SCHEDULE_TICK_MS);
+scheduleTimer.unref(); // the schedule never keeps the process alive on its own
+
 server.on("error", (err) => {
   console.error(`Mnemosyne API failed to listen: ${err.message}`);
   process.exitCode = 1;
@@ -160,12 +206,15 @@ server.listen(PORT, HOST, () => {
   console.log(`  admin routes: ${process.env.ADMIN_TOKEN ? "enabled" : "disabled (set ADMIN_TOKEN)"}`);
   console.log(`  login:        ${process.env.LOGIN === "0" ? "off (LOGIN=0)" : `NEAR wallet sign-in and sign-up at http://localhost:${actualPort}/login`}`);
   console.log(`  dashboard:    http://localhost:${actualPort}/dashboard  (read-only${process.env.ADMIN_TOKEN ? "; limits can be changed with the admin token" : "; set ADMIN_TOKEN to be able to change limits"})`);
+  const sched = scheduleView(DATA_DIR);
+  console.log(`  schedule:     ${sched.enabled ? `on, every ${sched.interval_minutes} min` : "off"} (change it at PUT /schedule, or the dashboard's Settings panel)`);
 });
 
 // Close cleanly on container / terminal shutdown; synchronous stores have no
 // background writes left to flush.
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, () => {
+    clearInterval(scheduleTimer);
     server.close();
     server.closeIdleConnections();
   });

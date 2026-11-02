@@ -13,6 +13,8 @@
  *   GET  /limits                 free   the owner's risk limits + their hard bounds
  *   PUT  /limits                 admin  change limits (validated; applies from the next cycle)
  *   POST /limits/reset           admin  back to the built-in defaults
+ *   GET  /schedule               free   the automatic-run schedule (on/off, interval, next run)
+ *   PUT  /schedule               admin  change it (validated; the running loop picks it up next tick)
  *   GET  /login, /me, ...        session  NEAR wallet login, sign-up, personal guardrails (src/auth/http.ts)
  *
  * x402 flow for /memory/check:
@@ -81,6 +83,11 @@ export interface ServerConfig {
     get: () => unknown;
     set: (changes: unknown, by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
     reset: (by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
+  };
+  /** The automatic cycle schedule (src/schedule). Reads are public, writes need the admin token. */
+  schedule?: {
+    get: () => unknown;
+    set: (changes: unknown, by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
   };
 }
 
@@ -321,6 +328,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
         // the page hides the operator controls unless this is true; it never carries the token
         operator: { enabled: !!cfg.adminToken },
         limits: cfg.limits ? cfg.limits.get() : null,
+        schedule: cfg.schedule ? cfg.schedule.get() : null,
         x402: {
           payment_rail: rail.mode,
           mock_settlement: isMock,
@@ -350,6 +358,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
           ...(cfg.dashboardHtml ? { "GET /dashboard": "free -- read-only dashboard", "GET /dashboard.json": "free" } : {}),
           ...(cfg.adminToken ? { "GET /admin/check": "admin token -- says whether the token is right, changes nothing" } : {}),
           ...(cfg.limits ? { "GET /limits": "free", "PUT /limits": "admin", "POST /limits/reset": "admin" } : {}),
+          ...(cfg.schedule ? { "GET /schedule": "free", "PUT /schedule": "admin" } : {}),
           ...(auth ? { "GET /login": "sign in / sign up with a NEAR wallet", "GET /me": "session", "PUT /me/guardrails": "session", "GET /me/receipts": "session" } : {}),
         },
       });
@@ -432,6 +441,18 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       if (!cfg.limits) throw new HttpError(404, "limits not configured");
       const r = cfg.limits.reset("owner-token");
       if (!r.ok) return send(res, 400, { error: "invalid limits", errors: r.errors });
+      return send(res, 200, r.view);
+    }
+
+    if (method === "GET" && path === "/schedule") {
+      if (!cfg.schedule) throw new HttpError(404, "schedule not configured");
+      return send(res, 200, cfg.schedule.get());
+    }
+    if (method === "PUT" && path === "/schedule") {
+      admin();
+      if (!cfg.schedule) throw new HttpError(404, "schedule not configured");
+      const r = cfg.schedule.set(await readJson(req), "owner-token");
+      if (!r.ok) return send(res, 400, { error: "invalid schedule", errors: r.errors });
       return send(res, 200, r.view);
     }
 

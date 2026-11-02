@@ -26,6 +26,7 @@ the transaction that settles it. It is generated from the cycle records by
 | Memory is the gate | [`src/cycle.ts`](src/cycle.ts), [`src/memory.ts`](src/memory.ts) | `npm run prove -- --live` |
 | Other agents pay for it | [`src/x402/`](src/x402/) | `npm run x402:client -- "your situation"` |
 | The limits are the owner's, and public | [`src/limits/`](src/limits/) | `curl localhost:8402/limits` |
+| The governor doesn't wait on a button | [`src/schedule.ts`](src/schedule.ts) | `curl localhost:8402/schedule` |
 | A quote is a price, never a fill | [`src/allocate/cross_chain.ts`](src/allocate/cross_chain.ts) | `npm run crosschain:check` |
 
 Full build plan: [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
@@ -51,7 +52,9 @@ Proven 2026-10-31: a cycle decided in the TEE (signature, nonce binding, Intel T
 
 **Sign in or sign up with a NEAR wallet (`/login`):** one button does both. The wallet signs a one-time NEP-413 message (not a transaction), the server checks the signature and that the key is a FullAccess key of that account, and sets an `HttpOnly` session cookie. A signed-up person gets personal guardrails for paid memory checks (daily query cap, daily spend cap, a pause switch) and their own receipts. **Login is never root:** it cannot run a cycle, change the governor's limits, write memory or touch a key; the tests prove it. Details: [`docs/LOGIN.md`](docs/LOGIN.md), plan and reasoning: [`docs/MULTIUSER_PLAN.md`](docs/MULTIUSER_PLAN.md).
 
-**The desk (`/dashboard`):** one dark page, live from NEAR testnet, with Overview, Memory, Sub-agents, Paid checks, Settings and Activity log, plus an activity rail. Anyone can read all of it and pay for a memory check; nothing on screen is written in field names or raw errors. The operator's controls (Run cycle, Edit limits) are hidden until that browser is unlocked with the admin token from the *Operator* link at the foot of the sidebar, and `/dashboard.json` carries only whether an operator exists, never the token.
+**The desk (`/dashboard`):** one dark page, live from NEAR testnet, with Overview, Memory, Sub-agents, Paid checks, Settings and Activity log, plus an activity rail. Anyone can read all of it and pay for a memory check; nothing on screen is written in field names or raw errors. The operator's controls (Run cycle, Edit limits, Automatic cycles) are hidden until that browser is unlocked with the admin token from the *Operator* link at the foot of the sidebar, and `/dashboard.json` carries only whether an operator exists, never the token.
+
+**The governor runs itself, on a schedule:** `GET /schedule` / `PUT /schedule` (and the Settings panel's *Automatic cycles*) turn on an interval (5 to 1440 minutes) so a cycle fires on its own instead of waiting for someone to press Run cycle. A manual run and a scheduled one share one clock and one mutex, so they can never overlap or double-fire. Fail-closed applies to automation too: after three cycles in a row that do not commit, the schedule turns itself off and says why, rather than keep failing unattended. Off by default, and the interval is runtime state (`data/runtime/schedule.json`, gitignored), not an env var, so it survives a restart and anyone watching the dashboard can see when the next run is due.
 
 Still simulated by default, and labeled as such: swarm losses (`SWARM_SCENARIO`), and x402 settlement in the default mock rail.
 
@@ -89,7 +92,7 @@ No NEAR keys needed for these steps. Use Node.js 22+ and two terminals at the re
 3. `npm run x402:demo` -> an external agent (a fresh NEAR implicit account) gets the 402, signs the quoted price, retries, and receives `match: true (citation M-001, key-management)` plus one line of advice and a `receipt: R-...`. It then fetches the receipt and checks both hashes (`answer hash matches ... YES`), replays the same payment and gets `HTTP 402: nonce_already_used`. Last line: `DEMO OK`.
 4. `npm run x402:demo -- "planning the team lunch menu"` -> still paid, but `match: false`: unrelated situations don't produce false citations.
 5. Open `http://localhost:8402/audit` -> every paid check (receipt id, payer, amount, citation, `mock_` settlement id), and never the query text.
-6. `npm test` -> 218 tests, no network needed. Among them: wrong amount, recipient, network, payer key, endpoint, expired or over-long window, tampered signature, replay, 8 concurrent uses of one payment (exactly 1 settles), restart persistence, admin-only routes, that `private_detail` never appears in any response, that a wallet session cannot reach an operator route, and that a record with one byte changed no longer hashes to its commitment.
+6. `npm test` -> 238 tests, no network needed. Among them: wrong amount, recipient, network, payer key, endpoint, expired or over-long window, tampered signature, replay, 8 concurrent uses of one payment (exactly 1 settles), restart persistence, admin-only routes, that `private_detail` never appears in any response, that a wallet session cannot reach an operator route, that a record with one byte changed no longer hashes to its commitment, and that the schedule turns itself off after repeated failed cycles.
 
 For a remote deployment, set `PUBLIC_URL` to its public HTTPS origin and point
 `MNEMOSYNE_URL` at the same origin. Without a pinned URL, the demo also works
