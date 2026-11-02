@@ -583,6 +583,11 @@ describe("the real pages on disk", () => {
     for (const route of ["/me", "/memory/check"]) assert.ok(inline[0].includes(route), route);
     assert.match(inline[0], /next=/, "bounces a signed-out visitor through /login with a way back here");
     assert.match(inline[0], /signDelegateActions/, "signs a NEP-366 delegate action, never a private key held on the page");
+    // not every NEAR wallet implements signDelegateActions (MyNearWallet does not) -- a wallet
+    // reused from /login must be checked for that feature before this page ever trusts it
+    assert.match(inline[0], /features\?\.signDelegateActions|features\.signDelegateActions/, "checks a reused wallet actually supports signing a delegate action, rather than assuming it");
+    assert.match(inline[0], /getConnectedWallet/, "resumes the /login session instead of always prompting a new connection");
+    assert.match(inline[0], /Meteor Wallet/, "names a wallet that is actually known to support this, for when the reused one can't");
     assert.doesNotMatch(inline[0], /\.innerHTML|insertAdjacentHTML|document\.write/);
     assert.doesNotMatch(html, /ADMIN|GOVERNOR_PRIVATE_KEY|\/cycle\/run|\/limits/, "the pay page knows nothing of operator routes");
   });

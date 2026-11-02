@@ -81,6 +81,7 @@ input[type=text]:focus { outline: none; border-color: #4a4a4a; }
       <div class="out" id="out"></div>
       <div class="msg" id="status" role="status" hidden></div>
       <p class="small" id="modeNote" hidden>This server is running test payments, not real ones. Use &ldquo;Pay &amp; retry&rdquo; on the desk instead &mdash; it needs no wNEAR.</p>
+      <p class="small" id="walletNote" hidden>The wallet you signed in with here doesn&rsquo;t support signing this kind of payment. Pressing Pay will ask you to connect one that does &mdash; Meteor Wallet or Intear Wallet, not MyNearWallet.</p>
     </div>
   </div>
 </main>
@@ -128,19 +129,34 @@ let LAST_QUOTE = null;   // the server's unpaid 402 answer: { x402Version, resou
 let connector = null;
 let wallet = null;
 
-/* the wallet already connected from /login, found again silently -- never prompts unless this browser truly has none */
-async function ensureWallet() {
-  if (wallet) return wallet;
+/* Not every NEAR wallet can sign a NEP-366 delegate action (MyNearWallet
+ * cannot; Meteor Wallet and Intear Wallet can) -- near-connect still lets
+ * you *connect* an incapable one, it just fails when actually asked to sign
+ * one. So this page never trusts a reused wallet's name, only this flag. */
+const canSignDelegate = (w) => !!w?.manifest?.features?.signDelegateActions;
+
+/* Resumes whatever /login already connected, same-origin. Never opens a UI
+ * popup -- safe to call on page load. Returns null if there's nothing to
+ * resume, or if what's resumed can't sign this kind of payment. */
+async function resumeCapableWallet() {
   connector ||= new window.NearConnector({ network: "testnet", features: { testnet: true, signDelegateActions: true } });
   try {
-    const got = await connector.getConnectedWallet();
-    wallet = got.wallet;
-    return wallet;
-  } catch {
-    wallet = await connector.connect();
-    if (!wallet) throw new Error("No wallet was chosen.");
-    return wallet;
-  }
+    const { wallet: w } = await connector.getConnectedWallet();
+    return canSignDelegate(w) ? w : null;
+  } catch { return null; }
+}
+
+/* Only called from the Pay button: may open the wallet picker, which the
+ * connector above already limits to wallets that declare signDelegateActions. */
+async function ensureWallet() {
+  if (wallet && canSignDelegate(wallet)) return wallet;
+  const resumed = await resumeCapableWallet();
+  if (resumed) { wallet = resumed; return wallet; }
+  const picked = await connector.connect();
+  if (!picked) throw new Error("No wallet was chosen.");
+  if (!canSignDelegate(picked)) throw new Error("That wallet can't sign this kind of payment here either. Try Meteor Wallet or Intear Wallet.");
+  wallet = picked;
+  return wallet;
 }
 
 async function askWithoutPaying() {
@@ -175,6 +191,7 @@ async function askWithoutPaying() {
  *  only states which token, how much, and to whom. */
 async function signedDelegateFor(req) {
   const w = await ensureWallet();
+  $("walletNote").hidden = true;
   const { signedDelegateActions } = await w.signDelegateActions({
     network: "testnet",
     delegateActions: [{
@@ -244,7 +261,11 @@ $("q").addEventListener("input", () => { LAST_QUOTE = null; $("btnPay").disabled
   ME = me.body;
   $("acct").textContent = ME.account_id;
   $("q").value = Q || "delete the full access key";
-  try { await ensureWallet(); } catch { /* the Pay button will try again, and explain if it still fails */ }
+  try {
+    const resumed = await resumeCapableWallet();
+    if (resumed) wallet = resumed;
+    else $("walletNote").hidden = false;
+  } catch {}
 })();
 </script>
 </body>
