@@ -2,10 +2,14 @@ use near_sdk::{env, log, near};
 
 // Sub-agent accounts allowed to call report(). Hardcoded on purpose: adding a
 // state field would break deserialization of the already-deployed contract.
-const SUB_ACCOUNTS: [&str; 3] = [
+// Appending to this array and redeploying is safe on its own: report() never
+// reads or writes state (it only logs), so MemoryContract's layout -- the
+// only thing an in-place redeploy must keep compatible -- never changes.
+const SUB_ACCOUNTS: [&str; 4] = [
     "mnemosyne-sub-a.testnet",
     "mnemosyne-sub-b.testnet",
     "mnemosyne-sub-c2.testnet",
+    "mnemosyne-sub-d.testnet",
 ];
 
 // Minimal on-chain memory gate for Mnemosyne.

@@ -33,7 +33,11 @@ npm run verify:contract
 
 ---
 
-## Per sub: do A, then B, then C. One at a time.
+## Per sub: do A, then B, then C, then D. One at a time.
+
+D's account does not exist yet (A/B/C pre-date this project). Do the
+**[Sub D: one extra first step](#sub-d-one-extra-first-step)** section below
+before step 1 for D; after that, steps 1–6 are identical for D.
 
 ### 1. Look at what's there now
 
@@ -113,6 +117,49 @@ for that sub at least twice. Afterwards the allowance can never be topped up.
 
 ---
 
+## Sub D: one extra first step
+
+`mnemosyne-sub-d.testnet` does not exist on testnet. A/B/C pre-date this
+project; D is new, so it needs an account before anything in "Per sub"
+applies to it.
+
+### 0. Create the account (funded from the governor)
+
+```
+near account create-account fund-myself mnemosyne-sub-d.testnet autogenerate-new-keypair save-to-keychain sign-as mnemosyne-gov.testnet network-config testnet sign-with-keychain send
+```
+
+This gives D a FullAccess key (saved to the keychain, same as A/B/C's cold
+key) and a small NEAR balance from the governor to cover its own storage
+and future gas. It holds no capital of its own yet -- that's simulated
+(`src/subAgents.ts`), not an on-chain balance, unless you also run
+`npm run swarm:setup` with `SWARM_STATE=onchain`.
+
+### 1. Redeploy the contract with D in the roster
+
+`contract/src/lib.rs`'s `SUB_ACCOUNTS` now lists four accounts, not three.
+`report()` only ever logs -- it never touches `MemoryContract`'s stored
+fields (`latest_hash`, `prev_hash`, `commit_count`), so this redeploy
+changes no state layout and nothing already committed is at risk. Still,
+redeploy deliberately, not as an afterthought:
+
+```
+cd contract
+.\deploy.ps1 -BuildOnly
+```
+
+Read the build output. Then:
+
+```
+.\deploy.ps1
+```
+
+This deploys and calls `get_latest` to confirm `commit_count` is
+unchanged from before the redeploy. If it isn't, stop and look before
+doing anything else.
+
+Now go back to "Per sub" and do steps 1–6 for D, exactly as for A/B/C.
+
 ## Sub-C note
 
 `mnemosyne-sub-c2.testnet` already has a working `report` key, but it's in the
@@ -131,5 +178,9 @@ Leave it; it's not referenced anywhere any more.
 npm run cycle
 ```
 
-Step 5 of the cycle shows all three subs `-> on-chain ACT/REFUSE` with tx
-links, sub C refusing, and the process exits 0. Record that in HANDOFF.md.
+Step 5 of the cycle shows all four subs `-> on-chain ACT/REFUSE` with tx
+links, sub C refusing (reduce-only, tighter absolute ceiling), and sub D
+refusing under its own 12%/3% ratio whenever the governor's default
+envelope (20%/5%) is what built its directive -- two independent layers
+disagreeing on purpose, not a coincidence of today's numbers. Exit 0.
+Record that in HANDOFF.md.

@@ -8,7 +8,7 @@
 
 import type { TeeEvidence } from "./private/decide.js";
 
-export type SubId = "A" | "B" | "C";
+export type SubId = "A" | "B" | "C" | "D";
 
 export type SubAction = "KEEP" | "INCREASE" | "CUT" | "PAUSE";
 

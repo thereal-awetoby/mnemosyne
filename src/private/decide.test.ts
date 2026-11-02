@@ -128,12 +128,33 @@ describe("policy guard", () => {
 
 describe("parsing model output", () => {
   it("accepts JSON wrapped in prose / fences", () => {
-    const { proposals } = decide.parseProposals('ok:\n```json\n{"decisions":[{"sub":"A","action":"keep","target_capital":1},{"sub":"B","action":"CUT","target_capital":1},{"sub":"C","action":"PAUSE","target_capital":0}]}\n```');
+    const { proposals } = decide.parseProposals('ok:\n```json\n{"decisions":[{"sub":"A","action":"keep","target_capital":1},{"sub":"B","action":"CUT","target_capital":1},{"sub":"C","action":"PAUSE","target_capital":0}]}\n```', ["A", "B", "C"]);
     assert.equal(proposals[0].action, "KEEP");
   });
   it("rejects missing or duplicated subs", () => {
-    assert.throws(() => decide.parseProposals('{"decisions":[{"sub":"A"},{"sub":"A"},{"sub":"B"}]}'), /exactly A, B, C/);
-    assert.throws(() => decide.parseProposals("no json here"), /no JSON/);
+    assert.throws(() => decide.parseProposals('{"decisions":[{"sub":"A"},{"sub":"A"},{"sub":"B"}]}', ["A", "B", "C"]), /exactly A, B, C/);
+    assert.throws(() => decide.parseProposals("no json here", ["A", "B", "C"]), /no JSON/);
+  });
+  it("the required roster is whatever is passed in -- not hardcoded to three", () => {
+    const { proposals } = decide.parseProposals(
+      '{"decisions":[{"sub":"A","action":"KEEP","target_capital":1},{"sub":"B","action":"KEEP","target_capital":1},{"sub":"C","action":"KEEP","target_capital":1},{"sub":"D","action":"KEEP","target_capital":1}]}',
+      ["A", "B", "C", "D"],
+    );
+    assert.equal(proposals.length, 4);
+    assert.throws(
+      () => decide.parseProposals('{"decisions":[{"sub":"A"},{"sub":"B"},{"sub":"C"}]}', ["A", "B", "C", "D"]),
+      /exactly A, B, C, D/,
+    );
+  });
+});
+
+describe("the prompt matches the actual roster", () => {
+  it("names every sub passed in, not a hardcoded three", () => {
+    const four: FakeSubState[] = [...calm, { sub: "D", capital: 1000, lastCycleLoss: 0 }];
+    const [{ content: system }] = decide.buildPrompt(four, decide.DEFAULT_ENVELOPE, [], "salt");
+    assert.match(system, /4 narrow sub-agents/);
+    assert.match(system, /for A, B, C, D/);
+    assert.doesNotMatch(system, /three narrow/);
   });
 });
 

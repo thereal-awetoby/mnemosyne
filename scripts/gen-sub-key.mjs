@@ -16,6 +16,11 @@
  *   node scripts/gen-sub-key.mjs A
  *   node scripts/gen-sub-key.mjs B
  *   node scripts/gen-sub-key.mjs C
+ *   node scripts/gen-sub-key.mjs D
+ *
+ * D is a brand-new sub: unlike A/B/C its account does not exist on testnet
+ * yet, so create it first (see docs/PHASE3_KEYS.md, "Sub D: one extra
+ * first step") before running this.
  */
 
 import { generateKeyPairSync } from "node:crypto";
@@ -26,6 +31,7 @@ const SUB_DEFAULTS = {
   A: "mnemosyne-sub-a.testnet",
   B: "mnemosyne-sub-b.testnet",
   C: "mnemosyne-sub-c2.testnet",
+  D: "mnemosyne-sub-d.testnet",
 };
 
 /** NEAR key strings: public = "ed25519:" + b58(pub32),
@@ -46,7 +52,7 @@ const isMain =
 if (isMain) {
   const sub = (process.argv[2] ?? "").toUpperCase();
   if (!SUB_DEFAULTS[sub]) {
-    console.error("Usage: node scripts/gen-sub-key.mjs <A|B|C>");
+    console.error(`Usage: node scripts/gen-sub-key.mjs <${Object.keys(SUB_DEFAULTS).join("|")}>`);
     process.exit(1);
   }
   const account = SUB_DEFAULTS[sub];

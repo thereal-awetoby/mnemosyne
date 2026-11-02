@@ -20,13 +20,14 @@
 import { actions } from "near-api-js";
 import "dotenv/config";
 import { callAsSub, subAccount, GOVERNOR_CONTRACT } from "../report.js";
-import { subPrivateKey } from "../subAgents.js";
+import { SUB_AGENTS, subPrivateKey } from "../subAgents.js";
 import { publicKeyFromSecret, txFailure } from "../nearTx.js";
 import type { SubId } from "../types.js";
 
+const VALID_SUBS = SUB_AGENTS.map((s) => s.id);
 const sub = (process.argv[2] ?? "").toUpperCase() as SubId;
-if (!["A", "B", "C"].includes(sub)) {
-  console.error("Usage: npm run sub:check -- <A|B|C>");
+if (!VALID_SUBS.includes(sub)) {
+  console.error(`Usage: npm run sub:check -- <${VALID_SUBS.join("|")}>`);
   process.exit(2);
 }
 

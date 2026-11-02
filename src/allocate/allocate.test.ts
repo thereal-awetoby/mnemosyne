@@ -167,10 +167,10 @@ describe("swarm state", () => {
   it("on-chain: capital is the real balance in units; losses stay the labelled scenario", async () => {
     process.env.SWARM_STATE = "onchain";
     process.env.SWARM_SCENARIO = "stressed";
-    const bal: Record<string, bigint> = { "mnemosyne-sub-a.testnet": 1234n * UNIT + 5n, "mnemosyne-sub-b.testnet": 0n, "mnemosyne-sub-c2.testnet": 900n * UNIT };
+    const bal: Record<string, bigint> = { "mnemosyne-sub-a.testnet": 1234n * UNIT + 5n, "mnemosyne-sub-b.testnet": 0n, "mnemosyne-sub-c2.testnet": 900n * UNIT, "mnemosyne-sub-d.testnet": 950n * UNIT };
     const s = await readSwarm({ balanceOf: async (id) => bal[id] });
-    assert.deepEqual(s.state.map((x) => x.capital), [1234, 0, 900]);
-    assert.deepEqual(s.state.map((x) => x.lastCycleLoss), [10, 60, 120]);
+    assert.deepEqual(s.state.map((x) => x.capital), [1234, 0, 900, 950]);
+    assert.deepEqual(s.state.map((x) => x.lastCycleLoss), [10, 60, 120, 30]);
     assert.equal(s.balances!.A.yocto, String(1234n * UNIT + 5n));
   });
 

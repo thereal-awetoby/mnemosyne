@@ -16,7 +16,7 @@
     "sub:check": "tsx src/tools/subKeyCheck.ts",
     "server": "tsx src/serve.ts",
     "x402:demo": "tsx src/tools/x402Demo.ts",
-    "test": "tsx --test src/x402/*.test.ts src/private/*.test.ts src/dashboard/*.test.ts src/allocate/*.test.ts src/limits/*.test.ts src/auth/*.test.ts src/proof/*.test.ts src/schedule.test.ts",
+    "test": "tsx --test src/x402/*.test.ts src/private/*.test.ts src/dashboard/*.test.ts src/allocate/*.test.ts src/limits/*.test.ts src/auth/*.test.ts src/proof/*.test.ts src/schedule.test.ts src/refuse.test.ts",
     "x402:setup": "tsx src/tools/x402Setup.ts",
     "x402:demo:real": "tsx src/tools/x402RealDemo.ts",
     "tee:check": "tsx src/tools/teeCheck.ts",

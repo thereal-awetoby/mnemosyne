@@ -161,13 +161,16 @@ export function localPolicy(state: FakeSubState[]): Proposal[] {
 }
 
 export function buildPrompt(state: FakeSubState[], env: RiskEnvelope, lessons: string[], salt: string) {
+  const subIds = state.map((s) => s.sub);
+  const subList = subIds.join(", ");
+  const exampleSub = subIds[0] ?? "A";
   const system = [
-    "You are the private decision core of Mnemosyne, a NON-TRADING governor that allocates capital to three narrow sub-agents.",
+    `You are the private decision core of Mnemosyne, a NON-TRADING governor that allocates capital to ${subIds.length} narrow sub-agents.`,
     "For each sub choose KEEP, INCREASE, CUT or PAUSE and a target_capital (integer). Be conservative: protecting capital beats growth.",
     "target_capital is the sub's whole allocation. Its per-trade max_position (max_position_pct of target) and per-cycle max_loss (max_loss_pct of target) are derived automatically; do not shrink the target to fit them.",
     "Hard limits are enforced after you answer; proposals outside them are clamped, so stay inside them.",
     "Think briefly (a few short paragraphs at most), then answer.",
-    'Respond with ONLY a JSON object, no prose, no code fences: {"decisions":[{"sub":"A","action":"KEEP","target_capital":1000,"reason":"<=12 words"}, ...for A, B and C],"summary":"<=25 words"}',
+    `Respond with ONLY a JSON object, no prose, no code fences: {"decisions":[{"sub":"${exampleSub}","action":"KEEP","target_capital":1000,"reason":"<=12 words"}, ...for ${subList}],"summary":"<=25 words"}`,
   ].join("\n");
   const user = JSON.stringify({
     request_salt: salt, // makes the public request hash unguessable
@@ -178,8 +181,11 @@ export function buildPrompt(state: FakeSubState[], env: RiskEnvelope, lessons: s
   return [{ role: "system" as const, content: system }, { role: "user" as const, content: user }];
 }
 
-/** Extract and validate the model's JSON. Throws on anything malformed. */
-export function parseProposals(content: string): { proposals: Proposal[]; summary: string } {
+/** Extract and validate the model's JSON. Throws on anything malformed.
+ *  `expectedSubs` is the full roster for this cycle (SUB_AGENTS, in
+ *  practice) -- the model must decide every one of them, once each, no
+ *  more and no fewer. */
+export function parseProposals(content: string, expectedSubs: SubId[]): { proposals: Proposal[]; summary: string } {
   const start = content.indexOf("{");
   const end = content.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("model output has no JSON object");
@@ -192,7 +198,8 @@ export function parseProposals(content: string): { proposals: Proposal[]; summar
     reason: String(d.reason ?? "").slice(0, 200),
   }));
   const subs = proposals.map((p) => p.sub).sort().join("");
-  if (subs !== "ABC") throw new Error(`model must decide exactly A, B, C once each (got ${subs || "none"})`);
+  const expected = [...expectedSubs].sort().join("");
+  if (subs !== expected) throw new Error(`model must decide exactly ${expectedSubs.join(", ")} once each (got ${subs || "none"})`);
   return { proposals, summary: String(j.summary ?? "").slice(0, 300) };
 }
 
@@ -221,7 +228,7 @@ export async function decidePrivately(cycleId: string, state: FakeSubState[], op
     const model = opts.model ?? "Qwen/Qwen3.8-27B";
     const salt = randomBytes(32).toString("hex");
     const res = await chat(opts.apiKey, model, buildPrompt(state, env, lessons, salt), opts.maxTokens ?? 8000);
-    const parsed = parseProposals(res.content);
+    const parsed = parseProposals(res.content, state.map((s) => s.sub));
     proposals = parsed.proposals;
 
     // ---- verify before trusting anything the enclave said

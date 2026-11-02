@@ -21,6 +21,7 @@ the transaction that settles it. It is generated from the cycle records by
 | What we claim | Open this | Or run |
 |---------------|-----------|--------|
 | A swarm with mandates, not a bot | [`src/subAgents.ts`](src/subAgents.ts), [`src/refuse.ts`](src/refuse.ts) | `npm run sub:check -- C` |
+| Two independent ways to refuse | [`src/refuse.ts`](src/refuse.ts) (absolute ceilings for A/B/C vs. D's ratio of its own target) | `npx tsx --test src/refuse.test.ts` |
 | The decision is private | [`src/private/`](src/private/) | `npm run tee:check` |
 | The keys cannot spend | [`src/report.ts`](src/report.ts), [`contract/src/lib.rs`](contract/src/lib.rs) | `npm run sub:check -- A` |
 | Memory is the gate | [`src/cycle.ts`](src/cycle.ts), [`src/memory.ts`](src/memory.ts) | `npm run prove -- --live` |
@@ -34,9 +35,11 @@ Build progress / what's been done in each step: [`HANDOFF.md`](HANDOFF.md).
 
 ## Current status: Phases 1–6 proven on NEAR testnet, including real x402 payments in wNEAR and private decisions verified in a NEAR AI Cloud TEE
 
-One cycle runs: read -> decide -> **on-chain memory commit** (mnemosyne-gov.testnet, hash-chained, fail-closed) -> allocate (print-only by default; optional real wNEAR top-ups) -> **sub-agent window**: each sub checks the directive against its own mandate and writes ACT/REFUSE on-chain with its own report-only function-call key. Sub C (defensive, reduce-only) refuses directives above its tighter ceiling.
+One cycle runs: read -> decide -> **on-chain memory commit** (mnemosyne-gov.testnet, hash-chained, fail-closed) -> allocate (print-only by default; optional real wNEAR top-ups) -> **sub-agent window**: each sub checks the directive against its own mandate and writes ACT/REFUSE on-chain with its own report-only function-call key. Sub C (defensive, reduce-only) refuses directives above its tighter ceiling. Sub D (volatility-capped) refuses by a different mechanism entirely: its ceiling isn't a fixed number of units but a percentage of its *own* target capital (12% position / 3% loss), tighter than the governor's default envelope (20% / 5%) -- two independent layers of risk control that can disagree, not one rule wearing two names.
 
 Proven on testnet 2026-10-30 (see HANDOFF.md): a full cycle committed memory, then sub A and B reported ACT and sub C reported REFUSE on-chain, each signing with its own report-only key. Every sub key passes `npm run sub:check`: it can call `report`, and NEAR itself rejects `commit` and transfers. The sub accounts' FullAccess keys stay in the operator's keychain and are never given to the agent.
+
+**A 4th sub-agent, with a different kind of refuse rule.** `mnemosyne-sub-d.testnet` (`volatility_capped`) is built and tested (255 tests, `src/refuse.test.ts`), but not yet deployed or run live: the contract change (`contract/src/lib.rs`, widening `SUB_ACCOUNTS` to four) could not be compiled or verified from this sandbox (no route to `index.crates.io`), so it needs the operator's own `cargo near` toolchain. Setup: [`docs/PHASE3_KEYS.md`](docs/PHASE3_KEYS.md), "Sub D: one extra first step."
 
 **x402 memory API (Phase 5):** other agents pay per query to ask "does this situation match a failure Mnemosyne has already learned from?" -- no signup, no API key. They get back match / citation id / one-line public advice and a receipt; the private detail of each memory never leaves the server. Payments follow x402 v2 (HTTP 402 + `PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` / `PAYMENT-RESPONSE`). Each payment is an ed25519-signed authorization from the payer's NEAR key, bound to price, recipient, network, endpoint, a time window and a single-use nonce. **Settlement is mocked:** the facilitator performs every check but records the payment in a local ledger instead of moving NEAR (ids start with `mock_`, responses say `mock: true`). Details: [`docs/X402.md`](docs/X402.md).
 
@@ -92,7 +95,7 @@ No NEAR keys needed for these steps. Use Node.js 22+ and two terminals at the re
 3. `npm run x402:demo` -> an external agent (a fresh NEAR implicit account) gets the 402, signs the quoted price, retries, and receives `match: true (citation M-001, key-management)` plus one line of advice and a `receipt: R-...`. It then fetches the receipt and checks both hashes (`answer hash matches ... YES`), replays the same payment and gets `HTTP 402: nonce_already_used`. Last line: `DEMO OK`.
 4. `npm run x402:demo -- "planning the team lunch menu"` -> still paid, but `match: false`: unrelated situations don't produce false citations.
 5. Open `http://localhost:8402/audit` -> every paid check (receipt id, payer, amount, citation, `mock_` settlement id), and never the query text.
-6. `npm test` -> 238 tests, no network needed. Among them: wrong amount, recipient, network, payer key, endpoint, expired or over-long window, tampered signature, replay, 8 concurrent uses of one payment (exactly 1 settles), restart persistence, admin-only routes, that `private_detail` never appears in any response, that a wallet session cannot reach an operator route, that a record with one byte changed no longer hashes to its commitment, and that the schedule turns itself off after repeated failed cycles.
+6. `npm test` -> 255 tests, no network needed. Among them: wrong amount, recipient, network, payer key, endpoint, expired or over-long window, tampered signature, replay, 8 concurrent uses of one payment (exactly 1 settles), restart persistence, admin-only routes, that `private_detail` never appears in any response, that a wallet session cannot reach an operator route, that a record with one byte changed no longer hashes to its commitment, that the schedule turns itself off after repeated failed cycles, and that sub D's ceiling scales with its own target capital (raising the target alone never buys room).
 
 For a remote deployment, set `PUBLIC_URL` to its public HTTPS origin and point
 `MNEMOSYNE_URL` at the same origin. Without a pinned URL, the demo also works
