@@ -70,6 +70,10 @@ input[type=text]:focus { outline: none; border-color: #4a4a4a; }
         <label>Signed in as</label>
         <div class="acct" id="acct">&hellip;</div>
       </div>
+      <div id="payerRow" hidden>
+        <label>Paying with</label>
+        <div class="acct" id="payerAcct">&hellip;</div>
+      </div>
       <div>
         <label for="q">Your question</label>
         <input type="text" id="q" maxlength="500" autocomplete="off">
@@ -128,12 +132,24 @@ let ME = null;
 let LAST_QUOTE = null;   // the server's unpaid 402 answer: { x402Version, resource, accepts, extensions }
 let connector = null;
 let wallet = null;
+let payerAccount = null;   // the NEAR account that will actually sign and pay -- not always ME.account_id
 
 /* Not every NEAR wallet can sign a NEP-366 delegate action (MyNearWallet
  * cannot; Meteor Wallet and Intear Wallet can) -- near-connect still lets
  * you *connect* an incapable one, it just fails when actually asked to sign
  * one. So this page never trusts a reused wallet's name, only this flag. */
 const canSignDelegate = (w) => !!w?.manifest?.features?.signDelegateActions;
+
+/* "Signed in as" (ME.account_id) is who the HTTP session belongs to; the
+ * wallet connected here for signing can be a different NEAR account, and
+ * that account is the one that needs wNEAR. Shown as soon as it's known,
+ * before signing, so a failure still leaves you knowing who to fund. */
+async function notePayer(w) {
+  try { payerAccount = (await w.getAccounts())?.[0]?.accountId ?? null; } catch { payerAccount = null; }
+  $("payerRow").hidden = !payerAccount;
+  if (payerAccount) $("payerAcct").textContent = payerAccount;
+  return w;
+}
 
 /* Resumes whatever /login already connected, same-origin. Never opens a UI
  * popup -- safe to call on page load. Returns null if there's nothing to
@@ -151,11 +167,11 @@ async function resumeCapableWallet() {
 async function ensureWallet() {
   if (wallet && canSignDelegate(wallet)) return wallet;
   const resumed = await resumeCapableWallet();
-  if (resumed) { wallet = resumed; return wallet; }
+  if (resumed) { wallet = await notePayer(resumed); return wallet; }
   const picked = await connector.connect();
   if (!picked) throw new Error("No wallet was chosen.");
   if (!canSignDelegate(picked)) throw new Error("That wallet can't sign this kind of payment here either. Try Meteor Wallet or Intear Wallet.");
-  wallet = picked;
+  wallet = await notePayer(picked);
   return wallet;
 }
 
@@ -194,6 +210,7 @@ async function signedDelegateFor(req) {
   $("walletNote").hidden = true;
   const { signedDelegateActions } = await w.signDelegateActions({
     network: "testnet",
+    signerId: payerAccount ?? undefined,
     delegateActions: [{
       receiverId: req.asset,
       actions: [{
@@ -208,10 +225,11 @@ async function signedDelegateFor(req) {
 
 function friendlySettlementError(reason) {
   const r = String(reason || "");
-  if (/receipt_not_successful|ft_transfer/i.test(r)) {
-    return "Your wallet isn't registered for wNEAR, or doesn't have enough of it. Open your wallet app, wrap a little testnet NEAR into wNEAR (most wallets have a “wrap” feature), then press Pay again. Nothing was charged.";
+  if (/receipt_not_successful|ft_transfer|insufficient_funds|not_registered_for_storage/i.test(r)) {
+    const who = payerAccount ? ` (${payerAccount})` : "";
+    return `The wallet you paid with${who} isn't registered for wNEAR, or doesn't have enough of it. Open that wallet's app, get a little testnet NEAR (a faucet, if it has none) and wrap some into wNEAR -- most wallets have a "wrap" or "swap" feature -- then press Pay again. Nothing was charged.`;
   }
-  return `${human(r) || "The payment was not accepted."} Nothing was charged.`;
+  return `${human(r) || "The payment was not accepted"}. Nothing was charged.`;
 }
 
 async function payWithWallet() {
@@ -263,7 +281,7 @@ $("q").addEventListener("input", () => { LAST_QUOTE = null; $("btnPay").disabled
   $("q").value = Q || "delete the full access key";
   try {
     const resumed = await resumeCapableWallet();
-    if (resumed) wallet = resumed;
+    if (resumed) wallet = await notePayer(resumed);
     else $("walletNote").hidden = false;
   } catch {}
 })();

@@ -2,6 +2,15 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-02 — `/pay`: show who's actually paying, and recognize `insufficient_funds`
+
+**The wallet-compatibility fix worked, and the next live test got further than any before it**: connect Meteor Wallet, sign the delegate action, send it, the server's real facilitator verifies it and tries to settle on chain -- refused, but for an honest reason: `insufficient_funds`. This is the first live run that reached actual settlement with a real signature, not a dispatch error. The gap it exposed is real, though: the page showed "Signed in as" (the `/login` session identity) but never said which NEAR account the *connected-for-paying* wallet actually was -- and those can differ, since `/pay`'s wallet picker is independent of what `/login` used. Someone staring at the error had no way to know which account needed wNEAR.
+
+- `web/pay.html` now calls the wallet's own `getAccounts()` as soon as a capable wallet is resolved (silently resumed or freshly picked) and shows it in a new "Paying with" row, separate from "Signed in as" -- before signing starts, so even a failure leaves you knowing who to fund.
+- `signDelegateActions` is now called with an explicit `signerId` (the account just resolved) instead of leaving it to the wallet's default, matching `@x402/near`'s own reference client.
+- `friendlySettlementError` now also recognizes `insufficient_funds` and `not_registered_for_storage` (previously only matched `receipt_not_successful`/`ft_transfer`-shaped reasons) and names the specific account in its message. Also fixed: a missing period made two sentences run together ("Insufficient funds Nothing was charged.").
+- Not a new patch to the capability-detection logic from the previous fix -- that part is confirmed working by this very test (Meteor Wallet was offered, chosen, and signed correctly).
+
 ## 2026-11-02 — `/pay` fix: not every NEAR wallet can sign a delegate action
 
 **The first live test of `/pay` failed exactly where I'd flagged it could**: the offline test proved the wire format, but a real wallet signing a real delegate action had never been exercised. Live result: quote fetched fine (1000 wNEAR, correct `payTo`/network), then "Pay with my wallet" failed with a bare `Method not found`.
