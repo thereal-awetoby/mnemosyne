@@ -358,11 +358,18 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
 #chainBox table.endlink td:last-child a { color:var(--accent); border-color:currentColor; }
 .limits-grid { grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr)); gap:1px; background:var(--line); border:1px solid var(--line); }
 .limits-grid .limit { border:0; background:var(--panel); }
+.pill::before { width:6px; height:6px; border-radius:0; }
+.pill.on::before { background:#3ddc84; }
+:root[data-theme="light"] .pill.on::before { background:#1d7a4c; }
 .schedule-head { display:flex; align-items:center; gap:10px; }
-.schedule-toggle { position:relative; width:36px; height:20px; border:1px solid var(--line); background:var(--panel-2); cursor:pointer; padding:0; }
-.schedule-toggle i { position:absolute; width:12px; height:12px; left:3px; top:3px; background:var(--muted); transition:transform .15s; }
+#scheduleNote { border:0; padding:0; color:var(--dim); }
+.schedule-help { margin:0 !important; font-size:12.5px !important; color:var(--muted); }
+.schedule-error { color:var(--bad) !important; margin:8px 0 0 !important; }
+#scheduleBox .limits-actions:not(:empty) { margin-top:16px; }
+.schedule-toggle { position:relative; width:42px; height:24px; border:1px solid var(--line); background:var(--panel-2); cursor:pointer; padding:0; }
+.schedule-toggle i { position:absolute; width:16px; height:16px; left:3px; top:3px; background:var(--muted); transition:transform .15s; }
 .schedule-toggle.on { background:var(--accent); border-color:var(--accent); }
-.schedule-toggle.on i { background:#fff; transform:translateX(16px); }
+.schedule-toggle.on i { background:#fff; transform:translateX(18px); }
 @media(max-width:720px) { #chainBox table { min-width:0; } #chainBox table.endlink td:last-child { text-align:right; padding-left:0; } }
 @media(prefers-reduced-motion:reduce) { .ticker-track { animation:none; } }
 
@@ -379,8 +386,6 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
       <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"></circle><path d="M12 3.5v2M12 18.5v2M20.5 12h-2M5.5 12h-2M17.3 6.7l-1.4 1.4M8.1 15.9l-1.4 1.4M17.3 17.3l-1.4-1.4M8.1 8.1L6.7 6.7"></path></svg>
       <svg class="moon" aria-hidden="true" hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.2A8.3 8.3 0 019.8 4a8.3 8.3 0 1010.2 10.2z"></path></svg>
     </button>
-    <button class="btn primary" type="button" id="refresh">Refresh</button>
-    <button class="btn" type="button" id="btnCycle" aria-expanded="false" aria-controls="cyclePop" hidden>Run cycle</button>
   </div>
 </header>
 <div class="ticker" aria-hidden="true"><div class="ticker-track"><span>PRIVATE DECISIONS <b>✦</b></span><span>MEMORY GATE <b>✦</b></span><span>WRITTEN TO NEAR <b>✦</b></span><span>REPORT-ONLY KEYS <b>✦</b></span><span>PRIVATE DECISIONS <b>✦</b></span><span>MEMORY GATE <b>✦</b></span><span>WRITTEN TO NEAR <b>✦</b></span><span>REPORT-ONLY KEYS <b>✦</b></span></div></div>
@@ -422,7 +427,7 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
     <section id="view-desk" aria-label="Overview">
       <div class="row">
         <h2>Overview</h2>
-        <div class="right"><span class="mono" id="cycleId"></span></div>
+        <div class="right"><span class="mono" id="cycleId"></span><button class="btn" type="button" id="refresh">Refresh</button><button class="btn" type="button" id="btnCycle" aria-expanded="false" aria-controls="cyclePop" hidden>Run cycle</button></div>
       </div>
       <div class="grid" id="cards"></div>
       <div class="grid four" id="stats"></div>
@@ -689,7 +694,7 @@ function applyOperator() {
   const show = OPERATOR && ADMIN_POSSIBLE;
   $("btnCycle").hidden = !show;
   $("btnCycle").classList.toggle("primary", show);
-  $("refresh").classList.toggle("primary", !show);
+  $("refresh").classList.remove("primary");
   if (!show) togglePop(false);
   $("cycTokWrap").hidden = !!ADMIN;
   renderOperatorSlot();
@@ -1640,7 +1645,7 @@ function renderSchedule(d) {
   lastSchedule = S;
   $("scheduleToggle").setAttribute("aria-checked", String(!!S.enabled));
   $("scheduleToggle").classList.toggle("on", !!S.enabled);
-  $("scheduleNote").textContent = S.enabled ? `On · every ${S.interval_minutes} min` : "Off";
+  $("scheduleNote").textContent = S.enabled ? "On" : "Off";
   if (scheduleEditing) return; // never wipe what someone is in the middle of typing
   drawSchedule(S, null);
 }
@@ -1654,27 +1659,15 @@ function drawSchedule(S, msg) {
   const box = $("scheduleBox");
   const editing = scheduleEditing;
 
-  const rows = [
-    h("div", { class: "limit" },
-      h("span", { class: "name" }, "Status"),
-      h("span", { class: "val" }, S.enabled ? `Running every ${S.interval_minutes} min` : "Off"),
-      h("span", { class: "help" }, S.enabled ? `Next run ${inWords(S.next_run_at)}.` : "Runs on its own, on a schedule.")),
-  ];
-  if (S.last_run_at) {
-    rows.push(h("div", { class: "limit" },
-      h("span", { class: "name" }, "Last run"),
-      h("span", { class: "val" }, S.last_result === "committed" ? "Committed" : "Did not commit"),
-      h("span", { class: "help" }, `${ago(S.last_run_at)}${S.last_result !== "committed" && S.last_error ? " · " + S.last_error : ""}`)));
+  const rows = [h("p", { class: "schedule-help" }, S.enabled
+    ? `A new cycle runs every ${S.interval_minutes} minutes${S.next_run_at ? ` · next run ${inWords(S.next_run_at)}` : ""}.`
+    : "When on, a new cycle runs on a schedule without you starting it.")];
+  if (S.last_result && S.last_result !== "committed" && S.last_error) {
+    rows.push(h("p", { class: "schedule-error", role: "status" }, `Last cycle did not commit: ${human(S.last_error)}`));
   }
 
   const actions = h("div", { class: "limits-actions" });
-  if (!editing) {
-    {
-      const edit = h("button", { class: "btn", type: "button", title: OPERATOR ? "Change automatic cycle schedule" : "Unlock operator controls to change" }, S.enabled ? "Change" : "Turn on");
-      edit.addEventListener("click", () => { if (!requireOperator()) return; scheduleEditing = true; drawSchedule(lastSchedule, null); $("schedMinutes")?.focus(); });
-      actions.append(edit);
-    }
-  } else {
+  if (editing) {
     actions.append(
       h("label", { class: "token-row" }, h("input", { id: "schedOn", type: "checkbox", checked: S.enabled }), " Run automatically"),
       h("label", { class: "token-row", for: "schedMinutes" }, "Every",
@@ -1703,7 +1696,7 @@ async function saveScheduleNow() {
     const res = await api("PUT", "/schedule", { enabled, interval_minutes: n }, token);
     if (res.status === 200) {
       ADMIN = token; scheduleEditing = false; lastSchedule = res.body;
-      $("scheduleNote").textContent = res.body.enabled ? `On · every ${res.body.interval_minutes} min` : "Off";
+      $("scheduleNote").textContent = res.body.enabled ? "On" : "Off";
       $("scheduleToggle").setAttribute("aria-checked", String(!!res.body.enabled));
       $("scheduleToggle").classList.toggle("on", !!res.body.enabled);
       addFeed(enabled ? "Turned on automatic cycles" : "Turned off automatic cycles", enabled ? `every ${n} min` : "");
