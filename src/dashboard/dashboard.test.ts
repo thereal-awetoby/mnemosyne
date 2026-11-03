@@ -112,3 +112,29 @@ test("dashboard routes are read-only", async () => {
     assert.equal((await fetch(`${base}${p}`, { method: "POST" })).status, 404, p);
   }
 });
+
+test("dashboard uses the supplied shell while retaining live controls and local fonts", async () => {
+  const html = await (await fetch(`${base}/dashboard`)).text();
+  for (const marker of ['id="themeToggle"', 'id="refresh"', 'id="btnPay"', 'id="railGuard"', 'id="limitsBox"', 'id="scheduleBox"', 'id="acctPanel"', 'id="lastCommitBox"']) assert.ok(html.includes(marker), marker);
+  for (const route of ['/me/guardrails', '/limits', '/schedule', '/cycle/run', '/memory/check', '/pay']) assert.ok(html.includes(route), route);
+  assert.match(html, /ibm-plex-sans-latin-400-normal\.woff2/);
+  assert.match(html, /ibm-plex-mono-latin-400-normal\.woff2/);
+  assert.match(html, /mn_paid_result/);
+});
+
+test("all-clear requires a committed, fully reported cycle without failures", async () => {
+  const html = await (await fetch(`${base}/dashboard`)).text();
+  const script = html.match(/function cycleSummary\(c\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(script);
+  const context = vm.createContext({ isTee: (r: any) => r.decision_path === 'near-ai-tee', teeVerified: () => true });
+  const summary = vm.runInContext(`${script}; cycleSummary`, context) as (c: any) => string;
+  const record = { decisions: [{ sub: 'A', action: 'KEEP' }] };
+  const run = { committed: true, verdicts: [{ sub: 'A', action: 'ACT' }], reports: [{ sub: 'A', status: 'reported' }], allocations: [] };
+  assert.equal(summary({ record, run }), 'All clear');
+  assert.equal(summary({ record, run: null }), 'Waiting');
+  assert.equal(summary({ record, run: { ...run, reports: [] } }), 'Waiting');
+  assert.equal(summary({ record, run: { ...run, verdicts: [{ sub: 'A', action: 'REFUSE' }] } }), 'Refused');
+  assert.equal(summary({ record, run: { ...run, allocations: [{ kind: 'failed' }] } }), 'Failed');
+  assert.equal(summary({ record, run: { ...run, committed: false } }), 'Failed');
+  assert.equal(summary({ record: { ...record, decision_path: 'near-ai-tee', tee: { checks: { tdx: 'not_checked', gpu: 'not_checked' } } }, run }), 'Waiting');
+});

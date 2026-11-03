@@ -6,15 +6,16 @@
 <meta name="color-scheme" content="dark">
 <title>Mnemosyne</title>
 <style>
+@font-face { font-family: "IBM Plex Sans"; src: url('/dashboard/fonts/ibm-plex-sans-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url('/dashboard/fonts/ibm-plex-sans-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url('/dashboard/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
 :root {
   --bg: #0c0c0c; --panel: #151515; --panel-2: #1b1b1b; --line: #282828; --line-soft: #202020;
   --text: #e8e8e6; --muted: #8e8e8a; --dim: #626260;
   --ok: #6f9f7a; --warn: #c4a35a; --bad: #c45c4a; --accent: #d4d0c8;
   --r: 10px; --r-sm: 7px;
-  /* No webfont here: this page keeps the strict CSP (no third-party origins, see docs/LOGIN.md),
-     so the "thin tech sans" look comes from weight and spacing, not a hosted font. */
-  --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
-  --sans: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
@@ -280,16 +281,69 @@ input[aria-invalid=true] { border-color: var(--bad); }
 .main > section { animation: rise .2s ease-out; }
 @keyframes rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+
+/* Dashboard shell, adapted from the supplied design; all data and actions remain live. */
+:root { --bg:#0d0f0a; --panel:#17150f; --panel-2:#201c15; --line:#332f24; --line-soft:#29261e; --text:#f3efe0; --muted:#b3ad9d; --dim:#958e7e; --accent:#4d7bff; --ok:#b3ad9d; --warn:#c5a985; --bad:#ff8166; --r:0; --r-sm:0; }
+:root[data-theme="light"] { color-scheme:light; --bg:#ece6d6; --panel:#f5f1e5; --panel-2:#fffdf6; --line:#d3cbb8; --line-soft:#e2dac8; --text:#15130f; --muted:#5f594e; --dim:#71695c; --accent:#1d4fd6; --ok:#5f594e; --warn:#805b31; --bad:#a02f25; }
+body { font-weight:400; -webkit-font-smoothing:antialiased; }
+.top { max-width:1320px; margin:auto; padding:24px 28px; border:0; }
+.brand h1 { font-size:20px; text-transform:none; letter-spacing:-.02em; }
+.brand .dot { width:18px; height:18px; border-radius:0; background:conic-gradient(var(--accent) 0 25%,var(--text) 0 50%,var(--accent) 0 75%,var(--text) 0); }
+.pill { border-radius:0; font:400 10px var(--mono); letter-spacing:.05em; background:transparent; }
+.pill.on { color:var(--muted); } .pill.on::before { animation:none; }
+.btn { border-radius:0; font-weight:400; background:transparent; }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:500; }
+.btn.primary:hover:not(:disabled) { background:#3564dc; border-color:#3564dc; }
+.btn.danger { border-color:var(--bad); }
+.shell { display:grid; grid-template-columns:minmax(0,1fr) 320px; max-width:1320px; gap:0 24px; padding:0 28px; min-height:0; }
+.side { grid-column:1/-1; display:flex; flex-direction:row; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; border:0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:0; }
+.side nav { display:flex; flex:1 1 auto; overflow-x:auto; gap:4px; }
+.side nav a { margin:0; padding:16px 12px 14px; border-radius:0; white-space:nowrap; border-bottom:2px solid transparent; font-size:12px; letter-spacing:.04em; }
+.side nav a.active { background:transparent; border-color:var(--accent); color:var(--text); }
+.side-foot { margin:0; padding:0; border:0; display:flex; flex-direction:row; align-items:center; gap:8px; }
+.side-note { display:none; } .user { width:auto; } .av { border-radius:0; font-weight:500; color:#fff; }
+.user-menu,.op-form { position:absolute; z-index:5; right:28px; min-width:220px; box-shadow:0 8px 24px #0004; }
+.main { grid-column:1/-1; grid-row:2; min-width:0; padding:40px 0 64px; }
+body[data-view="desk"] .main { grid-column:1; }
+.rail { grid-column:2; grid-row:2; border:0; padding:40px 0 64px; min-width:0; }
+.rail[hidden] { display:none; }
+.rail > .row, .rail #guardrails > .row { padding:16px; margin:0; background:var(--panel); border:1px solid var(--line); border-bottom:0; }
+.rail .row h2 { color:var(--text); font:500 14px var(--sans); text-transform:none; letter-spacing:0; }
+.feed, #railGuard { border:1px solid var(--line); background:var(--panel); padding:0 16px; }
+#railGuard { padding:16px; } .line { margin:16px 0; }
+.main > section > .row:first-child { margin-bottom:32px; align-items:end; }
+.main > section > .row:first-child h2 { font-size:36px; font-weight:400; letter-spacing:-.03em; line-height:1.1; }
+.main > section > .row:first-child h2::before { display:block; margin-bottom:8px; color:var(--accent); font:400 11px var(--mono); letter-spacing:.12em; }
+#view-desk > .row h2::before { content:'00 / OVERVIEW'; } #view-memory > .row h2::before { content:'01 / MEMORY'; } #view-subs > .row h2::before { content:'02 / SUB-AGENTS'; } #view-x402 > .row h2::before { content:'03 / PAID CHECKS'; } #view-guardrails > .row h2::before { content:'04 / SETTINGS'; } #view-audit > .row h2::before { content:'05 / ACTIVITY LOG'; }
+.grid { gap:1px; background:var(--line); border:1px solid var(--line); } .grid.four { margin-bottom:24px; }
+.card { border:0; border-radius:0; padding:18px; } .card .label { color:var(--muted); font-size:12px; font-weight:500; }
+.card .value { font-size:21px; } .card .foot { font:400 11px var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.panel,.sub-card { border-radius:0; } .panel-h h3 { font-size:15px; } .panel-h,.panel-b { padding:16px 18px; }
+.tag { border:1px solid var(--line); background:transparent; border-radius:0; font:400 10px var(--mono); }
+.tag.ok { color:var(--muted); background:transparent; } .tag.warn { color:var(--warn); background:transparent; } .tag.bad { color:var(--bad); background:transparent; border-color:var(--bad); }
+.mono,.step .n,.feed .when,td[data-label="When"],td[data-label="Who asked"],td[data-label="Receipt"],td[data-label="Paid"] { font:400 11px var(--mono); }
+.step { align-items:center; } .step .n { color:var(--accent); }
+th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-spacing:.03em; }
+.sub-stats { grid-template-columns:repeat(3,minmax(0,1fr)); } .sub-stats > :first-child { grid-column:1/-1; }
+.sub-stats .v { overflow-wrap:anywhere; } .limit { min-height:144px; } .limit input { border-color:var(--muted); }
+#acctTag { border:0; background:none; text-transform:none; font:400 12px var(--sans); }
+.msg.good { background:transparent; color:var(--muted); padding-left:0; }
+.out .hd { font-weight:500; } .feed li { padding:12px 0; }
+@media(max-width:960px) { .shell { grid-template-columns:minmax(0,1fr); padding:0 20px; } body[data-view="desk"] .main,.main { grid-column:1; grid-row:2; } .rail { grid-column:1; grid-row:3; padding:0 0 48px; } .top { padding:16px 20px; } .side { padding:0; } .side-foot { margin:0; padding:0; } .main { padding:32px 0 24px; } }
+@media(max-width:600px) { .shell { padding:0 16px; } .top { padding:16px; } .main > section > .row:first-child h2 { font-size:30px; } .side-foot { width:100%; padding-bottom:8px; } .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } #cards .card:last-child { grid-column:1/-1; } .sub-stats { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+
 </style>
 </head>
 <body>
 
 <header class="top">
-  <div class="brand"><span class="dot"></span><h1>Mnemosyne</h1></div>
+  <div class="brand"><span class="dot" aria-hidden="true"></span><h1>Mnemosyne</h1><span class="mono">NEAR · TESTNET</span></div>
   <div class="top-right">
     <span class="pill" id="pillTee">Checking…</span>
     <span class="pill" id="pillGate">Memory gate</span>
-    <button class="btn primary" type="button" id="btnCycle" aria-expanded="false" aria-controls="cyclePop" hidden>Run cycle</button>
+    <button class="btn" type="button" id="themeToggle" aria-label="Switch to light mode">☼</button>
+    <button class="btn primary" type="button" id="refresh">Refresh</button>
+    <button class="btn" type="button" id="btnCycle" aria-expanded="false" aria-controls="cyclePop" hidden>Run cycle</button>
   </div>
 </header>
 
@@ -330,7 +384,7 @@ input[aria-invalid=true] { border-color: var(--bad); }
     <section id="view-desk" aria-label="Overview">
       <div class="row">
         <h2>Overview</h2>
-        <div class="right"><span class="mono" id="cycleId"></span><button class="btn" type="button" id="refresh">Refresh</button></div>
+        <div class="right"><span class="mono" id="cycleId"></span></div>
       </div>
       <div class="grid" id="cards"></div>
       <div class="grid four" id="stats"></div>
@@ -364,8 +418,8 @@ input[aria-invalid=true] { border-color: var(--bad); }
       <div class="row"><h2>Memory</h2><span class="mono" id="chainNote"></span></div>
       <div class="panel">
         <div class="panel-h">
-          <div class="lhs"><h3>Decisions written to NEAR</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
-          <span class="tag">On NEAR</span>
+          <div class="lhs"><h3>Decision records</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
+          <span class="tag">Public records</span>
         </div>
         <p class="hint-text" hidden>Each entry points at the one before it, so the order cannot be changed afterwards. The newest is marked Now.</p>
         <div class="panel-b">
@@ -455,7 +509,7 @@ input[aria-invalid=true] { border-color: var(--bad); }
     </section>
   </main>
 
-  <aside class="rail">
+  <aside class="rail" aria-label="Overview activity and your limits">
     <div class="row"><h2>Recent activity</h2></div>
     <ul class="feed" id="feed"></ul>
     <div class="line"></div>
@@ -557,7 +611,7 @@ function remainLine(qUsed, qCap, sUsed, sCap) {
   const remQ = Math.max(0, qCap - qUsed);
   let remS = "0";
   try { const d = BigInt(sCap) - BigInt(sUsed); remS = (d > 0n ? d : 0n).toString(); } catch { /* leave at 0 */ }
-  return `${nfmt(remQ)} of ${nfmt(qCap)} checks left · ${yoctoToNear(remS)} of ${yoctoToNear(sCap)} NEAR left`;
+  return `${nfmt(remQ)} / ${nfmt(qCap)} checks left · ${yoctoToNear(remS)} / ${yoctoToNear(sCap)} NEAR left`;
 }
 
 /* ---------- state ---------- */
@@ -596,6 +650,8 @@ function setOperator(on, token, remember) {
 function applyOperator() {
   const show = OPERATOR && ADMIN_POSSIBLE;
   $("btnCycle").hidden = !show;
+  $("btnCycle").classList.toggle("primary", show);
+  $("refresh").classList.toggle("primary", !show);
   if (!show) togglePop(false);
   $("cycTokWrap").hidden = !!ADMIN;
   renderOperatorSlot();
@@ -618,7 +674,7 @@ function renderOperatorSlot() {
   }
   const input = h("input", { type: "password", id: "opTok", autocomplete: "off", placeholder: "Admin token", "aria-label": "Admin token" });
   const keep = h("input", { type: "checkbox", id: "opKeep", checked: true });
-  const go = h("button", { class: "btn primary", type: "button" }, "Unlock");
+  const go = h("button", { class: "btn", type: "button" }, "Unlock");
   const cancel = h("button", { class: "op-link", type: "button" }, "Cancel");
   cancel.addEventListener("click", () => { OP_FORM = false; renderOperatorSlot(); });
   const submit = async () => {
@@ -669,6 +725,8 @@ const VIEWS = ["desk", "memory", "subs", "x402", "guardrails", "audit"];
 function route() {
   const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "desk";
   for (const id of VIEWS) $("view-" + id).hidden = id !== v;
+  document.body.dataset.view = v;
+  document.querySelector(".rail").hidden = v !== "desk";
   document.querySelectorAll(".side nav a").forEach((a) => {
     const on = a.getAttribute("href") === "#" + v;
     a.classList.toggle("active", on);
@@ -681,7 +739,7 @@ window.addEventListener("hashchange", route);
 /* ---------- top bar ---------- */
 function teeVerified(r) {
   const k = r.tee?.checks || {};
-  return !!(k.hashes_match && k.signature_valid && k.binds_address && k.binds_nonce &&
+  return !!(k.hashes_match && k.signature_valid && k.provider_tee && k.model_matches && k.binds_address && k.binds_nonce &&
     (k.tdx === "not_checked" || k.tdx?.verified) && (k.gpu === "not_checked" || (k.gpu?.verdict && k.gpu?.token_signature_valid)));
 }
 
@@ -748,7 +806,7 @@ function decisionCounts(c) {
   for (const x of decs) {
     if (x.action === "PAUSE") { pause++; continue; }
     const v = ver.find((y) => y.sub === x.sub);
-    if (v?.action === "REFUSE") refuse++; else act++;
+    if (v?.action === "REFUSE") refuse++; else if (v?.action === "ACT") act++;
   }
   return { act, refuse, pause };
 }
@@ -791,6 +849,18 @@ function renderDesk(d) {
   renderSubsTable(d);
 }
 
+// Do not claim success for a missing run, missing reports or an incomplete TEE check.
+function cycleSummary(c) {
+  const r = c.record, run = c.run;
+  if (!run) return "Waiting";
+  if (run.committed === false || (run.allocations || []).some((a) => a.kind === "failed") || (run.reports || []).some((x) => x.status === "failed") || (isTee(r) && (!r.tee || !teeVerified(r)))) return "Failed";
+  if ((run.verdicts || []).some((v) => v.action === "REFUSE")) return "Refused";
+  if (isTee(r) && (r.tee.checks?.tdx === "not_checked" || r.tee.checks?.gpu === "not_checked")) return "Waiting";
+  const active = (r.decisions || []).filter((d) => d.action !== "PAUSE");
+  if (run.committed !== true || !Array.isArray(r.decisions) || !r.decisions.length || active.some((d) => !(run.verdicts || []).some((v) => v.sub === d.sub && v.action === "ACT") || !(run.reports || []).some((rep) => rep.sub === d.sub && rep.status === "reported"))) return "Waiting";
+  return "All clear";
+}
+
 /* A closed vocabulary for the cycle spine's status word -- done, sealed, written,
    skipped, reported, refused -- never a fresh word per step. Color stays mostly
    neutral; it's reserved for an actual refusal or failure. */
@@ -809,16 +879,17 @@ function renderSpine(d) {
     ["Decide, privately", isTee(r) ? "Inside a sealed enclave, reasoning stays private" : r.decision_path === "local-policy" ? "Built-in rule, labelled as such on NEAR" : "Early version", isTee(r) ? "sealed" : "done", isTee(r) ? "ok" : ""],
     ["Write to NEAR", committed === false ? `Stopped here — ${human(run.error) || "the write failed"}` : "Saved, and linked to the decision before it", "written", committed ? "ok" : ""],
     ["Allocate", `${real ? `${moved} transfer${moved === 1 ? "" : "s"}, tiny amounts` : "Nothing moved, this run is print-only"}${quoted ? " · cross-chain price quote" : ""}`, moved ? "done" : "skipped", moved ? "ok" : ""],
-    ["Sub-agents report", `${reported} reported back on NEAR${refuse ? ` · ${refuse} refused` : ""}`, reported ? "reported" : "skipped", refuse ? "bad" : ""],
+    ["Sub-agents report", `${reported} reported back on NEAR${refuse ? ` · ${refuse} refused` : ""}`, refuse ? "refused" : reported ? "reported" : "skipped", refuse ? "bad" : ""],
     ["Publish", "Public record saved, private reasoning stays here", "done", ""],
   ];
-  fill($("spineTag"), committed === false ? tag("Stopped", "bad") : refuse ? tag("Review", "warn") : tag("All clear", "ok"));
+  const summary = cycleSummary(c);
+  fill($("spineTag"), tag(summary, summary === "Failed" || summary === "Refused" ? "bad" : ""));
   fill(box, steps.map(([name, small, word, kind], i) => {
     const s = st[i];
     return h("div", { class: "step" },
       h("div", { class: "n" }, String(i + 1).padStart(2, "0")),
       h("div", { class: "t" }, name, h("small", {}, s ? small : "Did not run")),
-      s === "stop" || (i === 2 && committed === false) ? tag("Failed", "bad") : s ? tag(word, kind) : tag("Not run"));
+      s === "stop" || (i === 2 && committed === false) ? tag("Failed", "bad") : s ? tag(word, kind) : tag("Waiting"));
   }));
 }
 
@@ -827,15 +898,15 @@ function renderSpine(d) {
 function renderLastCommit(d) {
   const c = d.cycles[0], panel = $("lastCommit");
   if (!panel) return;
-  if (!c || !c.run || c.run.committed === false) { panel.hidden = true; return; }
+  if (!c || !c.run || c.run.committed !== true) { panel.hidden = false; return fill($("lastCommitBox"), emptyBox("No confirmed commit yet.")); }
   const r = c.record, run = c.run;
   panel.hidden = false;
   const row = (k, v) => h("div", { class: "r" }, h("dt", {}, k), h("dd", {}, v));
   fill($("lastCommitBox"), h("dl", { class: "kv" },
     row("Commit", hashEl(r.decision_hash, 14, 8, short(bare(r.decision_hash), 14, 8))),
-    row("When", `${when(cycleIso(r.cycle_id))} · ${ago(cycleIso(r.cycle_id))}`),
+    row("Run finished", run.finished_at ? `${when(run.finished_at)} · ${ago(run.finished_at)}` : "—"),
     row("Proof", txLink(run.commit_tx, "View on NEAR ↗")),
-    row("Cross-chain quote", run.cross_chain?.status === "quoted" ? h("span", { class: "ok" }, "Quoted") : h("span", { class: "faint" }, "Not requested this cycle"))));
+    row("Cross-chain quote", run.cross_chain?.status ? pretty(run.cross_chain.status) : h("span", { class: "faint" }, "Not requested this cycle"))));
 }
 
 /* one place that works out what a sub did in the latest cycle */
@@ -880,7 +951,7 @@ function renderChain(d) {
     fill($("chainLegend"));
     return fill(box, emptyBox("No cycles yet."));
   }
-  const committed = d.cycles.filter((c) => c.run?.committed !== false).length;
+  const committed = d.cycles.filter((c) => c.run?.committed === true || (d.chain.ok && c.record.decision_hash === d.chain.latest_hash)).length;
   // "Sealed in a TEE" said once, not down every row, when it's true of all of them
   const decided = new Set(d.cycles.map((c) => decidedLabel(c.record)));
   const uniform = decided.size === 1 ? [...decided][0] : null;
@@ -898,10 +969,10 @@ function renderChain(d) {
       td("When", h("span", { title: cycleIso(r.cycle_id) }, ago(cycleIso(r.cycle_id)))),
       td("Record", hashEl(r.decision_hash, 0, 0, short(bare(r.decision_hash), 8, 6)), isHead ? h("span", { class: "head-tag", title: "The record NEAR is holding right now" }, "Now") : null),
       td("Follows", linked ? h("span", {}, h("span", { class: "ok", title: "Matches the record below it" }, "✓ "), hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))) : hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))),
-      uniform ? null : td("Decided", decidedLabel(r)),
+      td("Sealed in a TEE", isTee(r) ? "Yes" : "—"),
       td("Proof", failed ? h("span", { class: "bad" }, "Not written") : c.run ? txLink(c.run.commit_tx, "View \u2197") : h("span", { class: "faint" }, "—")));
   });
-  const heads = uniform ? ["When", "Record", "Follows", "Proof"] : ["When", "Record", "Follows", "Decided", "Proof"];
+  const heads = ["When", "Record", "Follows", "Sealed in a TEE", "Proof"];
   fill(box, h("table", { class: "stack endlink" }, th(...heads), h("tbody", {}, rows)));
 
   const key = (sym, text) => h("li", {}, sym, h("span", {}, text));
@@ -943,7 +1014,7 @@ function renderDecision(d) {
         row("Record", hashEl(r.decision_hash, 14, 8, short(bare(r.decision_hash), 14, 8))),
         row("Follows", r.prev_memory_hash ? hashEl(r.prev_memory_hash, 14, 8, short(bare(r.prev_memory_hash), 14, 8)) : h("span", { class: "faint" }, "nothing — this was the first")),
         row("Sealed reasoning", r.private_commitment ? hashEl(r.private_commitment, 14, 8, short(bare(r.private_commitment), 14, 8)) : h("span", { class: "faint" }, "none")),
-        row("Written to NEAR", committed === false ? h("span", { class: "bad" }, `No — ${human(run.error) || "the write failed"}`) : run ? txLink(run.commit_tx, "View on NEAR \u2197") : h("span", { class: "faint" }, "No link saved here")),
+        row("Written to NEAR", committed === false ? h("span", { class: "bad" }, `No — ${human(run.error) || "the write failed"}`) : run ? txLink(run.commit_tx, "View on NEAR \u2197") : h("span", { class: "faint" }, "—")),
         row("Limits in force", `Total ${nfmt(r.swarm_risk?.max_total_exposure ?? "?")} · daily loss ${nfmt(r.swarm_risk?.max_daily_loss ?? "?")}`))),
     h("div", {}, h("h4", { class: "sub-title" }, "Checked before it was written"), checkList(r))));
 }
@@ -993,17 +1064,17 @@ function renderX402(d) {
   $("railTag").title = x.mock_settlement
     ? "Every payment is fully checked, then recorded here instead of on NEAR."
     : `Paid in wNEAR on NEAR testnet, to ${x.pay_to}.`;
-  $("priceTag").textContent = `${yoctoToNear(x.price)} NEAR · ${nfmt(x.memory_entries)} lessons`;
+  $("priceTag").textContent = `${money(x.price, x.asset || (x.mock_settlement ? "NEAR" : "wrap.testnet"))}${ME?.signed_up ? ` · ${Math.max(0, ME.profile.guardrails.max_queries_per_day - ME.usage.queries)} left` : ""}`;
   fill($("x402Flow"), ["Ask", "Get a price", "Pay", "Get the answer"].map((t) => h("li", {}, t)));
   if (!x.recent.length) return fill($("x402Table"), emptyBox("Nobody has paid for a check on this server yet."));
   fill($("x402Table"), h("table", { class: "stack endlink" },
     th("When", "Who asked", "Paid", "Answer", "Receipt", "Proof"),
     h("tbody", {}, x.recent.map((r) => h("tr", {},
       td("When", when(r.at)),
-      td("Who asked", h("span", { title: r.payer }, short(r.payer, 8, 6))),
+      td("Who asked", h("span", { class: "mono", title: r.payer }, short(r.payer, 8, 6))),
       td("Paid", h("span", { class: "mono" }, r.mock ? "Test" : money(r.amount, "wrap.testnet"))),
       td("Answer", r.match ? h("span", { class: "ok" }, `Matched ${r.citation_id}`) : "No match"),
-      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 6, 4))),
+      td("Receipt", h("span", { class: "mono", title: r.receipt_id }, short(r.receipt_id, 6, 4))),
       td("Proof", r.mock ? h("span", { class: "faint" }, "—") : txLink(r.settlement, "View \u2197")))))));
 }
 
@@ -1018,7 +1089,7 @@ function renderMyReceipts() {
       td("When", when(r.at)),
       td("Paid", h("span", { class: "mono" }, r.mock ? "Test" : money(r.amount, "wrap.testnet"))),
       td("Answer", r.match ? h("span", { class: "ok" }, `Matched ${r.citation_id}`) : "No match"),
-      td("Receipt", h("span", { title: r.receipt_id }, short(r.receipt_id, 6, 4))),
+      td("Receipt", h("span", { class: "mono", title: r.receipt_id }, short(r.receipt_id, 6, 4))),
       td("Proof", r.mock ? h("span", { class: "faint" }, "—") : (r.explorer ? ext(r.explorer, "View \u2197") : txLink(r.settlement, "View \u2197"))))))));
 }
 
@@ -1089,7 +1160,7 @@ async function payAndRetry() {
     const payUrl = "/pay" + (q ? "?q=" + encodeURIComponent(q) : "");
     if (ME && ME.signed_up) {
       return outLines([["Real payments are on", "pay with your own connected wallet instead.", "warn"],
-        h("a", { class: "btn primary", href: payUrl }, "Pay with my wallet")]);
+        h("a", { class: "btn", href: payUrl }, "Pay with my wallet")]);
     }
     return outLines([["Real payments are on", "this page has no wallet to pay with.", "warn"],
       "Run the paying agent from your terminal, then press Refresh. The check shows up below with its proof.",
@@ -1149,14 +1220,14 @@ function renderRail() {
   if (!ME) return fill(box, h("div", { class: "guard" },
     h("p", { class: "mono" }, "Sign in to set your own limits."), h("a", { class: "btn", href: "/login" }, "Sign in")));
   if (!ME.signed_up) return fill(box, h("div", { class: "guard" },
-    h("p", { class: "mono" }, "Finish creating your account to set limits."), h("a", { class: "btn primary", href: "/login" }, "Finish sign-up")));
+    h("p", { class: "mono" }, "Finish creating your account to set limits."), h("a", { class: "btn", href: "/login" }, "Finish sign-up")));
   const g = ME.profile.guardrails, maxQ = ME.protocol.max_queries_per_day.max, maxS = ME.protocol.max_spend_per_day.max;
   const dirty = () => { railDirty = true; };
   const q = h("input", { type: "number", id: "rg-q", min: "0", max: String(maxQ), step: "1", inputmode: "numeric", value: String(g.max_queries_per_day) });
   const s = h("input", { type: "text", id: "rg-s", inputmode: "decimal", value: yoctoToNear(g.max_spend_per_day, 24), "aria-describedby": "rg-s-help" });
   const p = h("select", { id: "rg-p" }, h("option", { value: "false", selected: !g.pause_all }, "Off"), h("option", { value: "true", selected: g.pause_all }, "On"));
   for (const el of [q, s, p]) { el.addEventListener("input", dirty); el.addEventListener("change", dirty); }
-  const save = h("button", { class: "btn", type: "button", id: "rg-save", style: "margin-top:4px" }, "Save");
+  const save = h("button", { class: "btn primary", type: "button", id: "rg-save", style: "margin-top:4px" }, "Save");
   save.addEventListener("click", saveRail);
   const u = ME.usage;
   fill(box, h("div", { class: "guard" },
@@ -1198,10 +1269,10 @@ function renderAccountPanel() {
   if (!ME) {
     fill(tagEl, "Signed out");
     return fill(box, h("p", {}, "Sign in with your NEAR wallet to set your own limits."),
-      h("a", { class: "btn primary", href: "/login" }, "Sign in"));
+      h("a", { class: "btn", href: "/login" }, "Sign in"));
   }
   fill(tagEl, ME.signed_up ? "Signed in" : "Not finished");
-  if (!ME.signed_up) return fill(box, h("p", {}, "You are signed in, but your account isn't created yet."), h("a", { class: "btn primary", href: "/login" }, "Finish sign-up"));
+  if (!ME.signed_up) return fill(box, h("p", {}, "You are signed in, but your account isn't created yet."), h("a", { class: "btn", href: "/login" }, "Finish sign-up"));
   const p = ME.profile, u = ME.usage, g = p.guardrails;
   const name = h("input", { type: "text", id: "nameIn", maxlength: "32", value: p.display_name || "", placeholder: "no display name", "aria-label": "Display name" });
   const saveName = h("button", { class: "btn", type: "button" }, "Save name");
@@ -1235,6 +1306,7 @@ function renderAccountPanel() {
 
 function renderAccountAll() {
   renderAccountSlot(); renderRail(); renderAccountPanel(); renderMyReceipts();
+  if (DATA) renderX402(DATA);
 }
 
 async function loadMe() {
@@ -1271,7 +1343,7 @@ function renderFeed(d) {
       if (run.cross_chain?.status === "quoted") items.push({ at: t, what: "Allowed price quote", detail: "Unlocked by the memory record" });
     }
   }
-  for (const r of d.x402?.recent || []) items.push({ at: r.at, what: "Paid check", detail: `${r.match ? "Matched " + r.citation_id : "No match"} · ${short(r.receipt_id, 8, 4)}` });
+  for (const r of d.x402?.recent || []) items.push({ at: r.at, what: r.match ? `Matched · ${r.citation_id || "lesson"}` : "Checked · no match", detail: short(r.receipt_id, 8, 4) });
   items.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const list = items.slice(0, 10);
   if (!list.length) return fill($("feed"), h("li", {}, h("div", { class: "detail" }, "Nothing yet.")));
@@ -1340,7 +1412,7 @@ function logSteps(c) {
   return S;
 }
 
-const STEP_STATE = { done: ["Done", "ok"], failed: ["Failed", "bad"], skip: ["Not run", ""], unknown: ["No record", ""] };
+const STEP_STATE = { done: ["Done", ""], failed: ["Failed", "bad"], skip: ["Skipped", ""], unknown: ["Waiting", ""] };
 let auditPick = "";   // cycle_id chosen in the Audit select; empty = newest
 
 function renderLog(d) {
@@ -1355,7 +1427,7 @@ function renderLog(d) {
       h("span", { class: "n" }, `${i + 1}/${steps.length}`),
       h("span", { class: "t" }, s.name),
       h("span", { class: "d" }, s.text),
-      tag(STEP_STATE[s.state][0], STEP_STATE[s.state][1])),
+      tag(s.state === "done" && i === 1 && isTee(c.record) ? "Sealed" : s.state === "done" && i === 2 ? "Written" : s.state === "done" && i === 3 && c.run?.allocate_mode !== "wnear" ? "Skipped" : s.state === "done" && i === 4 ? ((c.run?.verdicts || []).some((v) => v.action === "REFUSE") ? "Refused" : (c.run?.reports || []).some((r) => r.status === "reported") ? "Reported" : "Skipped") : STEP_STATE[s.state][0], s.state === "done" && i === 4 && (c.run?.verdicts || []).some((v) => v.action === "REFUSE") ? "bad" : STEP_STATE[s.state][1])),
     s.lines.length ? h("div", { class: "log-body" }, s.lines.map((l) => {
       // leading spaces become a real indent, so wrapped text on a phone lines up under its own line
       const first = typeof l.parts[0] === "string" ? l.parts[0] : "";
@@ -1644,7 +1716,7 @@ async function load() {
     else if (d.subs.some((s) => s.keys?.error)) problems.push("Can't read the sub-agents' keys from NEAR right now.");
     else if (d.swarm?.error) problems.push("Can't read the sub-agents' balances from NEAR right now.");
     $("problem").hidden = !problems.length;
-    $("problem").textContent = problems.join(" ");
+    $("problem").textContent = problems.join(" ") + (problems.length ? " Use Refresh to retry." : "");
     $("problem").title = [d.chain.error, d.swarm?.error].filter(Boolean).join(" · ");
     ADMIN_POSSIBLE = d.operator ? !!d.operator.enabled : true;
     if (!OPERATOR && ADMIN_POSSIBLE) {
@@ -1673,6 +1745,18 @@ async function load() {
   }
 }
 
+const THEME_KEY = "mn_dashboard_theme";
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const button = $("themeToggle");
+  button.textContent = theme === "light" ? "☾" : "☼";
+  button.setAttribute("aria-label", theme === "light" ? "Switch to dark mode" : "Switch to light mode");
+  try { localStorage.setItem(THEME_KEY, theme); } catch {}
+}
+let theme = "dark";
+try { if (localStorage.getItem(THEME_KEY) === "light") theme = "light"; } catch {}
+setTheme(theme);
+$("themeToggle").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
 $("refresh").addEventListener("click", load);
 $("btnCheck").addEventListener("click", requestCheck);
 $("btnPay").addEventListener("click", payAndRetry);
@@ -1684,6 +1768,20 @@ $("q").addEventListener("input", () => { LAST_QUOTE = null; });
 $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") requestCheck(); });
 
 outLines(IDLE);
+// The wallet page returns only the already-public answer and receipt, never the query or a key.
+try {
+  const stored = sessionStorage.getItem("mn_paid_result");
+  if (stored) {
+    sessionStorage.removeItem("mn_paid_result");
+    const j = JSON.parse(stored);
+    if (typeof j.match === "boolean" && typeof j.receipt_id === "string") outLines([
+      ["Answer", j.match ? "Matched" : "No match"],
+      ...(j.match ? [["Citation", String(j.citation_id || "—")]] : []),
+      ...(j.advice ? [["Advice", String(j.advice)]] : []),
+      ["Receipt", j.receipt_id]
+    ]);
+  }
+} catch { /* session storage may be blocked */ }
 route();
 load();
 setInterval(() => { if (!document.hidden && !cycleBusy) load(); }, 30000);
