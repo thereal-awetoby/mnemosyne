@@ -138,3 +138,15 @@ test("all-clear requires a committed, fully reported cycle without failures", as
   assert.equal(summary({ record, run: { ...run, committed: false } }), 'Failed');
   assert.equal(summary({ record: { ...record, decision_path: 'near-ai-tee', tee: { checks: { tdx: 'not_checked', gpu: 'not_checked' } } }, run }), 'Waiting');
 });
+
+test("dashboard keeps the reference logo and theme icons and exposes operator unlock from settings", async () => {
+  const html = await (await fetch(`${base}/dashboard`)).text();
+  assert.match(html, /class="mark" aria-hidden="true"/);
+  assert.equal((html.match(/<i class="b"><\/i>/g) || []).length, 4);
+  assert.match(html, /class="sun"/);
+  assert.match(html, /class="moon"/);
+  assert.match(html, /id="scheduleToggle"[^>]*role="switch"/);
+  assert.match(html, /function requireOperator\(\)/);
+  assert.match(html, /if \(!requireOperator\(\)\) return/);
+  assert.match(html, /drawSchedule\(lastSchedule \|\| DATA\.schedule, null\)/);
+});
