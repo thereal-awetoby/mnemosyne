@@ -150,3 +150,17 @@ test("dashboard keeps the reference logo and theme icons and exposes operator un
   assert.match(html, /if \(!requireOperator\(\)\) return/);
   assert.match(html, /drawSchedule\(lastSchedule \|\| DATA\.schedule, null\)/);
 });
+
+test("header and automatic cycles use the compact reference layout", async () => {
+  const html = await (await fetch(`${base}/dashboard`)).text();
+  const header = html.match(/<header class="top">([\s\S]*?)<\/header>/)?.[1] || "";
+  const overview = html.match(/<section id="view-desk"[\s\S]*?<div class="grid" id="cards">/)?.[0] || "";
+  assert.doesNotMatch(header, /id="refresh"|id="btnCycle"/);
+  assert.match(overview, /id="refresh"/);
+  assert.match(overview, /id="btnCycle"/);
+  assert.match(html, /\.pill\.on::before\s*\{\s*background:#3ddc84/);
+  const draw = html.match(/function drawSchedule\(S, msg\) \{([\s\S]*?)\n\}\n\nasync function saveScheduleNow/)?.[1] || "";
+  assert.match(draw, /When on, a new cycle runs on a schedule without you starting it/);
+  assert.doesNotMatch(draw, /class: "limit"/);
+  assert.match(draw, /id: "schedSave"/);
+});
