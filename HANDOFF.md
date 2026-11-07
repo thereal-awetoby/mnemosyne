@@ -2,6 +2,27 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-07 — a cross-chain payment that is actually payable, via NEAR Chain Signatures
+
+**The multi-chain plan assumed a bridge. There isn't one that works on testnet, so this route doesn't use one.** Both options were checked before writing any code, not assumed:
+
+- **1Click / NEAR Intents: no testnet, ever.** Their own FAQ: *"There is no testnet deployment and no plans for one."* So the Phase 1 quote can price a route it can never deliver, which is what the previous entry had to admit on screen.
+- **Omni Bridge does have a testnet, and its EVM→NEAR path is broken.** Issue Near-One/omni-bridge#660: transfers reach "Finalised" but mint ~10⁶× too little (no 18→24 decimal conversion) **and credit the bridge account instead of the recipient**, with no cancel/refund path and `sign_transfer` restricted to trusted relayers. Funds get stuck with no recovery. Building the demo on that nine days before judging would have been worse than shipping nothing.
+
+**So: don't bridge. The payer pays on Base Sepolia, and the governor receives on Base Sepolia.** The address is derived from `mnemosyne-gov.testnet` through NEAR Chain Signatures, so only that NEAR account can ever spend what lands there. The value never has to cross a bridge, because the NEAR account already controls an address on the other chain. For a NEAR hackathon this is also the better story — chain abstraction is NEAR's own primitive, not a third party's.
+
+- **The property the whole design rests on:** a derived address is deterministic, and **receiving at it costs nothing and needs no signature, no transaction and nothing deployed on Base**. Only spending later needs an MPC `sign` call.
+- **The derivation is not reimplemented, deliberately.** `v1.signer-prod.testnet` exposes `derived_public_key({predecessor, path})` as a *view* method, so the contract that owns the key tells us the key; `chainsig.ts` only turns it into an address (keccak256, last 20 bytes, EIP-55 cased). A hand-rolled epsilon derivation that is subtly wrong produces a plausible-looking address that nobody can ever spend from — the worst possible failure, and silent.
+- **One address per quote** (`mnemosyne-check-<quote_id>`). That turns settlement into a plain balance question with no amount matching, no sender matching and no log parsing, and makes one payment satisfying two quotes structurally impossible rather than defended against. **Native ETH, not USDC**, for the same reason: no token contract to mistype, no decimals to mismatch, no `Transfer` topic to get subtly wrong.
+- **Fail-closed everywhere, and tested case by case:** not paid, underpaid, already used, wrong question, expired, unknown quote id, a price-only 1Click quote presented as payment, and an unreadable Base node — all 402, none leaking any part of an answer. **An unreadable chain is never read as paid**, and the balance is read at `latest`, never `pending`, so nothing is released against a transaction that hasn't landed. The quote is spent *before* the answer is computed, by a write that reports whether it won the claim, so six simultaneous redemptions of one payment produce exactly one answer (there is a test that fires six at once).
+- **Receipts** gain `source_chain`, `source_address` and `source_controlled_by`; the question is still only ever stored as a sha256. The answer, hashes and receipt shape are otherwise identical to an x402 payment — both paths now go through one `answerAndReceipt()`, so a cross-chain check cannot drift from a NEAR one.
+- **`h()` on the desk learned real event listeners** (`addEventListener` for a function under `on*`) instead of `setAttribute`, which would have written an inline handler the page's own CSP forbids. Verified: the script still parses, still has no `innerHTML`, still carries no wallet code, and the markup still has no inline `on*` attributes.
+- **Tested:** 313 total (293 + 20). `src/payments/chainsig.test.ts` covers address derivation against a key the real contract actually returned, EIP-55 (including a published vector), balance reading, malformed node answers, and the full paid/unpaid/replay/race matrix over HTTP.
+
+**Verified live against NEAR testnet, not just asserted:** `v1.signer-prod.testnet` really does answer `derived_public_key` for this governor, and two different quote ids derive two different valid addresses (`0x2d4Db2A8B4820737e5D28C53e37FADB8d9bb06fb` and `0x2Fdbc8879724939523e785B80DAaeB2EBFAaF586`). The fixture in the test file is a key that contract returned on a live call.
+
+**Not verified: an actual Base Sepolia payment.** This sandbox cannot reach a Base Sepolia node (egress is blocked), so no transaction has been sent to a derived address and redeemed. The settlement path is covered offline with an injected RPC, including the node-down case, but it has not met the live chain. That is the one step left and it needs only faucet ETH. **Also not built: sweeping.** Nothing spends what accumulates at those addresses — the governor can, but the `sign` call is deliberately not wired, because this project does not move value without a memory commit and that design question isn't settled.
+
 ## 2026-11-07 — Multi-chain Phase 1: a price for paying from Base (`POST /memory/quote`)
 
 **Phase 1 of `MNEMOSYNE_MULTI_CHAIN_MEMORY_ACCESS.md`, and only Phase 1.** A caller holding USDC on Base can now ask what a memory check would cost them. That is the whole of it: **nothing here settles, verifies a settlement, or produces an answer.**

@@ -8,9 +8,9 @@ confuse because they use the same pricing provider:
 | Who moves value | the governor, after a memory commit | a caller paying for a memory check |
 | Direction | wNEAR on NEAR -> USDC on Base | USDC on Base -> wNEAR on NEAR |
 | Swap type | `EXACT_INPUT` (spend this much) | `EXACT_OUTPUT` (deliver the listed price) |
-| Code | `src/allocate/cross_chain.ts` | `src/payments/inbound.ts` |
-| Turned on by | `CROSS_CHAIN_ALLOCATE=1` | `CROSS_CHAIN_INBOUND=1` |
-| Status | **quote only** | **quote only** |
+| Code | `src/allocate/cross_chain.ts` | `src/payments/inbound.ts`, `chainsig.ts`, `evm.ts` |
+| Turned on by | `CROSS_CHAIN_ALLOCATE=1` | `CROSS_CHAIN_INBOUND=1` (+ `CROSS_CHAIN_PAYABLE=1`) |
+| Status | **quote only** | **Base Sepolia route is really payable**; the 1Click price stays quote-only |
 
 The rest of this page is the outbound rail. Inbound is at the bottom, under
 "[Paying from another chain](#paying-from-another-chain-inbound-phase-1)".
@@ -194,3 +194,72 @@ saying it buys nothing yet.
 
 Receipts are unchanged: they carry no `source_chain` or `source_tx` field yet,
 because nothing can populate them honestly.
+
+---
+
+## Actually paying from another chain (Chain Signatures)
+
+Everything above this heading is a price. This is the route that takes money.
+
+### Why there is no bridge in it
+
+The obvious design — bridge Base USDC to NEAR and settle there — cannot be built honestly on testnet:
+
+- **NEAR Intents / 1Click has no testnet.** Their FAQ: *"There is no testnet deployment and no plans for one."*
+- **Omni Bridge's testnet EVM→NEAR path is broken.** Its own issue tracker (Near-One/omni-bridge#660) reports transfers that "finalise" but mint about 10⁶× too little (no 18→24 decimal conversion) and credit the *bridge account* rather than the recipient, with no cancel or refund path and `sign_transfer` restricted to trusted relayers. Funds get stuck.
+
+So this route does not bridge. **The payer pays on Base Sepolia, and the governor receives on Base Sepolia**, at an address derived from `mnemosyne-gov.testnet` through NEAR Chain Signatures. The value never needs to cross a bridge, because the NEAR account already controls an address on the other chain.
+
+### The property it rests on
+
+A chain-signature address is *deterministic*, and **receiving at it costs nothing and requires no signature, no transaction and no deployment**. Only spending from it later needs an MPC `sign` call from the NEAR account. So a payment can be accepted on Base Sepolia with nothing whatsoever deployed there.
+
+The derivation is **not reimplemented**. `v1.signer-prod.testnet` exposes `derived_public_key({predecessor, path})` as a view method, so the contract that owns the key tells us the key, and `chainsig.ts` only turns that key into an address (keccak256, last 20 bytes, EIP-55 cased). Re-deriving it locally would risk an epsilon-derivation bug producing a plausible address that nobody can ever spend from.
+
+### One address per quote
+
+Each quote derives its own path, `mnemosyne-check-<quote_id>`. That is what makes settlement a plain balance question — *does this address hold the quoted amount?* — with no amount matching, no sender matching, no log parsing, and no way for one payment to satisfy two quotes.
+
+Native ETH rather than USDC for the same reason: no token contract to mistype, no decimals to mismatch, no `Transfer` topic to get subtly wrong.
+
+### The flow
+
+```
+POST /memory/quote  {"query": "...", "chain": "base-sepolia:ETH"}
+  -> { quote_id, deposit_address, source_amount, controlled_by, explorer, quote_only: false }
+
+   ... payer sends that much ETH on Base Sepolia to deposit_address ...
+
+POST /memory/check  {"query": "...", "quote_id": "Q-..."}
+  -> 200 with the answer and a receipt, or 402 saying why not
+```
+
+### Every way it refuses
+
+All of these return 402 with no fragment of an answer, and all are tested:
+
+| Case | Refusal |
+| --- | --- |
+| nothing sent yet, or too little | `not paid yet: that address holds X of the Y asked for` |
+| quote already redeemed | `that quote has already been used` |
+| quote used for a different question | `that quote was for a different question` |
+| quote past its 30-minute window | `that quote has expired` |
+| unknown quote id | `no such quote` |
+| a 1Click price quote presented as payment | `that quote is a price only; it cannot be paid` |
+| Base Sepolia node unreadable | `could not check the payment on Base Sepolia: …` |
+
+The last one matters most: **an unreadable chain is never read as paid.** The balance is also read at `latest`, not `pending`, so an answer cannot be released against a transaction that has not landed.
+
+The quote is spent *before* the answer is computed, by a write that returns whether it won the claim — so six simultaneous redemptions of one payment produce exactly one answer. There is a test that fires six at once.
+
+### What the receipt proves
+
+A cross-chain receipt is the same shape as an x402 one, with three fields added: `source_chain`, `source_address` and `source_controlled_by`. The question itself is still never stored — only its sha256.
+
+### Verified, and not
+
+**Verified live against NEAR testnet:** `v1.signer-prod.testnet` really does answer `derived_public_key` for this governor, and two different quote ids derive two different valid addresses (`Q-livecheck…01` → `0x2d4Db2A8B4820737e5D28C53e37FADB8d9bb06fb`, `…02` → `0x2Fdbc8879724939523e785B80DAaeB2EBFAaF586`). The address fixture in `src/payments/chainsig.test.ts` is a key that contract returned on a live call.
+
+**Not verified: a real payment.** No Base Sepolia transaction has been sent to a derived address and redeemed, because this sandbox cannot reach a Base Sepolia node. The settlement logic is covered offline with an injected RPC, including the node-down case; it has not met the live chain. That is the one remaining step, and it needs only faucet ETH.
+
+**Also not done: sweeping.** Nothing yet spends what accumulates at those addresses. The governor *can* (that is what the MPC key is for), but the `sign` call is not wired, deliberately — this project does not move value without a memory commit, and that design question is not settled.
