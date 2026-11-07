@@ -125,6 +125,10 @@ const { server, memory } = createMnemosyneServer({
   rail,
   mockSettlement: !realFacilitatorUrl,
   adminToken: process.env.ADMIN_TOKEN || undefined,
+  // Paying for a check from another chain. Off by default, like the outbound
+  // cross-chain rail: it reaches a mainnet pricing API, and it only ever
+  // quotes -- nothing it returns can be settled yet (docs/CROSS_CHAIN.md).
+  inboundQuotes: process.env.CROSS_CHAIN_INBOUND === "1" ? { refundTo: GOVERNOR } : undefined,
   readChainHead: async () => {
     const { getLatestMemoryRecord } = await import("./memory.js");
     const rec = await getLatestMemoryRecord(GOVERNOR);

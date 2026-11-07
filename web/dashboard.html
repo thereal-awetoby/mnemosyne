@@ -497,9 +497,13 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
             <label for="q">Your question</label>
             <input type="text" id="q" value="delete the full access key" maxlength="500" autocomplete="off">
           </div>
+          <div class="guard" id="chainRow" style="margin-bottom:14px" hidden>
+            <label for="chain">Pay from</label>
+            <select id="chain"></select>
+          </div>
           <div class="btnrow" style="margin-bottom:14px">
-            <button class="btn" type="button" id="btnCheck">Ask without paying</button>
-            <button class="btn primary" type="button" id="btnPay">Pay &amp; retry</button>
+            <button class="btn" type="button" id="btnCheck">Show the price</button>
+            <button class="btn primary" type="button" id="btnPay">Pay &amp; get answer</button>
           </div>
           <div class="out" id="x402Out" role="status" aria-live="polite"></div>
         </div>
@@ -1120,6 +1124,7 @@ function renderX402(d) {
     : `Paid in wNEAR on NEAR testnet, to ${x.pay_to}.`;
   $("priceTag").textContent = `${money(x.price, x.asset || (x.mock_settlement ? "NEAR" : "wrap.testnet"))}${ME?.signed_up ? ` · ${Math.max(0, ME.profile.guardrails.max_queries_per_day - ME.usage.queries)} left` : ""}`;
   fill($("x402Flow"), ["Ask", "Get a price", "Pay", "Get the answer"].map((t) => h("li", {}, t)));
+  renderChainPicker(x);
   if (!x.recent.length) return fill($("x402Table"), emptyBox("Nobody has paid for a check on this server yet."));
   fill($("x402Table"), h("table", { class: "stack endlink" },
     th("When", "Who asked", "Paid", "Answer", "Receipt", "Proof"),
@@ -1145,6 +1150,47 @@ function renderMyReceipts() {
       td("Answer", r.match ? h("span", { class: "ok" }, `Matched ${r.citation_id}`) : "No match"),
       td("Receipt", h("span", { class: "mono", title: r.receipt_id }, short(r.receipt_id, 6, 4))),
       td("Proof", r.mock ? h("span", { class: "faint" }, "—") : (r.explorer ? ext(r.explorer, "View \u2197") : txLink(r.settlement, "View \u2197"))))))));
+}
+
+/* Which chain to be priced in. Only shown when this server knows of more
+ * than one: with NEAR alone there is no choice to make. Every chain other
+ * than NEAR is a price today, not a way to pay -- the option says so, so the
+ * picker can't imply a rail that isn't built. */
+function renderChainPicker(x) {
+  const chains = Array.isArray(x.chains) ? x.chains : [];
+  const row = $("chainRow"), sel = $("chain");
+  if (chains.length < 2) { row.hidden = true; return; }
+  row.hidden = false;
+  const keep = sel.value;
+  fill(sel, chains.map((c) => h("option", { value: c.key }, c.quote_only ? `${c.label} — price only` : c.label)));
+  sel.value = chains.some((c) => c.key === keep) ? keep : "near";
+}
+const chosenChain = () => ($("chainRow").hidden ? "near" : $("chain").value || "near");
+
+/* A price for paying from another chain. It stops at the price on purpose:
+ * nothing on this server settles one of these yet, and saying so here is
+ * cheaper than letting someone send real money to find out. */
+async function quoteOtherChain(chain) {
+  const q = $("q").value.trim();
+  if (!q) return outLines([["Problem", "Type a question first.", "bad"]]);
+  outBusy(true);
+  outLines(["Asking what that would cost…"]);
+  try {
+    const r = await api("POST", "/memory/quote", { query: q, chain });
+    if (!r.ok) return outLines([["No price", human(r.body?.error) || "That chain could not be priced.", "warn"]]);
+    const j = r.body;
+    outLines([
+      ["Quote ready", `pay on ${j.source_chain_label}`, "hd"],
+      ["You send", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`],
+      ["Arrives as", `${money(j.amount, "wrap.testnet")} to ${j.pay_to}`],
+      ["Priced by", j.provider],
+      ["Good until", when(j.expires_at)],
+      ["Quote id", j.quote_id],
+      "A price, not a payment: this route can't be settled yet, so nothing here buys an answer. Pay on NEAR for that.",
+    ]);
+    addFeed("Quoted another chain", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`);
+  } catch (err) { outLines([["Problem", `Couldn't reach the server: ${err.message}`, "bad"]]); }
+  finally { outBusy(false); }
 }
 
 /* ----- the check box: a real unpaid request, then a demo agent that pays on the mock rail ----- */
@@ -1176,6 +1222,8 @@ const IDLE = ["Ask without paying and you get a price back. Pay and you get the 
 const outBusy = (on) => { $("btnCheck").disabled = on; $("btnPay").disabled = on; };
 
 async function requestCheck() {
+  const chain = chosenChain();
+  if (chain !== "near") return quoteOtherChain(chain);
   const q = $("q").value.trim();
   if (!q) return outLines([["Problem", "Type a question first.", "bad"]]);
   outBusy(true); outLines(["Asking, without paying…"]);
@@ -1207,15 +1255,50 @@ async function demoPayer() {
   return DEMO;
 }
 
+/* The wallet lives on /pay, which loads wallet code this page deliberately
+ * never does (its CSP forbids outside origins, and a test asserts it). A
+ * popup window keeps the desk in place behind it and hands the result back
+ * when it settles -- an embedded frame is not an option, because /pay sets
+ * frame-ancestors 'none' on purpose, so it cannot be framed by anything. */
+let PAY_WIN = null;
+function openPayPopup(url) {
+  const w = 460, ht = 760;
+  const left = Math.max(0, Math.round(screenX + (outerWidth - w) / 2));
+  const top = Math.max(0, Math.round(screenY + (outerHeight - ht) / 3));
+  try { PAY_WIN = window.open(url + "&popup=1", "mnemosyne-pay", `width=${w},height=${ht},left=${left},top=${top},resizable=yes,scrollbars=yes`); } catch { PAY_WIN = null; }
+  if (!PAY_WIN) {
+    return outLines([["Blocked", "your browser stopped the wallet window opening.", "warn"],
+      h("a", { class: "btn", href: url }, "Open the wallet page instead")]);
+  }
+  try { PAY_WIN.focus(); } catch {}
+  outLines([["Wallet", "open in the window that just appeared", "hd"],
+    "Approve it there and the answer lands back here. Nothing is charged until you approve."]);
+}
+
+/* The popup's own page posts the finished check back. Same-origin only, and
+ * only the shape it promises -- never the query or anything it signed. */
+addEventListener("message", (e) => {
+  if (e.origin !== location.origin || e.data?.source !== "mnemosyne-pay") return;
+  const j = e.data.result;
+  if (!j || typeof j !== "object") return;
+  outLines([["Answer", j.match ? "Matched" : "No match", j.match ? "ok" : "hd"],
+    j.match && j.citation_id ? ["Lesson", `${j.citation_id} · ${pretty(j.category)}`] : null,
+    j.advice ? ["Advice", j.advice] : null,
+    j.receipt_id ? ["Receipt", j.receipt_id] : null,
+    ["Paid by", "your own connected wallet"]].filter(Boolean));
+  addFeed("Answered paid check", `${j.match && j.citation_id ? "Matched " + j.citation_id : "No match"}${j.receipt_id ? " · " + short(j.receipt_id, 8, 4) : ""}`);
+  load();
+});
+
 async function payAndRetry() {
   if (!DATA?.x402) return outLines([["Problem", "Paid checks are not set up on this server.", "bad"]]);
+  const chain = chosenChain();
+  if (chain !== "near") return quoteOtherChain(chain);
   if (!DATA.x402.mock_settlement) {
     const q = $("q").value.trim();
-    const payUrl = "/pay" + (q ? "?q=" + encodeURIComponent(q) : "");
-    if (ME && ME.signed_up) {
-      return outLines([["Real payments are on", "pay with your own connected wallet instead.", "warn"],
-        h("a", { class: "btn", href: payUrl }, "Pay with my wallet")]);
-    }
+    if (!q) return outLines([["Problem", "Type a question first.", "bad"]]);
+    const payUrl = "/pay?q=" + encodeURIComponent(q);
+    if (ME && ME.signed_up) return openPayPopup(payUrl);
     return outLines([["Real payments are on", "this page has no wallet to pay with.", "warn"],
       "Run the paying agent from your terminal, then press Refresh. The check shows up below with its proof.",
       h("a", { href: "/login?next=" + encodeURIComponent(payUrl) }, "Or sign in to pay with a wallet instead.")]);
@@ -1821,7 +1904,7 @@ $("cycCancel").addEventListener("click", () => togglePop(false));
 $("cycGo").addEventListener("click", runCycleNow);
 $("cycTok").addEventListener("keydown", (e) => { if (e.key === "Enter") runCycleNow(); if (e.key === "Escape") togglePop(false); });
 $("q").addEventListener("input", () => { LAST_QUOTE = null; });
-$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") requestCheck(); });
+$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") payAndRetry(); });
 
 outLines(IDLE);
 // The wallet page returns only the already-public answer and receipt, never the query or a key.

@@ -1,4 +1,21 @@
-# Cross-chain allocation (Phase 7): quote only
+# Cross-chain: two directions, both quote-only today
+
+There are two separate cross-chain paths in this project, and they are easy to
+confuse because they use the same pricing provider:
+
+| | Outbound (Phase 7) | Inbound (Multi-chain Phase 1) |
+| --- | --- | --- |
+| Who moves value | the governor, after a memory commit | a caller paying for a memory check |
+| Direction | wNEAR on NEAR -> USDC on Base | USDC on Base -> wNEAR on NEAR |
+| Swap type | `EXACT_INPUT` (spend this much) | `EXACT_OUTPUT` (deliver the listed price) |
+| Code | `src/allocate/cross_chain.ts` | `src/payments/inbound.ts` |
+| Turned on by | `CROSS_CHAIN_ALLOCATE=1` | `CROSS_CHAIN_INBOUND=1` |
+| Status | **quote only** | **quote only** |
+
+The rest of this page is the outbound rail. Inbound is at the bottom, under
+"[Paying from another chain](#paying-from-another-chain-inbound-phase-1)".
+
+## Cross-chain allocation (Phase 7): quote only
 
 After a cycle's memory commit, ALLOCATE can ask Rhea / NEAR Intents what it would cost to move a small slice of one sub's allocation to another chain. **This build only quotes.**
 
@@ -91,3 +108,89 @@ It sends six price-only requests that each change one thing from the one before 
 - Mainnet prices, testnet project: the quote is real market data about assets the project does not hold.
 - The `oneclick` provider is proven live (a price only, 2026-11-01; see HANDOFF.md). The `rhea` provider was written against the SDK's published type definitions and is tested offline against fakes. **Run live without a key on 2026-11-01, Rhea refused it** ("Rhea wants an API key and none is set"; nothing was sent), so it needs a `RHEA_API_KEY` from boss.rhea.finance, which could not be obtained (the portal rejected the emailed verification code). Until a key is set, use `CROSS_CHAIN_PROVIDER=oneclick`, which needs none.
 - Operator-side only. A future per-user layer ([`MULTIUSER_PLAN.md`](MULTIUSER_PLAN.md)) must never be able to reach this rail.
+
+---
+
+## Paying from another chain (inbound, Phase 1)
+
+`src/payments/inbound.ts`, `POST /memory/quote`. Off by default;
+`CROSS_CHAIN_INBOUND=1` turns it on.
+
+A memory check costs 0.001 wNEAR on NEAR. This answers the other question a
+caller might have: *"I hold USDC on Base — what would that cost me?"*
+
+**Phase 1 stops at the price, and that is a boundary, not a default.** Nothing
+here settles, verifies a settlement, or releases an answer. `/memory/check` is
+untouched by this file and does not accept a quote id; presenting one still
+gets a 402, and a test proves it. Verifying an actual inbound settlement is
+Phase 2.
+
+### Why it cannot be real yet
+
+1Click prices **mainnet** assets (Base USDC, `wrap.near`). This server settles
+on NEAR **testnet**, to `mnemosyne-gov.testnet`. So an inbound quote is a real
+market price for a route that cannot currently deliver to this governor. The
+quote says so in its own `note` field, and the desk repeats it. Closing that
+gap means either a testnet route or tiny mainnet amounts — Phase 3's problem,
+and a decision about real money rather than a coding task.
+
+### What it asks, and what it refuses
+
+The request is `EXACT_OUTPUT`: what is fixed is the price that must *arrive*
+on NEAR; what varies is how much USDC the payer sends. (The outbound rail asks
+the opposite question, which is why it does not share the request builder.)
+`dry: true`, as outbound, so no deposit address can come back.
+
+A provider's answer is checked before it is shown:
+
+- a **deposit address** on a dry quote → refused (something other than a price
+  came back);
+- a quote that would deliver **less than the listed price** → refused (it is
+  not a quote for this check);
+- **no usable amount** → refused, rather than displayed as zero;
+- the provider **unreachable or erroring** → 503 whose message also says that
+  paying in wNEAR on NEAR still works. A dead side rail must not read as a
+  dead server.
+
+### What is written down
+
+Each quote is stored in `data/runtime/quotes.json`, bound to the question by
+`sha256` (never the text itself), against the memory chain head it was priced
+at, with an expiry and a `used_at: null` so Phase 2 can redeem it exactly
+once. Nothing redeems one today.
+
+```
+POST /memory/quote   {"query": "...", "chain": "base:USDC"}
+
+{ "quote_id": "Q-...", "decision_hash": "sha256:...",
+  "source_chain": "base", "source_asset": "USDC",
+  "source_amount": "1050000", "source_amount_display": "1.05",
+  "amount": "1000000000000000000000", "asset": "wNEAR",
+  "pay_to": "mnemosyne-gov.testnet", "expires_at": "...",
+  "provider": "1click", "quote_only": true, "note": "..." }
+```
+
+`{"chain": "near"}` (or no chain at all) answers from the rail's own terms
+instead, so one endpoint covers every chain and the NEAR price is unchanged by
+any of this.
+
+### On the desk
+
+Paid checks grows a *Pay from* selector, shown only when the server actually
+knows of more than one chain. Every non-NEAR option is labelled "— price only"
+in the option text itself, so the picker cannot imply a rail that is not
+built. Choosing one and pressing the button shows "Quote ready — pay on Base"
+with what you would send, what would arrive, who priced it, and one line
+saying it buys nothing yet.
+
+### Not built (Phases 2–4)
+
+- **Phase 2:** watching NEAR for the incoming settlement and redeeming a quote
+  against it, then issuing a receipt carrying both the source proof and the
+  NEAR tx.
+- **Phase 3:** one real rail end to end, with the mainnet/testnet decision
+  above actually made.
+- **Phase 4:** Solana, if a clean route exists.
+
+Receipts are unchanged: they carry no `source_chain` or `source_tx` field yet,
+because nothing can populate them honestly.
