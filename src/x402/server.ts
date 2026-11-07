@@ -37,6 +37,7 @@ import { b64json, canonicalJson, fromB64json, sha256Hex } from "./crypto.js";
 import { requirementsError } from "./validation.js";
 import type { Facilitator } from "./facilitator.js";
 import { createMockRail, type PaymentRail, type WireRequirements } from "./rails.js";
+import { nearRpc, readPayerStatus } from "./wrap.js";
 import {
   MOCK_TRANSFER_METHOD,
   X402_VERSION,
@@ -184,6 +185,14 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       loginHtml: cfg.auth.loginHtml,
       loginScript: cfg.auth.loginScript,
       payHtml: cfg.auth.payHtml,
+      // Only on a rail that moves real tokens: the mock rail settles into a
+      // local ledger, so there is never anything to wrap.
+      payerStatus: rail.mock ? undefined : (accountId) => readPayerStatus({
+        rpc: nearRpc(cfg.auth!.rpcUrl, cfg.auth!.fetch),
+        accountId,
+        asset: requirements.asset,
+        price: BigInt(requirements.amount),
+      }),
       receiptsFor: (payer, limit) =>
         Object.values(receipts.get().receipts)
           .filter((r) => r.payer === payer)

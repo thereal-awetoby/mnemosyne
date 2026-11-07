@@ -7,6 +7,8 @@
  *   GET    /login/near-connect.js  the wallet connector bundle (served from this server, not a CDN)
  *   GET    /pay                    pay for one memory check with your own connected wallet (also loads wallet
  *                                   code, via the same bundle; redirects to /login first if not signed in)
+ *   GET    /pay/payer-status       what a payer holds (native NEAR, wNEAR, storage registration), so /pay
+ *                                   can offer to wrap before asking for a signature
  *   POST   /auth/challenge         a one-time message for the wallet to sign
  *   POST   /auth/verify            the signed message -> a session cookie (HttpOnly, SameSite=Strict)
  *   POST   /auth/logout
@@ -40,6 +42,10 @@ export interface AuthRoutesConfig {
   loginHtml?: string;
   loginScript?: Buffer;
   payHtml?: string;
+  /** Reads a would-be payer's native NEAR / wNEAR position, so /pay can offer
+   *  to wrap before asking for a signature. Absent on the mock rail, where
+   *  nothing real is ever transferred. */
+  payerStatus?: (accountId: string) => Promise<unknown>;
   now?: () => number;
 }
 
@@ -132,6 +138,20 @@ export function createAuthRoutes(cfg: AuthRoutesConfig) {
         if (!cfg.payHtml) throw new HttpError(404, "not configured");
         res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "content-security-policy": LOGIN_CSP });
         res.end(cfg.payHtml);
+        return true;
+      }
+      // What the payer holds, so /pay can say "wrap 0.001 NEAR first" instead
+      // of letting them sign a transfer that settlement would refuse. Public
+      // on-chain data, but behind a session so this isn't an open balance
+      // oracle; the account asked about is the *wallet* connected for paying,
+      // which is not always the session's own account.
+      if (method === "GET" && path === "/pay/payer-status") {
+        need(req);
+        if (!cfg.payerStatus) throw new HttpError(404, "this server settles test payments; nothing to wrap");
+        const account = new URL(req.url ?? "", "http://x").searchParams.get("account") ?? "";
+        if (!/^[a-z0-9._-]{2,64}$/.test(account)) throw new HttpError(400, "account must be a NEAR account id");
+        if (!perAccount.allow(account)) throw new HttpError(429, "too many checks; wait a minute");
+        send(res, 200, await cfg.payerStatus(account));
         return true;
       }
 

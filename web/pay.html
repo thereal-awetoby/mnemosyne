@@ -24,13 +24,13 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
 .brand h1 { font-size: 15px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
-.top a { color: var(--muted); font-size: 12px; text-decoration: none; }
-.top a:hover { color: var(--text); }
-main { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding: 24px 16px 64px; }
-.card { width: 100%; max-width: 460px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 28px 26px; margin-top: 24px; }
-.card-h { font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); margin-bottom: 18px; }
+.top a, .top button.link { color: var(--muted); font-size: 12px; text-decoration: none; background: none; border: 0; cursor: pointer; font-family: inherit; }
+.top a:hover, .top button.link:hover { color: var(--text); }
+main { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding: 16px 16px 48px; }
+.card { width: 100%; max-width: 460px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 24px 26px; }
+.card-h { font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); margin-bottom: 16px; }
 .card-b { display: flex; flex-direction: column; gap: 16px; }
-h2 { font-size: 22px; font-weight: 500; letter-spacing: -.02em; }
+h2 { font-size: 21px; font-weight: 500; letter-spacing: -.02em; }
 p { color: var(--muted); font-size: 13px; }
 p.small, .small { font-size: 12px; color: var(--dim); }
 label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 7px; }
@@ -43,8 +43,13 @@ input[type=text]:focus { outline: none; border-color: #4a4a4a; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn:focus-visible, input:focus-visible, a:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .acct { font-family: var(--mono); font-size: 13px; color: var(--text); word-break: break-all; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
-.row { display: flex; gap: 10px; }
-.row .btn { flex: 1; }
+/* price / holdings: label left, monospace figure right, one row height */
+.facts { display: flex; flex-direction: column; gap: 1px; background: var(--line-soft); border: 1px solid var(--line); }
+.fact { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 12px; background: var(--panel-2); }
+.fact .l { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+.fact .v { font-family: var(--mono); font-size: 13px; text-align: right; word-break: break-all; }
+.fact .v.warn { color: var(--warn); }
+.fact .v.bad { color: var(--bad); }
 .msg { font-size: 12px; padding: 9px 12px; border-radius: var(--r-sm); background: var(--panel-2); color: var(--muted); white-space: pre-wrap; }
 .msg.err { color: var(--bad); background: rgba(196,92,74,.1); }
 .msg.good { color: var(--ok); background: rgba(111,159,122,.1); }
@@ -52,15 +57,22 @@ input[type=text]:focus { outline: none; border-color: #4a4a4a; }
 .out { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .out .k { color: var(--dim); text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
 .out a { color: var(--accent); }
+.steps { display: flex; flex-direction: column; gap: 4px; }
+.step { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--dim); }
+.step .mark { font-family: var(--mono); width: 14px; flex: none; }
+.step.now { color: var(--text); }
+.step.done { color: var(--muted); }
+.step.done .mark { color: var(--ok); }
 [hidden] { display: none !important; }
-@media (max-width: 560px) { .top { padding: 14px 16px; } main { padding: 8px 16px 48px; } .card { padding: 24px 20px; } }
+@media (max-width: 560px) { .top { padding: 14px 16px; } main { padding: 8px 16px 32px; } .card { padding: 20px 18px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
 <header class="top">
   <div class="brand"><span class="dot"></span><h1>Mnemosyne</h1></div>
-  <a href="/dashboard#x402">&larr; Back to paid checks</a>
+  <a id="backLink" href="/dashboard#x402">&larr; Back to paid checks</a>
+  <button class="link" type="button" id="closeBtn" hidden>Close</button>
 </header>
 
 <main>
@@ -68,27 +80,27 @@ input[type=text]:focus { outline: none; border-color: #4a4a4a; }
     <div class="card-h">Pay with your wallet</div>
     <div class="card-b">
       <h2>Ask the memory</h2>
-      <p>This pays with your own connected NEAR wallet &mdash; a real testnet wNEAR transfer, signed by you and relayed by the server so you never pay gas.</p>
-      <div>
-        <label>Signed in as</label>
-        <div class="acct" id="acct">&hellip;</div>
-      </div>
-      <div id="payerRow" hidden>
-        <label>Paying with</label>
-        <div class="acct" id="payerAcct">&hellip;</div>
-      </div>
+      <p id="lede">One memory check, paid from your own NEAR wallet. The price is below &mdash; you sign once, and the server relays it so you pay no gas.</p>
+
       <div>
         <label for="q">Your question</label>
         <input type="text" id="q" maxlength="500" autocomplete="off">
       </div>
-      <div class="row">
-        <button class="btn" type="button" id="btnAsk">Ask without paying</button>
-        <button class="btn primary" type="button" id="btnPay" disabled>Pay with my wallet</button>
+
+      <div class="facts">
+        <div class="fact"><span class="l">Price</span><span class="v" id="fPrice">&hellip;</span></div>
+        <div class="fact"><span class="l">Paying with</span><span class="v" id="fPayer">Not connected</span></div>
+        <div class="fact" id="rowHold" hidden><span class="l">You hold</span><span class="v" id="fHold">&hellip;</span></div>
       </div>
+
+      <button class="btn primary" type="button" id="btnPay">Pay &amp; get answer</button>
+
+      <div class="steps" id="steps" hidden></div>
       <div class="out" id="out"></div>
       <div class="msg" id="status" role="status" hidden></div>
-      <p class="small" id="modeNote" hidden>This server is running test payments, not real ones. Use &ldquo;Pay &amp; retry&rdquo; on the desk instead &mdash; it needs no wNEAR.</p>
-      <p class="small" id="walletNote" hidden>The wallet you signed in with here doesn&rsquo;t support signing this kind of payment. Pressing Pay will ask you to connect one that does &mdash; Meteor Wallet or Intear Wallet, not MyNearWallet.</p>
+
+      <p class="small" id="modeNote" hidden>This server is running test payments, not real ones. Use the desk&rsquo;s own pay button instead &mdash; it needs no wNEAR.</p>
+      <p class="small" id="walletNote" hidden>The wallet you signed in with can&rsquo;t sign this kind of payment. Pressing Pay will ask you to connect one that can &mdash; Meteor Wallet or Intear Wallet, not MyNearWallet.</p>
     </div>
   </div>
 </main>
@@ -112,11 +124,12 @@ async function call(method, path, body, headers) {
 const ACRO = { near: "NEAR", api: "API", id: "ID", url: "URL", wnear: "wNEAR" };
 const splitWords = (t) => String(t).split(/[_-]+/).filter(Boolean).map((w) => ACRO[w.toLowerCase()] || w.toLowerCase()).join(" ");
 const human = (v) => { const t = String(v ?? "").replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (m) => splitWords(m)).trim(); return t ? t[0].toUpperCase() + t.slice(1) : t; };
-const errText = (res) => human((Array.isArray(res.body?.errors) && res.body.errors.join(" ")) || res.body?.error) || `The server answered ${res.status}.`;
 /* wNEAR is a NEP-141 token with the SAME 24 decimals as native yoctoNEAR
  * (confirmed in docs/X402.md and web/dashboard.html's own YOCTO constant) --
  * not 18, which is an Ethereum-token assumption that doesn't hold here. */
 const money = (yocto, decimals = 24) => `${(Number(BigInt(yocto)) / 10 ** decimals).toFixed(6)} wNEAR`;
+/* The same precision, labelled as the native token: what a faucet gives out. */
+const nativeAmt = (yocto) => `${(Number(BigInt(yocto)) / 1e24).toFixed(4)} NEAR`;
 
 function outLines(lines) {
   const box = $("out"); box.replaceChildren();
@@ -130,12 +143,33 @@ function outLines(lines) {
   }
 }
 
+/* A visible checklist of where the payment is, because the slow parts (a
+ * wallet prompt, a wrap confirming on-chain, settlement) otherwise look like
+ * nothing happening. Steps are named before they run, not after. */
+let STEPS = [];
+function stepsSet(list) { STEPS = list.map((t) => ({ t, state: "" })); drawSteps(); }
+function stepAt(i, state) { STEPS.forEach((s, n) => { if (n < i) s.state = "done"; }); if (STEPS[i]) STEPS[i].state = state; drawSteps(); }
+function drawSteps() {
+  const box = $("steps");
+  box.hidden = STEPS.length === 0;
+  box.replaceChildren(...STEPS.map((s) => {
+    const row = document.createElement("div"); row.className = "step" + (s.state ? " " + s.state : "");
+    const m = document.createElement("span"); m.className = "mark"; m.textContent = s.state === "done" ? "✓" : s.state === "now" ? "›" : "·";
+    const t = document.createElement("span"); t.textContent = s.t;
+    row.append(m, t); return row;
+  }));
+}
+
 /* where this page sends a signed-out visitor to sign in, and back here afterwards */
 const HERE = location.pathname + location.search;
-const Q = new URLSearchParams(location.search).get("q") || "";
+const PARAMS = new URLSearchParams(location.search);
+const Q = PARAMS.get("q") || "";
+/* Opened from the desk as a popup: hand the result back to the opener and
+ * close, instead of leaving someone on a dead page to navigate back from. */
+const POPUP = PARAMS.has("popup") && !!window.opener;
 
 let ME = null;
-let LAST_QUOTE = null;   // the server's unpaid 402 answer: { x402Version, resource, accepts, extensions }
+let MOCK = false;
 let connector = null;
 let wallet = null;
 let payerAccount = null;   // the NEAR account that will actually sign and pay -- not always ME.account_id
@@ -146,14 +180,13 @@ let payerAccount = null;   // the NEAR account that will actually sign and pay -
  * one. So this page never trusts a reused wallet's name, only this flag. */
 const canSignDelegate = (w) => !!w?.manifest?.features?.signDelegateActions;
 
-/* "Signed in as" (ME.account_id) is who the HTTP session belongs to; the
- * wallet connected here for signing can be a different NEAR account, and
- * that account is the one that needs wNEAR. Shown as soon as it's known,
- * before signing, so a failure still leaves you knowing who to fund. */
+/* "Signed in as" is who the HTTP session belongs to; the wallet connected
+ * here for signing can be a different NEAR account, and that account is the
+ * one that needs the tokens. Shown as soon as it's known, before signing. */
 async function notePayer(w) {
   try { payerAccount = (await w.getAccounts())?.[0]?.accountId ?? null; } catch { payerAccount = null; }
-  $("payerRow").hidden = !payerAccount;
-  if (payerAccount) $("payerAcct").textContent = payerAccount;
+  $("fPayer").textContent = payerAccount || "Not connected";
+  if (payerAccount) await showHoldings();
   return w;
 }
 
@@ -168,8 +201,8 @@ async function resumeCapableWallet() {
   } catch { return null; }
 }
 
-/* Only called from the Pay button: may open the wallet picker, which the
- * connector above already limits to wallets that declare signDelegateActions. */
+/* May open the wallet picker, which the connector above already limits to
+ * wallets that declare signDelegateActions. */
 async function ensureWallet() {
   if (wallet && canSignDelegate(wallet)) return wallet;
   const resumed = await resumeCapableWallet();
@@ -181,39 +214,49 @@ async function ensureWallet() {
   return wallet;
 }
 
-async function askWithoutPaying() {
-  const q = $("q").value.trim();
-  if (!q) return setStatus("err", "Type a question first.");
-  $("btnAsk").disabled = true; $("btnPay").disabled = true;
-  setStatus("", "Asking, without paying…");
-  outLines([]);
-  try {
-    const r = await call("POST", "/memory/check", { query: q });
-    if (r.status === 402 && r.body?.accepts?.[0]) {
-      LAST_QUOTE = r.body;
-      const req = r.body.accepts[0];
-      const isMock = !!req.extra?.mock;
-      $("modeNote").hidden = !isMock;
-      outLines([["Price", money(req.amount)], ["Paid to", req.payTo], ["Network", req.network]]);
-      setStatus("", "No answer until it is paid.");
-      $("btnPay").disabled = isMock;
-    } else {
-      setStatus("err", human(r.body?.error) || "The server gave an unexpected answer.");
-    }
-  } catch (err) { setStatus("err", `Couldn't reach the server: ${err.message}`); }
-  finally { $("btnAsk").disabled = false; }
+/* ---------------------------------------------------------------- wrapping
+ * A testnet faucet hands out native NEAR, but the price is in wNEAR, a
+ * NEP-141 token. The payment itself cannot carry the conversion: the official
+ * verifier accepts a delegate action only when it holds exactly one action,
+ * so near_deposit has to be its own transaction, signed first. */
+
+async function payerStatus() {
+  if (!payerAccount) return null;
+  const r = await call("GET", `/pay/payer-status?account=${encodeURIComponent(payerAccount)}`);
+  return r.ok ? r.body : null;
 }
 
-/** The one thing this page signs: a NEP-366 delegate action for a single
- *  ft_transfer, built the same way @x402/near's own reference client signer
- *  builds it (gas 30 TGas, deposit 1 yoctoNEAR -- see @x402/near's
- *  createClientNearSigner) -- just signed by the connected wallet instead of
- *  a key this page never holds. The wallet works out the nonce, the current
- *  block height and max_block_height, and the signature itself; this page
- *  only states which token, how much, and to whom. */
-async function signedDelegateFor(req) {
-  const w = await ensureWallet();
-  $("walletNote").hidden = true;
+async function showHoldings() {
+  if (MOCK) return;
+  const s = await payerStatus();
+  if (!s) { $("rowHold").hidden = true; return; }
+  $("rowHold").hidden = false;
+  const el = $("fHold");
+  el.textContent = `${money(s.wnear)} · ${nativeAmt(s.native)}`;
+  el.className = "v" + (s.enough ? "" : s.can_wrap ? " warn" : " bad");
+  if (!s.enough && s.can_wrap) setStatus("", `Pressing Pay will wrap ${nativeAmt(s.wrap_total)} into wNEAR first — two wallet prompts, then the answer.`);
+  else if (!s.enough) setStatus("err", `That wallet holds ${nativeAmt(s.native)}. It needs about ${nativeAmt(BigInt(s.wrap_total) + 50000000000000000000000n)} to cover the check and NEAR's own fees. Use a testnet faucet to top it up, then press Pay.`);
+  else setStatus("", "");
+  return s;
+}
+
+/** One ordinary transaction: register for the token if this account never has,
+ *  then convert exactly the shortfall of native NEAR into wNEAR. The payer
+ *  signs and pays gas for this one (they have native NEAR; that is the point). */
+async function wrapNear(w, s) {
+  const actions = [];
+  if (!s.registered) {
+    actions.push({ type: "FunctionCall", params: { methodName: "storage_deposit", args: { account_id: payerAccount, registration_only: true }, gas: "30000000000000", deposit: s.storage_deposit } });
+  }
+  actions.push({ type: "FunctionCall", params: { methodName: "near_deposit", args: {}, gas: "30000000000000", deposit: s.short_by } });
+  await w.signAndSendTransactions({ network: "testnet", transactions: [{ signerId: payerAccount ?? undefined, receiverId: s.asset, actions }] });
+}
+
+/** The one thing this page signs for the payment itself: a NEP-366 delegate
+ *  action for a single ft_transfer, built the same way @x402/near's own
+ *  reference client signer builds it (30 TGas, 1 yoctoNEAR deposit) -- just
+ *  signed by the connected wallet instead of a key this page never holds. */
+async function signedDelegateFor(w, req) {
   const { signedDelegateActions } = await w.signDelegateActions({
     network: "testnet",
     signerId: payerAccount ?? undefined,
@@ -233,61 +276,130 @@ function friendlySettlementError(reason) {
   const r = String(reason || "");
   if (/receipt_not_successful|ft_transfer|insufficient_funds|not_registered_for_storage/i.test(r)) {
     const who = payerAccount ? ` (${payerAccount})` : "";
-    return `The wallet you paid with${who} isn't registered for wNEAR, or doesn't have enough of it. Open that wallet's app, get a little testnet NEAR (a faucet, if it has none) and wrap some into wNEAR -- most wallets have a "wrap" or "swap" feature -- then press Pay again. Nothing was charged.`;
+    return `The wallet you paid with${who} ran short of wNEAR as the transfer went through. Press Pay again and it will wrap what's missing first. Nothing was charged.`;
   }
   return `${human(r) || "The payment was not accepted"}. Nothing was charged.`;
 }
 
-async function payWithWallet() {
-  if (!LAST_QUOTE || LAST_QUOTE.accepts?.[0]?.extra?.mock) { await askWithoutPaying(); if (!LAST_QUOTE || LAST_QUOTE.accepts?.[0]?.extra?.mock) return; }
-  const req = LAST_QUOTE.accepts.find((x) => x.scheme === "exact") || LAST_QUOTE.accepts[0];
-  if (req.network !== "near:testnet") return setStatus("err", "This page only pays on NEAR testnet.");
-  const resource = new URL(LAST_QUOTE.resource.url);
-  if (resource.pathname !== "/memory/check") return setStatus("err", "The quote is for a different resource; not paying.");
-  $("btnAsk").disabled = true; $("btnPay").disabled = true;
+/** Hand the result to the desk that opened this popup, so the paid-check card
+ *  can show it without a page reload. Same-origin only. */
+function tellOpener(result) {
+  if (!POPUP) return;
+  try { window.opener.postMessage({ source: "mnemosyne-pay", result }, location.origin); } catch {}
+}
+
+/* ------------------------------------------------------------- the one flow
+ * Connect (if needed) -> quote -> wrap (if needed) -> sign -> paid. One
+ * button press start to finish: the 402 quote is fetched here rather than
+ * asked for separately, because an unpaid quote costs nothing and nobody
+ * should have to press "ask" before they are allowed to press "pay". */
+async function payNow() {
+  const q = $("q").value.trim();
+  if (!q) return setStatus("err", "Type a question first.");
+  if (MOCK) return setStatus("err", "This server settles test payments; use the desk's own pay button.");
+  $("btnPay").disabled = true;
+  outLines([]);
+  stepsSet(["Connect your wallet", "Get the price", "Sign the payment", "Settle on NEAR"]);
   try {
-    setStatus("", "Opening your wallet to sign the payment…");
-    const signedDelegateAction = await signedDelegateFor(req);
-    const payment = { x402Version: LAST_QUOTE.x402Version || 2, payload: { signedDelegateAction }, resource: LAST_QUOTE.resource, accepted: req };
-    setStatus("", "Paying and asking again… this can take a few seconds while NEAR confirms it.");
-    const res = await call("POST", "/memory/check", { query: $("q").value.trim() }, { "PAYMENT-SIGNATURE": btoa(JSON.stringify(payment)) });
-    LAST_QUOTE = null;
+    stepAt(0, "now");
+    setStatus("", "Opening your wallet…");
+    const w = await ensureWallet();
+    $("walletNote").hidden = true;
+
+    stepAt(1, "now");
+    setStatus("", "Getting the price…");
+    const quoted = await call("POST", "/memory/check", { query: q });
+    if (quoted.status === 403 || quoted.status === 429) {
+      stepsSet([]);
+      return setStatus("err", `${human(quoted.body?.error) || "You have reached your own limit."} You can change that under Settings on the desk.`);
+    }
+    if (quoted.status !== 402 || !quoted.body?.accepts?.length) {
+      stepsSet([]);
+      return setStatus("err", human(quoted.body?.error) || "The server did not quote a price.");
+    }
+    const quote = quoted.body;
+    const req = quote.accepts.find((x) => x.scheme === "exact") || quote.accepts[0];
+    if (req.network !== "near:testnet") { stepsSet([]); return setStatus("err", "This page only pays on NEAR testnet."); }
+    if (new URL(quote.resource.url).pathname !== "/memory/check") { stepsSet([]); return setStatus("err", "The quote is for a different resource; not paying."); }
+    $("fPrice").textContent = money(req.amount);
+
+    // Wrap only if this wallet is actually short -- most second payments skip it.
+    const s = await payerStatus();
+    if (s && !s.enough) {
+      if (!s.can_wrap) {
+        stepsSet([]);
+        return setStatus("err", `That wallet holds ${nativeAmt(s.native)}, which isn't enough to cover ${money(req.amount)} plus NEAR's own fees. Top it up from a testnet faucet and press Pay again.`);
+      }
+      stepsSet(["Connect your wallet", "Get the price", `Wrap ${nativeAmt(s.wrap_total)} into wNEAR`, "Sign the payment", "Settle on NEAR"]);
+      stepAt(2, "now");
+      setStatus("", "Approve the first prompt: this turns your NEAR into wNEAR, which is what the price is in.");
+      await wrapNear(w, s);
+      await showHoldings();
+      stepAt(3, "now");
+    } else {
+      stepAt(2, "now");
+    }
+
+    setStatus("", "Approve the payment in your wallet…");
+    const signedDelegateAction = await signedDelegateFor(w, req);
+    const payment = { x402Version: quote.x402Version || 2, payload: { signedDelegateAction }, resource: quote.resource, accepted: req };
+
+    stepAt(STEPS.length - 1, "now");
+    setStatus("", "Settling on NEAR… this takes a few seconds.");
+    const res = await call("POST", "/memory/check", { query: q }, { "PAYMENT-SIGNATURE": btoa(JSON.stringify(payment)) });
+
     if (res.status === 200) {
       const j = res.body;
-      // Make the result available to the paid-check card when returning to the dashboard.
-      // Do not persist the query, wallet key, or payment signature.
-      try { sessionStorage.setItem("mn_paid_result", JSON.stringify({ match: j.match, citation_id: j.citation_id, advice: j.advice, receipt_id: j.receipt_id })); } catch {}
+      stepAt(STEPS.length, "done");
+      const result = { match: j.match, citation_id: j.citation_id, category: j.category, advice: j.advice, receipt_id: j.receipt_id };
+      // Available to the paid-check card on the desk. Never the query, the
+      // wallet key, or the payment signature.
+      try { sessionStorage.setItem("mn_paid_result", JSON.stringify(result)); } catch {}
+      tellOpener(result);
       outLines([
         ["Answer", j.match ? "This matches a lesson" : "No match", j.match ? "good" : ""],
         j.match ? ["Lesson", `${j.citation_id} · ${j.category || ""}`] : null,
         j.advice ? ["Advice", j.advice] : null,
         ["Receipt", j.receipt_id],
       ].filter(Boolean));
-      setStatus("good", "Paid with your own wallet — a real testnet wNEAR transfer.");
+      setStatus("good", "Paid from your own wallet — a real testnet wNEAR transfer.");
+      await showHoldings();
+      if (POPUP) { $("closeBtn").hidden = false; setTimeout(() => { try { window.close(); } catch {} }, 2500); }
     } else if (res.status === 402) {
-      outLines([]);
+      stepsSet([]);
       setStatus("err", friendlySettlementError(res.body?.error));
     } else {
-      outLines([]);
+      stepsSet([]);
       setStatus("err", human(res.body?.error) || "The server gave an unexpected answer.");
     }
   } catch (err) {
-    setStatus("err", err.message || String(err));
+    stepsSet([]);
+    // A wallet that was closed rather than approved is a choice, not a fault.
+    const m = err?.message || String(err);
+    setStatus("err", /reject|denied|cancel|closed|abort/i.test(m) ? "You closed the wallet before approving. Nothing was charged." : m);
   } finally {
-    $("btnAsk").disabled = false; $("btnPay").disabled = !LAST_QUOTE;
+    $("btnPay").disabled = false;
   }
 }
 
-$("btnAsk").addEventListener("click", askWithoutPaying);
-$("btnPay").addEventListener("click", payWithWallet);
-$("q").addEventListener("input", () => { LAST_QUOTE = null; $("btnPay").disabled = true; });
+$("btnPay").addEventListener("click", payNow);
+$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") payNow(); });
+$("closeBtn").addEventListener("click", () => { try { window.close(); } catch {} });
 
 (async () => {
   const me = await call("GET", "/me");
   if (!me.ok || !me.body.signed_up) return location.assign("/login?next=" + encodeURIComponent(HERE));
   ME = me.body;
-  $("acct").textContent = ME.account_id;
   $("q").value = Q || "delete the full access key";
+  if (ME.price) $("fPrice").textContent = money(ME.price);
+  if (POPUP) { $("backLink").hidden = true; $("closeBtn").hidden = false; }
+
+  // Is this server on the real rail at all? The desk's own feed says so.
+  const d = await call("GET", "/dashboard.json");
+  MOCK = !!d.body?.x402?.mock_settlement;
+  $("modeNote").hidden = !MOCK;
+  if (MOCK) { $("btnPay").disabled = true; $("lede").textContent = "This server settles test payments, so there is nothing real to pay here."; return; }
+
   try {
     const resumed = await resumeCapableWallet();
     if (resumed) wallet = await notePayer(resumed);

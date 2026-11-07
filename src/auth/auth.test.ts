@@ -591,6 +591,21 @@ describe("the real pages on disk", () => {
     assert.doesNotMatch(inline[0], /\.innerHTML|insertAdjacentHTML|document\.write/);
     assert.doesNotMatch(html, /ADMIN|GOVERNOR_PRIVATE_KEY|\/cycle\/run|\/limits/, "the pay page knows nothing of operator routes");
 
+    // One press, start to finish. The page used to ship its Pay button
+    // disabled until "Ask without paying" had been pressed, which is why a
+    // wallet never opened: the button that opens it could not be clicked.
+    assert.doesNotMatch(html, /Ask without paying/, "no ask-first gate in front of paying");
+    assert.equal((html.match(/class="btn primary"/g) ?? []).length, 1, "exactly one primary action on the page");
+    assert.doesNotMatch(html, /id="btnPay"[^>]*\sdisabled/, "the pay button is not disabled on arrival");
+    assert.ok(inline[0].includes("/pay/payer-status"), "asks the server what the payer holds before signing");
+
+    // A faucet pays out native NEAR; the price is in wNEAR. The wrap cannot
+    // ride inside the payment (the official verifier takes exactly one
+    // action), so it is its own transaction, signed first.
+    assert.match(inline[0], /near_deposit/, "can turn native NEAR into wNEAR");
+    assert.match(inline[0], /storage_deposit/, "registers the payer with the token the first time");
+    assert.match(inline[0], /signAndSendTransactions/, "the wrap is an ordinary transaction, not a delegate action");
+
     // wNEAR has the SAME 24 decimals as native yoctoNEAR, not the 18 an Ethereum-token
     // assumption would give it -- a wrong constant here once showed "1000 wNEAR" for a
     // 0.001 wNEAR price. Pull the real function out of the page and run it, rather than
@@ -611,5 +626,98 @@ describe("the real pages on disk", () => {
     const html = readFileSync(join(WEB, "dashboard.html"), "utf8");
     assert.match(html, /\/pay(\?|")/, "the dashboard offers a way to the wallet-payment page");
     assert.doesNotMatch(html, /signDelegateActions/, "wallet-signing code lives only on /pay, never the dashboard");
+
+    // A popup, not a page the visitor has to navigate back from -- and not a
+    // frame either, because /pay sets frame-ancestors 'none' on purpose.
+    assert.match(html, /window\.open\(/, "the wallet opens in a popup over the desk");
+    assert.doesNotMatch(html, /<iframe|\.src\s*=\s*["'`]\/pay/, "never framed: /pay refuses to be framed");
+    assert.match(html, /e\.origin !== location\.origin/, "the popup's result is accepted only from this same origin");
+  });
+});
+
+/**
+ * The wrap step: a payer with only faucet NEAR has to turn some of it into
+ * wNEAR before the price can be paid at all. /pay asks the server what they
+ * hold rather than guessing, so these are the guards around that answer.
+ */
+describe("/pay/payer-status (only on a rail that moves real tokens)", () => {
+  const PRICE = "1000000000000000000000";
+  const TOKEN = "wrap.testnet";
+  const wallet = generateNearKeyPair();
+  const walletAccount = implicitOfPublic(wallet.publicKey);
+  const walletKey: Key = (() => {
+    const raw = base58Decode(wallet.secretKey.slice(8));
+    return { seed: new Uint8Array(raw.subarray(0, 32)), pub: new Uint8Array(raw.subarray(32)), publicKey: formatPublicKey(new Uint8Array(raw.subarray(32))) };
+  })();
+
+  /** A NEAR RPC holding one account with native NEAR and no wNEAR at all --
+   *  exactly what a testnet faucet leaves someone with. */
+  const chainFetch = (async (_url: string, init: any) => {
+    const body = JSON.parse(String(init.body));
+    const p = body.params;
+    const encode = (v: unknown) => new Response(JSON.stringify({ result: { result: [...Buffer.from(JSON.stringify(v), "utf8")] } }), { status: 200 });
+    if (p?.request_type === "view_account") return new Response(JSON.stringify({ result: { amount: "5000000000000000000000000", storage_usage: 182 } }), { status: 200 });
+    if (p?.request_type === "call_function") {
+      if (p.method_name === "ft_balance_of") return encode("0");
+      if (p.method_name === "storage_balance_of") return encode(null);
+      if (p.method_name === "storage_balance_bounds") return encode({ min: "1250000000000000000000", max: null });
+    }
+    return new Response(JSON.stringify({ result: null }), { status: 200 });
+  }) as unknown as typeof fetch;
+
+  /** The smallest thing that is not the mock rail. Nothing is ever paid here;
+   *  the point is only that the server treats it as real. */
+  const realRail = {
+    mode: "near-exact", mock: false,
+    requirements: { scheme: "exact", network: "near:testnet", amount: PRICE, asset: TOKEN, payTo: "mnemosyne-gov.testnet", maxTimeoutSeconds: 300, extra: {} },
+    decode: () => ({}), bindingError: () => "not used in this test", verify: async () => ({ isValid: false, payer: null, invalidReason: "x" }),
+    settle: async () => ({ success: false, transaction: null, network: "near:testnet", payer: null, amount: null, errorReason: "x" }),
+    settlementIssue: () => null, responseHeader: () => "", explorerUrl: () => null,
+  } as unknown as Parameters<typeof createMnemosyneServer>[0]["rail"];
+
+  let base = "", close = () => {}, cookie = "";
+
+  before(async () => {
+    const d = fresh();
+    const s = createMnemosyneServer({
+      dataDir: d, seedPath: join(ROOT, "data/seed-memory.json"), payTo: "mnemosyne-gov.testnet", network: "near:testnet",
+      asset: TOKEN, priceAmount: PRICE, maxTimeoutSeconds: 300, mockSettlement: false, rail: realRail,
+      auth: { rpcUrl: "http://rpc", fetch: chainFetch, payHtml: "<title>pay</title>" },
+    });
+    await new Promise<void>((r) => s.server.listen(0, "127.0.0.1", () => r()));
+    base = `http://127.0.0.1:${(s.server.address() as AddressInfo).port}`;
+    close = () => s.server.close();
+    const c: any = await (await fetch(`${base}/auth/challenge`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json();
+    const v = await fetch(`${base}/auth/verify`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ account_id: walletAccount, public_key: walletKey.publicKey, signature: signNep413(walletKey, c.message, c.nonce, c.recipient), nonce: c.nonce }),
+    });
+    cookie = (v.headers.get("set-cookie") ?? "").split(";")[0];
+  });
+  after(() => close());
+
+  const get = (path: string, withCookie = true) =>
+    fetch(`${base}${path}`, { headers: withCookie ? { cookie } : {} });
+
+  it("says what a faucet-funded wallet is missing, and that wrapping can cover it", async () => {
+    const r = await get(`/pay/payer-status?account=${walletAccount}`);
+    assert.equal(r.status, 200);
+    const s: any = await r.json();
+    assert.equal(s.enough, false, "no wNEAR yet, so the price cannot be paid as-is");
+    assert.equal(s.registered, false);
+    assert.equal(s.short_by, PRICE);
+    assert.equal(s.wrap_total, (BigInt(PRICE) + 1250000000000000000000n).toString(), "the price plus a one-time storage deposit");
+    assert.equal(s.can_wrap, true, "5 NEAR is plenty to wrap 0.001 from");
+    assert.equal(s.asset, TOKEN);
+  });
+
+  it("is not an open balance oracle: no session, no answer", async () => {
+    assert.equal((await get(`/pay/payer-status?account=${walletAccount}`, false)).status, 401);
+  });
+
+  it("refuses anything that is not a NEAR account id", async () => {
+    for (const bad of ["", "UPPER.testnet", "has%20space", "a", "x".repeat(65)]) {
+      assert.equal((await get(`/pay/payer-status?account=${bad}`)).status, 400, bad);
+    }
   });
 });
