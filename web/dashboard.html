@@ -581,7 +581,12 @@ function h(tag, attrs, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
     if (v == null || v === false) continue;
-    if (k === "class") n.className = v; else n.setAttribute(k, v === true ? "" : v);
+    if (k === "class") { n.className = v; continue; }
+    if (k.slice(0, 2) === "on") {   // onclick, onchange, ... never inline: a strict CSP blocks them
+      n.addEventListener(k.slice(2), v);
+      continue;
+    }
+    n.setAttribute(k, v === true ? "" : v);
   }
   for (const k of kids.flat()) if (k != null && k !== false) n.append(k instanceof Node ? k : String(k));
   return n;
@@ -1153,9 +1158,8 @@ function renderMyReceipts() {
 }
 
 /* Which chain to be priced in. Only shown when this server knows of more
- * than one: with NEAR alone there is no choice to make. Every chain other
- * than NEAR is a price today, not a way to pay -- the option says so, so the
- * picker can't imply a rail that isn't built. */
+ * than one: with NEAR alone there is no choice to make. Chains that only
+ * quote are marked "price only"; anything else can be paid for real. */
 function renderChainPicker(x) {
   const chains = Array.isArray(x.chains) ? x.chains : [];
   const row = $("chainRow"), sel = $("chain");
@@ -1179,17 +1183,76 @@ async function quoteOtherChain(chain) {
     const r = await api("POST", "/memory/quote", { query: q, chain });
     if (!r.ok) return outLines([["No price", human(r.body?.error) || "That chain could not be priced.", "warn"]]);
     const j = r.body;
-    outLines([
-      ["Quote ready", `pay on ${j.source_chain_label}`, "hd"],
-      ["You send", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`],
-      ["Arrives as", `${money(j.amount, "wrap.testnet")} to ${j.pay_to}`],
-      ["Priced by", j.provider],
-      ["Good until", when(j.expires_at)],
-      ["Quote id", j.quote_id],
-      "A price, not a payment: this route can't be settled yet, so nothing here buys an answer. Pay on NEAR for that.",
-    ]);
-    addFeed("Quoted another chain", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`);
+    if (j.quote_only) {
+      outLines([
+        ["Quote ready", `pay on ${j.source_chain_label}`, "hd"],
+        ["You send", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`],
+        ["Arrives as", `${money(j.amount, "wrap.testnet")} to ${j.pay_to}`],
+        ["Priced by", j.provider],
+        ["Good until", when(j.expires_at)],
+        ["Quote id", j.quote_id],
+        "A price, not a payment: this route can't be settled yet, so nothing here buys an answer. Pay on NEAR for that.",
+      ]);
+      addFeed("Quoted another chain", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`);
+    } else {
+      showPayable(j);
+    }
   } catch (err) { outLines([["Problem", `Couldn't reach the server: ${err.message}`, "bad"]]); }
+  finally { outBusy(false); }
+}
+
+/* A quote this server can actually settle: send to the address, then click
+ * the button to ask whether it landed. The address is derived from the
+ * governor's NEAR account through NEAR Chain Signatures. */
+function showPayable(j) {
+  const addr = j.deposit_address;
+  const check = h("button", { class: "btn primary", type: "button" }, "I sent it — check whether it landed");
+  check.addEventListener("click", () => claimPaidCheck(j.quote_id, j));
+  outLines([
+    ["Quote ready — pay on " + j.source_chain_label, "", "hd"],
+    ["You send", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`],
+    ["To", h("span", { class: "mono", title: addr }, short(addr, 14, 8))],
+    ["Controlled by", h("a", { href: `https://testnet.nearblocks.io/account/${j.controlled_by}`, target: "_blank", rel: "noopener" }, short(j.controlled_by, 16, 8))],
+    ["Good until", when(j.expires_at)],
+    ["Explorer", ext(j.explorer, "View on Basescan \u2197")],
+    check,
+    h("div", { class: "hint" }, "Send exactly this amount to the address above, then click the button. Only " + j.controlled_by + " can spend what arrives there."),
+  ]);
+  addFeed("Quoted payable route", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`);
+}
+
+/* Redeem a payable quote: the money moved on another chain, so this asks
+ * the server to check the deposit address and, if it landed, answer. */
+async function claimPaidCheck(quoteId, quote) {
+  const q = $("q").value.trim();
+  if (!q) return outLines([["Problem", "Type a question first.", "bad"]]);
+  outBusy(true);
+  try {
+    const res = await fetch("/memory/check", {
+      method: "POST", cache: "no-store", credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: q, quote_id: quoteId }),
+    });
+    let j = null; try { j = await res.json(); } catch {}
+    if (res.status === 200) {
+      const lines = [
+        ["Answer", j.match ? "Matched" : "No match", j.match ? "ok" : "hd"],
+        ["Paid via", `${j.source_chain} · ${money(j.amount, j.asset)}`],
+        ["From", h("span", { class: "mono", title: j.source_address }, short(j.source_address, 14, 8))],
+        ["Controlled by", j.source_controlled_by],
+        ["Receipt", j.receipt_id],
+      ];
+      if (j.match) lines.push(["Lesson", `${j.citation_id} · ${pretty(j.category)}`]);
+      if (j.advice) lines.push(["Advice", j.advice]);
+      outLines(lines);
+      addFeed("Answered paid check", `${j.match ? "Matched " + j.citation_id : "No match"} · ${short(j.receipt_id, 8, 4)}`);
+      load();
+    } else if (res.status === 402) {
+      outLines([["Payment not confirmed", human(j?.error) || "The payment was not accepted.", "bad"], "Nothing was released."]);
+    } else {
+      outLines([["Problem", human(j?.error) || "The server gave an unexpected answer.", "bad"]]);
+    }
+  } catch (err) { outLines([["Not paid", err.message, "bad"]]); }
   finally { outBusy(false); }
 }
 
