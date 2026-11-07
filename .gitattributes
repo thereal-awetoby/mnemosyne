@@ -1,0 +1,14 @@
+# Line endings are normalised to LF in the repository and in every working
+# tree, on every platform. Without this, a Windows clone with the default
+# core.autocrlf=true checks these files out with CRLF, and the tests that
+# assert on the exact text of web/*.html then fail on Windows while passing
+# on Linux -- which is exactly what happened to the schedule-layout test.
+* text=auto eol=lf
+
+# Binary: never touch these.
+*.woff2 binary
+*.wasm  binary
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.pdf   binary
