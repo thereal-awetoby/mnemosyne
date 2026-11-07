@@ -39,6 +39,8 @@ export interface InboundRoute {
   decimals: number;
   /** the asset in 1Click / NEAR Intents' own id format */
   oneClickId: string;
+  /** true when this route can actually be paid, not only priced */
+  payable?: boolean;
 }
 
 export const INBOUND_ROUTES: Readonly<Record<string, InboundRoute>> = {
@@ -55,8 +57,32 @@ export const INBOUND_ROUTES: Readonly<Record<string, InboundRoute>> = {
 /** What has to arrive on the NEAR side: the governor's own asset, at the listed price. */
 export const INBOUND_DESTINATION = { oneClickId: "nep141:wrap.near", symbol: "wNEAR", decimals: 24 };
 
+/**
+ * The route that can actually be paid, as opposed to only priced.
+ *
+ * Nothing bridges to NEAR testnet (1Click has no testnet and never will;
+ * Omni Bridge's testnet EVM->NEAR path is broken), so this route does not try
+ * to bridge. The payer pays on Base Sepolia and the governor *receives on
+ * Base Sepolia*, at an address derived from `mnemosyne-gov.testnet` through
+ * NEAR Chain Signatures -- an address only that NEAR account can spend from.
+ * Real money movement, real testnet, no bridge in the middle.
+ *
+ * Native ETH rather than USDC on purpose: settlement is then a balance check
+ * on an address that exists for exactly one quote, with no token contract to
+ * mistype, no decimals to mismatch, and no log parsing to get subtly wrong.
+ */
+export const PAYABLE_ROUTE = {
+  key: "base-sepolia:ETH",
+  chain: "base-sepolia",
+  chain_label: "Base Sepolia",
+  symbol: "ETH",
+  decimals: 18,
+} as const;
+
 /** How long a quoted price is offered for. Short on purpose: it is a market price. */
 export const QUOTE_TTL_MS = 120_000;
+/** A payable quote lasts longer: someone has to actually go and send a transaction. */
+export const PAYABLE_TTL_MS = 30 * 60_000;
 const TIMEOUT_MS = 15_000;
 
 export interface InboundQuote {
@@ -82,6 +108,28 @@ export interface InboundQuote {
   note: string;
 }
 
+/** A quote that can be paid: where to send, how much, and on which chain. */
+export interface PayableQuote {
+  quote_id: string;
+  kind: "payable";
+  decision_hash: string | null;
+  source_chain: string;
+  source_chain_label: string;
+  source_asset: string;
+  /** what to send, in wei */
+  source_amount: string;
+  source_amount_display: string;
+  /** the address to send it to, controlled by the governor's NEAR account via MPC */
+  deposit_address: string;
+  /** the NEAR account that can spend what arrives, and the path it derives by */
+  controlled_by: string;
+  deposit_path: string;
+  explorer: string;
+  expires_at: string;
+  quote_only: false;
+  how: string;
+}
+
 /** The stored side of a quote: what Phase 2 needs to redeem it exactly once,
  *  and nothing that would reveal what was asked. */
 export interface StoredQuote {
@@ -96,8 +144,14 @@ export interface StoredQuote {
   created_at: string;
   expires_at_ms: number;
   provider_quote_id: string | null;
-  /** Phase 2 sets this when a quote is redeemed. A quote is single-use. */
+  /** set when a quote is redeemed. A quote is single-use. */
   used_at: string | null;
+  /** "price" quotes cannot be redeemed at all; only "payable" ones can. */
+  kind?: "price" | "payable";
+  /** payable only: where the payer sends, and the path it derives by */
+  deposit_address?: string;
+  deposit_path?: string;
+  source_chain?: string;
 }
 
 export const quoteRequestHash = (query: string) => "sha256:" + createHash("sha256").update(query, "utf8").digest("hex");
@@ -149,7 +203,40 @@ const digits = (v: unknown): v is string => typeof v === "string" && /^\d+$/.tes
 
 export interface InboundQuoter {
   routes: () => InboundRoute[];
-  quote: (args: { query: string; routeKey: string; decisionHash: string | null }) => Promise<InboundQuote>;
+  quote: (args: { query: string; routeKey: string; decisionHash: string | null }) => Promise<InboundQuote | PayableQuote>;
+  /** Present only when a payable route is configured. */
+  settle?: (args: { query: string; quoteId: string }) => Promise<SettlementProof>;
+}
+
+/** What a redeemed payment proves, and what goes on the receipt. */
+export interface SettlementProof {
+  quote_id: string;
+  source_chain: string;
+  source_asset: string;
+  source_amount: string;
+  deposit_address: string;
+  controlled_by: string;
+  explorer: string;
+}
+
+export class SettlementError extends Error {
+  constructor(message: string, readonly paid = false) {
+    super(message);
+    this.name = "SettlementError";
+  }
+}
+
+/** Chain-signature settlement: the payable route's configuration. */
+export interface ChainSigConfig {
+  /** NEAR account whose chain-signature key controls the deposit address */
+  predecessor: string;
+  /** the MPC signer contract (testnet: v1.signer-prod.testnet) */
+  mpcContract: string;
+  nearRpc: (method: string, params: unknown) => Promise<any>;
+  evmRpc: (method: string, params: unknown[]) => Promise<any>;
+  /** price of one check on the source chain, in wei */
+  priceWei: string;
+  explorerBase?: string;
 }
 
 /**
@@ -164,18 +251,113 @@ export function createInboundQuoter(cfg: {
   /** where a refund would go on the source chain if this were ever real. */
   refundTo: string;
   record: (q: StoredQuote) => void;
+  /** reads a stored quote back, for redeeming it */
+  load?: (quoteId: string) => StoredQuote | undefined;
+  /** marks a quote spent. Must be atomic with respect to other redemptions. */
+  markUsed?: (quoteId: string, at: string) => boolean;
   oneClick?: OneClickInboundOptions;
+  /** the route that can actually be paid; absent means price-only quotes */
+  chainSig?: ChainSigConfig;
+  now?: () => number;
 }): InboundQuoter {
   const opts = cfg.oneClick ?? {};
   const doFetch = opts.fetch ?? fetch;
   const base = (opts.baseUrl ?? process.env.ONECLICK_URL ?? ONECLICK_DEFAULT_URL).replace(/\/+$/, "");
   const jwt = opts.jwt ?? (process.env.ONECLICK_JWT || process.env.ONECLICK_API_KEY || undefined);
-  const now = opts.now ?? Date.now;
+  const now = cfg.now ?? opts.now ?? Date.now;
+  const cs = cfg.chainSig;
+
+  /** The route that can be paid, if one is configured. */
+  const payableRoute: InboundRoute | null = cs
+    ? { ...PAYABLE_ROUTE, oneClickId: "", payable: true }
+    : null;
+
+  /** A quote that is paid by sending to an address the governor controls on
+   *  the source chain. Nothing is deployed there and nothing is signed to
+   *  receive: the address is derived, and derivation is a free view call. */
+  async function payableQuote(query: string, decisionHash: string | null): Promise<PayableQuote> {
+    const nowMs = now();
+    const quote_id = "Q-" + randomUUID().replace(/-/g, "").slice(0, 20);
+    const { depositAddressFor } = await import("./chainsig.js");
+    const { address, path } = await depositAddressFor(cs!.nearRpc, {
+      contract: cs!.mpcContract, predecessor: cs!.predecessor, quoteId: quote_id,
+    });
+    const explorerBase = (cs!.explorerBase ?? "https://sepolia.basescan.org").replace(/\/$/, "");
+
+    cfg.record({
+      quote_id,
+      request_sha256: quoteRequestHash(query),
+      route_key: PAYABLE_ROUTE.key,
+      source_amount: cs!.priceWei,
+      amount: cs!.priceWei,
+      pay_to: address,
+      decision_hash: decisionHash,
+      created_at: new Date(nowMs).toISOString(),
+      expires_at_ms: nowMs + PAYABLE_TTL_MS,
+      provider_quote_id: null,
+      used_at: null,
+      kind: "payable",
+      deposit_address: address,
+      deposit_path: path,
+      source_chain: PAYABLE_ROUTE.chain,
+    });
+
+    return {
+      quote_id,
+      kind: "payable",
+      decision_hash: decisionHash,
+      source_chain: PAYABLE_ROUTE.chain,
+      source_chain_label: PAYABLE_ROUTE.chain_label,
+      source_asset: PAYABLE_ROUTE.symbol,
+      source_amount: cs!.priceWei,
+      source_amount_display: fromBaseUnits(cs!.priceWei, PAYABLE_ROUTE.decimals),
+      deposit_address: address,
+      controlled_by: cs!.predecessor,
+      deposit_path: path,
+      explorer: `${explorerBase}/address/${address}`,
+      expires_at: new Date(nowMs + PAYABLE_TTL_MS).toISOString(),
+      quote_only: false,
+      how: `Send exactly this much ETH on Base Sepolia to the address above, then ask again with this quote id. The address is controlled by ${cs!.predecessor} through NEAR Chain Signatures.`,
+    };
+  }
 
   return {
-    routes: () => Object.values(INBOUND_ROUTES),
+    routes: () => [...Object.values(INBOUND_ROUTES), ...(payableRoute ? [payableRoute] : [])],
+
+    ...(cs && cfg.load && cfg.markUsed ? {
+      /**
+       * Has this quote been paid? Settlement is a balance check on an address
+       * that exists for exactly one quote, so there is no amount-matching
+       * guesswork and one payment can never satisfy two quotes.
+       *
+       * Fail-closed throughout: an unreadable node, an expired quote, a
+       * question that does not match the one quoted, or a quote already spent
+       * all refuse, and none of them release an answer.
+       */
+      async settle({ query, quoteId }): Promise<SettlementProof> {
+        const q = cfg.load!(quoteId);
+        if (!q) throw new SettlementError("no such quote");
+        if (q.kind !== "payable" || !q.deposit_address) throw new SettlementError("that quote is a price only; it cannot be paid");
+        if (q.used_at) throw new SettlementError("that quote has already been used");
+        if (q.request_sha256 !== quoteRequestHash(query)) throw new SettlementError("that quote was for a different question");
+        if (now() > q.expires_at_ms) throw new SettlementError("that quote has expired; ask for a new price");
+
+        const { balanceOf } = await import("./evm.js");
+        let held: bigint;
+        try { held = await balanceOf(cs.evmRpc, q.deposit_address); } catch (err) { throw new SettlementError(`could not check the payment on Base Sepolia: ${(err as Error).message}`); }
+        if (held < BigInt(q.source_amount)) { throw new SettlementError(`not paid yet: that address holds ${fromBaseUnits(held.toString(), PAYABLE_ROUTE.decimals)} ETH of the ${fromBaseUnits(q.source_amount, PAYABLE_ROUTE.decimals)} ETH asked for`); }
+
+        // Spend the quote before the answer is computed. If two requests race,
+        // only the one that wins this claim gets an answer for this payment.
+        if (!cfg.markUsed!(quoteId, new Date(now()).toISOString())) throw new SettlementError("that quote has already been used");
+
+        const explorerBase = (cs.explorerBase ?? "https://sepolia.basescan.org").replace(/\/$/, "");
+        return { quote_id: quoteId, source_chain: PAYABLE_ROUTE.chain, source_asset: PAYABLE_ROUTE.symbol, source_amount: q.source_amount, deposit_address: q.deposit_address, controlled_by: cs.predecessor, explorer: `${explorerBase}/address/${q.deposit_address}` };
+      },
+    } : {}),
 
     async quote({ query, routeKey, decisionHash }) {
+      if (cs && routeKey === PAYABLE_ROUTE.key) return payableQuote(query, decisionHash);
       const route = INBOUND_ROUTES[routeKey];
       if (!route) throw new ProviderError(`no inbound route for "${routeKey}"`);
 
@@ -204,13 +386,9 @@ export function createInboundQuoter(cfg: {
 
       const q = json?.quote;
       if (!q || !digits(q.amountIn)) throw new ProviderError("1Click returned a quote without a usable amount to send");
-      // A dry quote must not carry anywhere to send money. If one does, something
-      // other than a price came back: refuse it rather than show it.
       if (typeof q.depositAddress === "string" && q.depositAddress.length > 0) {
         throw new ProviderError("1Click returned a deposit address for a dry quote; refusing it");
       }
-      // The price that must arrive is ours, not theirs: if the provider priced a
-      // different output than the one asked for, the quote is not about this check.
       if (digits(q.amountOut) && BigInt(q.amountOut) < BigInt(price)) {
         throw new ProviderError("1Click priced a smaller delivery than the listed price; refusing it");
       }
@@ -230,7 +408,7 @@ export function createInboundQuoter(cfg: {
         provider: "1click",
         provider_quote_id: typeof json.correlationId === "string" ? json.correlationId : null,
         quote_only: true,
-        note: "Indicative price only. Nothing is settled from this quote yet, and 1Click prices mainnet assets while this server settles on NEAR testnet.",
+        note: "Indicative price only. Nothing is settled from this quote yet.",
       };
 
       cfg.record({
