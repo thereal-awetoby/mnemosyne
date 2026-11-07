@@ -38,6 +38,8 @@ import { requirementsError } from "./validation.js";
 import type { Facilitator } from "./facilitator.js";
 import { createMockRail, type PaymentRail, type WireRequirements } from "./rails.js";
 import { nearRpc, readPayerStatus } from "./wrap.js";
+import { createInboundQuoter, type InboundQuoter, type OneClickInboundOptions, type StoredQuote } from "../payments/inbound.js";
+import { RateLimiter } from "../auth/rateLimit.js";
 import {
   MOCK_TRANSFER_METHOD,
   X402_VERSION,
@@ -87,6 +89,13 @@ export interface ServerConfig {
     set: (changes: unknown, by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
     reset: (by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
   };
+  /** Paying for a check from another chain (src/payments/inbound.ts). Quote-only;
+   *  absent means this server quotes NEAR and nothing else. */
+  inboundQuotes?: {
+    /** where a refund would go on the source chain, if any of this were ever real */
+    refundTo: string;
+    oneClick?: OneClickInboundOptions;
+  };
   /** The automatic cycle schedule (src/schedule). Reads are public, writes need the admin token. */
   schedule?: {
     get: () => unknown;
@@ -127,6 +136,9 @@ function tokenOk(given: string | undefined, expected: string | undefined): boole
 export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memory: MemoryStore; requirements: PaymentRequirements; rail: PaymentRail } {
   const memory = new MemoryStore(cfg.dataDir, cfg.seedPath);
   const receipts = new JsonStore<{ receipts: Record<string, Receipt> }>(join(cfg.dataDir, "receipts.json"), () => ({ receipts: {} }));
+  // Cross-chain price quotes (Multi-chain Phase 1). Bound to a question and
+  // single-use, so Phase 2 can redeem one exactly once. Nothing redeems them yet.
+  const quotes = new JsonStore<{ quotes: Record<string, StoredQuote> }>(join(cfg.dataDir, "quotes.json"), () => ({ quotes: {} }));
   if (cfg.publicUrl !== undefined) cfg.publicUrl = normalizePublicUrl(cfg.publicUrl);
 
   function checkUrlFor(req: IncomingMessage): string {
@@ -168,6 +180,18 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     rail = createMockRail(cfg.facilitator, mockRequirements, cfg.mockSettlement);
   }
   const requirements: WireRequirements = rail.requirements;
+
+  // Paying from another chain: off unless the host wires a quoter (serve.ts
+  // does, behind CROSS_CHAIN_INBOUND=1). Quote-only; see src/payments/inbound.ts.
+  const inbound: InboundQuoter | undefined = cfg.inboundQuotes
+    ? createInboundQuoter({
+        price: () => requirements.amount,
+        payTo: requirements.payTo,
+        refundTo: cfg.inboundQuotes.refundTo,
+        record: (q) => quotes.update((s) => { s.quotes[q.quote_id] = q; }),
+        oneClick: cfg.inboundQuotes.oneClick,
+      })
+    : undefined;
 
   // Per-user login, sign-up and guardrails. Identity and personal policy only; see src/auth/service.ts.
   let auth: AuthRoutes | undefined;
@@ -287,6 +311,60 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     send(res, 200, { ...answer, receipt_id: receipt.receipt_id }, { "PAYMENT-RESPONSE": rail.responseHeader(settlement) });
   }
 
+  /**
+   * A price for paying from another chain (Multi-chain Phase 1).
+   *
+   * QUOTE ONLY. This hands back what a payer would send on Base for the
+   * listed price to arrive on NEAR; it settles nothing, and `/memory/check`
+   * does not accept a quote id. Asking for a price costs nothing and records
+   * no usage, exactly like the unpaid 402 on the NEAR path.
+   *
+   * NEAR itself stays the default and is answered from the rail's own terms,
+   * so a caller can use one endpoint for every chain and still get the
+   * unchanged NEAR price.
+   */
+  const quoteLimiter = new RateLimiter(20, 60_000);
+  async function handleQuote(req: IncomingMessage, res: ServerResponse) {
+    auth?.guardSession(req);
+    const body = await readJson(req);
+    const query = body?.query;
+    if (typeof query !== "string" || query.trim().length === 0) throw new HttpError(400, 'body must be {"query": "<text>"}');
+    if (query.length > MAX_QUERY_CHARS) throw new HttpError(400, `query longer than ${MAX_QUERY_CHARS} chars`);
+
+    const chain = typeof body?.chain === "string" && body.chain.trim() ? body.chain.trim() : "near";
+    const available = inbound ? inbound.routes().map((r) => r.key) : [];
+
+    if (chain === "near") {
+      return send(res, 200, {
+        chain: "near",
+        chain_label: "NEAR",
+        asset: requirements.asset,
+        amount: requirements.amount,
+        pay_to: requirements.payTo,
+        network: requirements.network,
+        mock_settlement: isMock,
+        quote_only: false,
+        how: "Pay this on NEAR through /memory/check, the way the 402 describes.",
+        other_chains: available,
+      });
+    }
+
+    if (!inbound) throw new HttpError(503, "this server quotes NEAR only; paying from another chain is not configured");
+    if (!available.includes(chain)) throw new HttpError(400, `unknown chain "${chain}"; this server quotes ${["near", ...available].join(", ")}`);
+    if (!quoteLimiter.allow(req.socket.remoteAddress ?? "unknown")) throw new HttpError(429, "too many price requests; wait a minute");
+
+    let decisionHash: string | null = null;
+    try { decisionHash = (await cfg.readChainHead?.())?.latest_hash ?? null; } catch { decisionHash = null; }
+
+    try {
+      return send(res, 200, await inbound.quote({ query, routeKey: chain, decisionHash }));
+    } catch (err) {
+      // The cross-chain provider being down must never take the NEAR path with
+      // it: say so, and say what still works.
+      throw new HttpError(503, `${(err as Error).message}. Paying in ${requirements.asset} on NEAR still works.`);
+    }
+  }
+
   async function route(req: IncomingMessage, res: ServerResponse) {
     const url = new URL(req.url ?? "/", "http://localhost");
     const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -349,6 +427,12 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
           pay_to: requirements.payTo,
           memory_entries: memory.size,
           paid_checks_total: all.length,
+          // Chains a price can be asked for. NEAR is always there and always
+          // the one that can actually be paid; the rest are quote-only today.
+          chains: [
+            { key: "near", label: "NEAR", asset: requirements.asset, quote_only: false },
+            ...(inbound ? inbound.routes().map((r) => ({ key: r.key, label: `${r.chain_label} ${r.symbol}`, asset: r.symbol, quote_only: true })) : []),
+          ],
           recent: all.slice(0, 12).map((r) => ({
             receipt_id: r.receipt_id, at: r.created_at, payer: r.payer, amount: r.amount,
             match: r.match, citation_id: r.citation_id, settlement: r.settlement, explorer: r.explorer ?? null, mock: r.mock,
@@ -382,6 +466,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       });
     }
     if (method === "POST" && path === "/memory/check") return handleCheck(req, res);
+    if (method === "POST" && path === "/memory/quote") return handleQuote(req, res);
 
     if (method === "GET" && path.startsWith("/memory/receipt/")) {
       const id = path.slice("/memory/receipt/".length);

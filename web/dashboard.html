@@ -497,6 +497,10 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
             <label for="q">Your question</label>
             <input type="text" id="q" value="delete the full access key" maxlength="500" autocomplete="off">
           </div>
+          <div class="guard" id="chainRow" style="margin-bottom:14px" hidden>
+            <label for="chain">Pay from</label>
+            <select id="chain"></select>
+          </div>
           <div class="btnrow" style="margin-bottom:14px">
             <button class="btn" type="button" id="btnCheck">Show the price</button>
             <button class="btn primary" type="button" id="btnPay">Pay &amp; get answer</button>
@@ -1120,6 +1124,7 @@ function renderX402(d) {
     : `Paid in wNEAR on NEAR testnet, to ${x.pay_to}.`;
   $("priceTag").textContent = `${money(x.price, x.asset || (x.mock_settlement ? "NEAR" : "wrap.testnet"))}${ME?.signed_up ? ` · ${Math.max(0, ME.profile.guardrails.max_queries_per_day - ME.usage.queries)} left` : ""}`;
   fill($("x402Flow"), ["Ask", "Get a price", "Pay", "Get the answer"].map((t) => h("li", {}, t)));
+  renderChainPicker(x);
   if (!x.recent.length) return fill($("x402Table"), emptyBox("Nobody has paid for a check on this server yet."));
   fill($("x402Table"), h("table", { class: "stack endlink" },
     th("When", "Who asked", "Paid", "Answer", "Receipt", "Proof"),
@@ -1145,6 +1150,47 @@ function renderMyReceipts() {
       td("Answer", r.match ? h("span", { class: "ok" }, `Matched ${r.citation_id}`) : "No match"),
       td("Receipt", h("span", { class: "mono", title: r.receipt_id }, short(r.receipt_id, 6, 4))),
       td("Proof", r.mock ? h("span", { class: "faint" }, "—") : (r.explorer ? ext(r.explorer, "View \u2197") : txLink(r.settlement, "View \u2197"))))))));
+}
+
+/* Which chain to be priced in. Only shown when this server knows of more
+ * than one: with NEAR alone there is no choice to make. Every chain other
+ * than NEAR is a price today, not a way to pay -- the option says so, so the
+ * picker can't imply a rail that isn't built. */
+function renderChainPicker(x) {
+  const chains = Array.isArray(x.chains) ? x.chains : [];
+  const row = $("chainRow"), sel = $("chain");
+  if (chains.length < 2) { row.hidden = true; return; }
+  row.hidden = false;
+  const keep = sel.value;
+  fill(sel, chains.map((c) => h("option", { value: c.key }, c.quote_only ? `${c.label} — price only` : c.label)));
+  sel.value = chains.some((c) => c.key === keep) ? keep : "near";
+}
+const chosenChain = () => ($("chainRow").hidden ? "near" : $("chain").value || "near");
+
+/* A price for paying from another chain. It stops at the price on purpose:
+ * nothing on this server settles one of these yet, and saying so here is
+ * cheaper than letting someone send real money to find out. */
+async function quoteOtherChain(chain) {
+  const q = $("q").value.trim();
+  if (!q) return outLines([["Problem", "Type a question first.", "bad"]]);
+  outBusy(true);
+  outLines(["Asking what that would cost…"]);
+  try {
+    const r = await api("POST", "/memory/quote", { query: q, chain });
+    if (!r.ok) return outLines([["No price", human(r.body?.error) || "That chain could not be priced.", "warn"]]);
+    const j = r.body;
+    outLines([
+      ["Quote ready", `pay on ${j.source_chain_label}`, "hd"],
+      ["You send", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`],
+      ["Arrives as", `${money(j.amount, "wrap.testnet")} to ${j.pay_to}`],
+      ["Priced by", j.provider],
+      ["Good until", when(j.expires_at)],
+      ["Quote id", j.quote_id],
+      "A price, not a payment: this route can't be settled yet, so nothing here buys an answer. Pay on NEAR for that.",
+    ]);
+    addFeed("Quoted another chain", `${j.source_amount_display} ${j.source_asset} on ${j.source_chain_label}`);
+  } catch (err) { outLines([["Problem", `Couldn't reach the server: ${err.message}`, "bad"]]); }
+  finally { outBusy(false); }
 }
 
 /* ----- the check box: a real unpaid request, then a demo agent that pays on the mock rail ----- */
@@ -1176,6 +1222,8 @@ const IDLE = ["Ask without paying and you get a price back. Pay and you get the 
 const outBusy = (on) => { $("btnCheck").disabled = on; $("btnPay").disabled = on; };
 
 async function requestCheck() {
+  const chain = chosenChain();
+  if (chain !== "near") return quoteOtherChain(chain);
   const q = $("q").value.trim();
   if (!q) return outLines([["Problem", "Type a question first.", "bad"]]);
   outBusy(true); outLines(["Asking, without paying…"]);
@@ -1244,6 +1292,8 @@ addEventListener("message", (e) => {
 
 async function payAndRetry() {
   if (!DATA?.x402) return outLines([["Problem", "Paid checks are not set up on this server.", "bad"]]);
+  const chain = chosenChain();
+  if (chain !== "near") return quoteOtherChain(chain);
   if (!DATA.x402.mock_settlement) {
     const q = $("q").value.trim();
     if (!q) return outLines([["Problem", "Type a question first.", "bad"]]);

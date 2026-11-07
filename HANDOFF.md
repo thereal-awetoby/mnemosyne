@@ -2,6 +2,23 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-07 — Multi-chain Phase 1: a price for paying from Base (`POST /memory/quote`)
+
+**Phase 1 of `MNEMOSYNE_MULTI_CHAIN_MEMORY_ACCESS.md`, and only Phase 1.** A caller holding USDC on Base can now ask what a memory check would cost them. That is the whole of it: **nothing here settles, verifies a settlement, or produces an answer.**
+
+- **`POST /memory/quote`** takes `{query, chain}`. `chain: "near"` (or none) answers from the rail's own terms, so one endpoint covers every chain and the NEAR price is untouched — the plan's "paying on NEAR still works exactly as before" is a test, not a hope. `chain: "base:USDC"` asks 1Click.
+- **`EXACT_OUTPUT`, not `EXACT_INPUT`.** The fixed thing is what must *arrive* on NEAR (the 0.001 wNEAR price); what varies is what the payer sends on Base. The outbound Phase 7 rail asks the opposite question, which is why `src/payments/inbound.ts` has its own request builder rather than reusing `oneClickRequestBody` — I did not want to bend a path that is already proven live.
+- **The boundary is enforced, not just documented.** `/memory/check` is untouched and does not accept a quote id; a test posts one and asserts it still gets a 402 with no fragment of an answer attached. `src/payments/inbound.ts` contains no settlement code at all.
+- **A quote is bound and single-use.** Stored in `data/runtime/quotes.json` keyed by `quote_id`, bound to the question by `sha256` (a test asserts the question text appears nowhere in the file), logged against the memory chain head it was priced at, with an expiry and `used_at: null` so Phase 2 can redeem it exactly once. Nothing redeems one yet.
+- **Nothing the provider says is believed on sight**, same posture as the outbound rail: a deposit address on a `dry:true` quote is refused (it means something other than a price came back), so is a quote that would deliver less than the listed price, so is one with no usable amount. A provider outage returns 503 whose message also says paying in wNEAR on NEAR still works — a dead side rail must not read as a dead server.
+- **The desk** grows a *Pay from* selector on Paid checks, shown only when the server actually knows of more than one chain, with every non-NEAR option labelled "— price only" in the option text itself so the picker cannot imply a rail that isn't built. `/dashboard.json`'s `x402.chains` drives it.
+- **Off by default** (`CROSS_CHAIN_INBOUND=1`), like the outbound rail, because it reaches a mainnet pricing API.
+- **Tested:** 293 total (278 + 15). `src/payments/inbound.test.ts` covers the request shape, exact-decimal formatting at 24 decimals, question binding, the stored quote, the quote-buys-nothing boundary, an unknown chain, query validation, and five provider-misbehaviour cases. `src/payments/*.test.ts` added to the `npm test` glob.
+
+**The honest limit, which decides what Phase 3 can be: 1Click prices mainnet assets (Base USDC, `wrap.near`), and this server settles on NEAR testnet.** So an inbound quote is a real market price for a route that cannot currently deliver to `mnemosyne-gov.testnet`. The quote says so in its own `note` field and the desk repeats it. Making it real is a decision about moving actual money on mainnet, not a coding task, and I have not made it for you.
+
+**Not built, and not pretended otherwise:** Phase 2 (watch NEAR for the inbound settlement, redeem the quote, issue a receipt carrying both proofs), Phase 3 (one real rail end to end), Phase 4 (Solana). Receipts still carry no `source_chain` / `source_tx`, because nothing can fill them in honestly yet. Of the plan's seven acceptance checks, this entry delivers the first one and the dashboard half of the fifth; three of the others were already true before this work and two need Phase 2.
+
 ## 2026-11-07 — paying actually works now: one press, a popup, and native NEAR
 
 **Three separate dead ends, all of which ended with "the wallet never asked me to sign."** Reported from a live run, and all three confirmed in the code rather than guessed at:
