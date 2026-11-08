@@ -33,8 +33,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMnemosyneServer } from "./x402/server.js";
-import { evmRpc, BASE_SEPOLIA_RPC } from "./payments/evm.js";
-import { MPC_CONTRACT_TESTNET } from "./payments/chainsig.js";
+import { evmRpc, BASE_SEPOLIA_RPC, BASE_SEPOLIA_CHAIN_ID } from "./payments/evm.js";
+import { MPC_CONTRACT_TESTNET, depositPath, derivedPublicKey, evmAddress } from "./payments/chainsig.js";
+import { sweepAll, COLLECTION_PATH, type SweepableQuote } from "./payments/sweep.js";
 import { limitsView, resetLimits, saveLimits } from "./limits/index.js";
 import { recordRun as recordScheduleRun, saveSchedule, scheduleView, tick as scheduleTick } from "./schedule.js";
 import { HttpFacilitator, MockFacilitator, type Facilitator } from "./x402/facilitator.js";
@@ -155,6 +156,40 @@ const chainSig = PAYABLE ? {
   priceWei: process.env.CROSS_CHAIN_PRICE_WEI ?? "10000000000000",
 } : undefined;
 
+// Sweeping settled deposits to the collection address. Needs CROSS_CHAIN_PAYABLE
+// and a governor key: without a key, the MPC contract cannot be asked to sign.
+const GOVERNOR_KEY = process.env.GOVERNOR_PRIVATE_KEY || "";
+const sweepMpcContract = process.env.MPC_CONTRACT ?? MPC_CONTRACT_TESTNET;
+const sweepEvmRpc = PAYABLE ? evmRpc(process.env.BASE_SEPOLIA_RPC_URL ?? BASE_SEPOLIA_RPC) : undefined;
+
+// The collection address is derived lazily on first sweep (it needs a view call
+// to the MPC contract). Cached after that.
+let collectionAddress: string | undefined;
+async function getCollectionAddress(): Promise<string> {
+  if (collectionAddress) return collectionAddress;
+  const key = await derivedPublicKey(
+    async (method, params) => {
+      if (method !== "query") throw new Error(`unsupported NEAR call ${method}`);
+      return nearViewCall(params as { account_id: string; method_name: string; args_base64: string; finality?: "final" | "optimistic" });
+    },
+    { contract: sweepMpcContract, predecessor: GOVERNOR, path: COLLECTION_PATH },
+  );
+  collectionAddress = evmAddress(key);
+  return collectionAddress;
+}
+
+const sweepFn = (PAYABLE && GOVERNOR_KEY && sweepEvmRpc) ? async (quotes: SweepableQuote[]) => {
+  const addr = await getCollectionAddress();
+  return sweepAll({
+    accountId: GOVERNOR,
+    secretKey: GOVERNOR_KEY,
+    mpcContract: sweepMpcContract,
+    nearRpcUrl: RPC_URL,
+    evmRpc: sweepEvmRpc!,
+    collectionAddress: addr,
+  }, quotes);
+} : undefined;
+
 const { server, memory } = createMnemosyneServer({
   dataDir: DATA_DIR,
   seedPath: join(REPO_ROOT, "data/seed-memory.json"),
@@ -211,6 +246,7 @@ const { server, memory } = createMnemosyneServer({
     get: () => scheduleView(DATA_DIR),
     set: (changes, by) => saveSchedule(DATA_DIR, changes, by),
   },
+  sweep: sweepFn,
   runCycle: async () => {
     const r = await runGovernorCycle();
     // A manual run counts the same as a scheduled one: it resets the clock
@@ -266,6 +302,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  dashboard:    http://localhost:${actualPort}/dashboard  (read-only${process.env.ADMIN_TOKEN ? "; limits can be changed with the admin token" : "; set ADMIN_TOKEN to be able to change limits"})`);
   const sched = scheduleView(DATA_DIR);
   console.log(`  schedule:     ${sched.enabled ? `on, every ${sched.interval_minutes} min` : "off"} (change it at PUT /schedule, or the dashboard's Settings panel)`);
+  console.log(`  sweep:        ${sweepFn ? "enabled (POST /admin/sweep)" : PAYABLE ? "disabled (needs GOVERNOR_PRIVATE_KEY)" : "disabled (needs CROSS_CHAIN_PAYABLE=1)"}`);
 });
 
 // Close cleanly on container / terminal shutdown; synchronous stores have no
