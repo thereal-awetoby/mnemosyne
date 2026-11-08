@@ -38,7 +38,7 @@ import { requirementsError } from "./validation.js";
 import type { Facilitator } from "./facilitator.js";
 import { createMockRail, type PaymentRail, type WireRequirements } from "./rails.js";
 import { nearRpc, readPayerStatus } from "./wrap.js";
-import { createInboundQuoter, type InboundQuoter, type OneClickInboundOptions, type StoredQuote } from "../payments/inbound.js";
+import { createInboundQuoter, type InboundQuoter, type OneClickInboundOptions, type StoredQuote, type ChainSigConfig, type SettlementProof, SettlementError } from "../payments/inbound.js";
 import { RateLimiter } from "../auth/rateLimit.js";
 import {
   MOCK_TRANSFER_METHOD,
@@ -89,12 +89,16 @@ export interface ServerConfig {
     set: (changes: unknown, by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
     reset: (by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
   };
-  /** Paying for a check from another chain (src/payments/inbound.ts). Quote-only;
-   *  absent means this server quotes NEAR and nothing else. */
+  /** Paying for a check from another chain (src/payments/inbound.ts).
+   *  Absent means this server quotes NEAR and nothing else. */
   inboundQuotes?: {
     /** where a refund would go on the source chain, if any of this were ever real */
     refundTo: string;
     oneClick?: OneClickInboundOptions;
+    /** present when this server can actually be paid on another chain:
+     *  the governor's NEAR account derives a deposit address via Chain Signatures,
+     *  and settlement is a balance check on that address. */
+    chainSig?: ChainSigConfig;
   };
   /** The automatic cycle schedule (src/schedule). Reads are public, writes need the admin token. */
   schedule?: {
@@ -122,6 +126,12 @@ export interface Receipt {
   answer_sha256: string;
   match: boolean;
   citation_id: string | null;
+  /** Paying from another chain: where the money moved (present only then). */
+  source_chain?: string;
+  /** The address the payer sent to, controlled by the governor's NEAR account. */
+  source_address?: string;
+  /** Which NEAR account controls the address above. */
+  source_controlled_by?: string;
 }
 
 const RECEIPT_ID = /^R-[0-9a-f]{24}$/;
@@ -190,6 +200,17 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
         refundTo: cfg.inboundQuotes.refundTo,
         record: (q) => quotes.update((s) => { s.quotes[q.quote_id] = q; }),
         oneClick: cfg.inboundQuotes.oneClick,
+        chainSig: cfg.inboundQuotes.chainSig,
+        load: (quoteId) => quotes.get().quotes[quoteId],
+        markUsed: (quoteId, at) => {
+          const q = quotes.get().quotes[quoteId];
+          if (!q || q.used_at) return false;
+          quotes.update((next) => {
+            const target = next.quotes[quoteId];
+            if (target && !target.used_at) target.used_at = at;
+          });
+          return true;
+        },
       })
     : undefined;
 
@@ -244,6 +265,56 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     send(res, 402, body, { "PAYMENT-REQUIRED": b64json(body) });
   };
 
+  /**
+   * Compute the answer and write the receipt -- shared by the NEAR path and
+   * the payable-from-another-chain path. The answer is only released after
+   * settlement succeeds; both paths settle first. `resource` is the URL the
+   * answer was requested at (/memory/check).
+   */
+  function answerAndReceipt(resource: string, query: string, result: CheckResult, settled: {
+    payer: string;
+    amount: string;
+    asset: string;
+    network: string;
+    settlement: string;
+    explorer: string | null;
+    mock: boolean;
+    /** paying from another chain: where the money moved */
+    source_chain?: string;
+    /** the address the payer sent to */
+    source_address?: string;
+    /** the NEAR account that controls the address above */
+    source_controlled_by?: string;
+  }): { answer: Record<string, unknown>; receipt: Receipt } {
+    const answer = {
+      match: result.match,
+      citation_id: result.citation_id,
+      category: result.category,
+      advice: result.advice,
+      score: result.score,
+    };
+    const receipt: Receipt = {
+      receipt_id: "R-" + randomBytes(12).toString("hex"),
+      created_at: new Date().toISOString(),
+      resource,
+      payer: settled.payer,
+      amount: settled.amount,
+      asset: settled.asset,
+      network: settled.network,
+      settlement: settled.settlement,
+      explorer: settled.explorer,
+      mock: settled.mock,
+      request_sha256: sha256Hex(canonicalJson({ query })),
+      answer_sha256: sha256Hex(canonicalJson(answer)),
+      match: result.match,
+      citation_id: result.citation_id,
+      ...(settled.source_chain ? { source_chain: settled.source_chain } : {}),
+      ...(settled.source_address ? { source_address: settled.source_address } : {}),
+      ...(settled.source_controlled_by ? { source_controlled_by: settled.source_controlled_by } : {}),
+    };
+    return { answer, receipt };
+  }
+
   async function handleCheck(req: IncomingMessage, res: ServerResponse) {
     const checkUrl = checkUrlFor(req);
     auth?.guardSession(req); // a paused or capped signed-in browser gets 403/429 before any 402
@@ -251,6 +322,41 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     const query = body?.query;
     if (typeof query !== "string" || query.trim().length === 0) throw new HttpError(400, 'body must be {"query": "<text>"}');
     if (query.length > MAX_QUERY_CHARS) throw new HttpError(400, `query longer than ${MAX_QUERY_CHARS} chars`);
+
+    // Redeeming a payable quote: the payment already happened on another
+    // chain (Base Sepolia). Settle against the address the quote pointed to,
+    // then answer exactly like the NEAR path. Nothing here touches a
+    // payment-signature header or the NEAR rail.
+    const quoteId = typeof body?.quote_id === "string" && body.quote_id.length > 0 ? body.quote_id : null;
+    if (quoteId) {
+      if (!inbound || typeof inbound.settle !== "function") {
+        return require402(res, "this server does not take payment from another chain", checkUrl);
+      }
+      let proof: SettlementProof;
+      try {
+        proof = await inbound.settle({ query, quoteId });
+      } catch (err) {
+        if (err instanceof SettlementError) return require402(res, err.message, checkUrl);
+        throw new HttpError(502, `settlement check failed: ${(err as Error).message}`);
+      }
+      const result: CheckResult = memory.check(query);
+      const { answer, receipt } = answerAndReceipt(checkUrl, query, result, {
+        payer: proof.controlled_by,
+        amount: proof.source_amount,
+        asset: proof.source_asset,
+        network: proof.source_chain,
+        settlement: `chain-signature settlement on ${proof.source_chain}`,
+        explorer: proof.explorer,
+        mock: false,
+        source_chain: proof.source_chain,
+        source_address: proof.deposit_address,
+        source_controlled_by: proof.controlled_by,
+      });
+      receipts.update((r) => { r.receipts[receipt.receipt_id] = receipt; });
+      return send(res, 200, { ...answer, receipt_id: receipt.receipt_id }, {
+        "PAYMENT-RESPONSE": b64json({ ok: true, receipt_id: receipt.receipt_id, source_chain: proof.source_chain }),
+      });
+    }
 
     const header = req.headers["payment-signature"];
     if (typeof header !== "string" || header.length === 0) return require402(res, "payment required", checkUrl);
@@ -281,18 +387,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
     if (settlementIssue) throw new HttpError(502, settlementIssue);
     const transaction = settlement.transaction;
     if (!transaction) throw new HttpError(502, "invalid_settlement_transaction");
-
-    const answer = {
-      match: result.match,
-      citation_id: result.citation_id,
-      category: result.category,
-      advice: result.advice,
-      score: result.score,
-    };
-    const receipt: Receipt = {
-      receipt_id: "R-" + randomBytes(12).toString("hex"),
-      created_at: new Date().toISOString(),
-      resource: checkUrl,
+    const { answer, receipt } = answerAndReceipt(checkUrl, query, result, {
       payer: verifiedPayer,
       amount: requirements.amount,
       asset: requirements.asset,
@@ -300,14 +395,8 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       settlement: transaction,
       explorer: rail.explorerUrl(transaction),
       mock: isMock,
-      request_sha256: sha256Hex(canonicalJson({ query })),
-      answer_sha256: sha256Hex(canonicalJson(answer)),
-      match: result.match,
-      citation_id: result.citation_id,
-    };
-    receipts.update((r) => {
-      r.receipts[receipt.receipt_id] = receipt;
     });
+    receipts.update((r) => { r.receipts[receipt.receipt_id] = receipt; });
     send(res, 200, { ...answer, receipt_id: receipt.receipt_id }, { "PAYMENT-RESPONSE": rail.responseHeader(settlement) });
   }
 
@@ -431,7 +520,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
           // the one that can actually be paid; the rest are quote-only today.
           chains: [
             { key: "near", label: "NEAR", asset: requirements.asset, quote_only: false },
-            ...(inbound ? inbound.routes().map((r) => ({ key: r.key, label: `${r.chain_label} ${r.symbol}`, asset: r.symbol, quote_only: true })) : []),
+            ...(inbound ? inbound.routes().map((r) => ({ key: r.key, label: `${r.chain_label} ${r.symbol}`, asset: r.symbol, quote_only: !r.payable })) : []),
           ],
           recent: all.slice(0, 12).map((r) => ({
             receipt_id: r.receipt_id, at: r.created_at, payer: r.payer, amount: r.amount,

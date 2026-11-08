@@ -33,6 +33,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMnemosyneServer } from "./x402/server.js";
+import { evmRpc, BASE_SEPOLIA_RPC } from "./payments/evm.js";
+import { MPC_CONTRACT_TESTNET } from "./payments/chainsig.js";
 import { limitsView, resetLimits, saveLimits } from "./limits/index.js";
 import { recordRun as recordScheduleRun, saveSchedule, scheduleView, tick as scheduleTick } from "./schedule.js";
 import { HttpFacilitator, MockFacilitator, type Facilitator } from "./x402/facilitator.js";
@@ -66,6 +68,30 @@ async function keyBelongsToAccount(accountId: string, publicKey: string): Promis
   } catch {
     return false;
   }
+}
+
+/** A read-only NEAR view call: free, no signature, nothing changes on-chain.
+ *  Used to ask the MPC contract what key it derives for our deposit address. */
+async function nearViewCall(params: {
+  account_id: string;
+  method_name: string;
+  args_base64: string;
+  finality?: "final" | "optimistic";
+}): Promise<any> {
+  const r = await fetch(RPC_URL, {
+    method: "POST",
+    redirect: "error",
+    signal: AbortSignal.timeout(15_000),
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0", id: "mnemosyne-csig", method: "query",
+      params: { request_type: "call_function", finality: "final", ...params },
+    }),
+  });
+  if (!r.ok) throw new Error(`the NEAR node answered ${r.status}`);
+  const j: any = await r.json();
+  if (j.error) throw new Error(`the NEAR node refused the call: ${String(j.error.message ?? "").slice(0, 200)}`);
+  return j.result?.result ?? null;
 }
 
 const RAIL = (process.env.X402_RAIL ?? "mock").trim();
@@ -112,6 +138,23 @@ const facilitator: Facilitator = realFacilitatorUrl
       checkNamedAccountKey: process.env.X402_VERIFY_NAMED_PAYERS === "1" ? keyBelongsToAccount : undefined,
     });
 
+// Paying for a check from another chain. CROSS_CHAIN_INBOUND=1 prices it
+// (1Click, quote-only). CROSS_CHAIN_PAYABLE=1 goes further: the payer sends
+// Base Sepolia ETH to an address the governor's NEAR account derives through
+// Chain Signatures, and settlement is a balance check on it -- nothing is
+// deployed or bridged anywhere (docs/CROSS_CHAIN.md).
+const PAYABLE = process.env.CROSS_CHAIN_PAYABLE === "1";
+const chainSig = PAYABLE ? {
+  predecessor: GOVERNOR,
+  mpcContract: process.env.MPC_CONTRACT ?? MPC_CONTRACT_TESTNET,
+  nearRpc: async (method: string, params: unknown) => {
+    if (method !== "query") throw new Error(`unsupported NEAR call ${method}`);
+    return nearViewCall(params as { account_id: string; method_name: string; args_base64: string; finality?: "final" | "optimistic" });
+  },
+  evmRpc: evmRpc(process.env.BASE_SEPOLIA_RPC_URL ?? BASE_SEPOLIA_RPC),
+  priceWei: process.env.CROSS_CHAIN_PRICE_WEI ?? "10000000000000",
+} : undefined;
+
 const { server, memory } = createMnemosyneServer({
   dataDir: DATA_DIR,
   seedPath: join(REPO_ROOT, "data/seed-memory.json"),
@@ -125,10 +168,6 @@ const { server, memory } = createMnemosyneServer({
   rail,
   mockSettlement: !realFacilitatorUrl,
   adminToken: process.env.ADMIN_TOKEN || undefined,
-  // Paying for a check from another chain. Off by default, like the outbound
-  // cross-chain rail: it reaches a mainnet pricing API, and it only ever
-  // quotes -- nothing it returns can be settled yet (docs/CROSS_CHAIN.md).
-  inboundQuotes: process.env.CROSS_CHAIN_INBOUND === "1" ? { refundTo: GOVERNOR } : undefined,
   readChainHead: async () => {
     const { getLatestMemoryRecord } = await import("./memory.js");
     const rec = await getLatestMemoryRecord(GOVERNOR);
