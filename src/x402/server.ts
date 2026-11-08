@@ -99,6 +99,9 @@ export interface ServerConfig {
      *  the governor's NEAR account derives a deposit address via Chain Signatures,
      *  and settlement is a balance check on that address. */
     chainSig?: ChainSigConfig;
+    /** false to hide the 1Click quote-only routes (CROSS_CHAIN_PAYABLE without
+     *  CROSS_CHAIN_INBOUND). Default true. */
+    enableOneClickRoutes?: boolean;
   };
   /** The automatic cycle schedule (src/schedule). Reads are public, writes need the admin token. */
   schedule?: {
@@ -201,6 +204,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
         record: (q) => quotes.update((s) => { s.quotes[q.quote_id] = q; }),
         oneClick: cfg.inboundQuotes.oneClick,
         chainSig: cfg.inboundQuotes.chainSig,
+        enableOneClickRoutes: cfg.inboundQuotes.enableOneClickRoutes,
         load: (quoteId) => quotes.get().quotes[quoteId],
         markUsed: (quoteId, at) => {
           const q = quotes.get().quotes[quoteId];

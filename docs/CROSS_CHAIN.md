@@ -262,4 +262,15 @@ A cross-chain receipt is the same shape as an x402 one, with three fields added:
 
 **Not verified: a real payment.** No Base Sepolia transaction has been sent to a derived address and redeemed, because this sandbox cannot reach a Base Sepolia node. The settlement logic is covered offline with an injected RPC, including the node-down case; it has not met the live chain. That is the one remaining step, and it needs only faucet ETH.
 
-**Also not done: sweeping.** Nothing yet spends what accumulates at those addresses. The governor *can* (that is what the MPC key is for), but the `sign` call is not wired, deliberately — this project does not move value without a memory commit, and that design question is not settled.
+### Sweeping (`src/payments/sweep.ts`)
+
+Once a deposit address has been paid, the ETH sits there until the governor sweeps it to a collection address. Sweeping uses the MPC `sign` call on NEAR to sign an EIP-1559 transaction that transfers ETH from each deposit address to the governor's collection address (derived with the fixed path `mnemosyne-treasury`).
+
+The sweep is deliberately simple:
+
+- **One deposit → one EIP-1559 transfer** to the collection address.
+- **Gas paid from the deposit's own balance.** The collection address never needs to fund anything.
+- **No ERC-20, no token contracts.** Native ETH only, so settlement is a balance check and the transfer is 21000 gas.
+- **RLP and transaction building are inline** — no ethers.js or viem, just the project's own `@noble/hashes` for keccak256 and `near-api-js` for the MPC call.
+
+**Not yet wired to any trigger.** `sweepOne()` and `sweepAll()` are exported but not called by the server or the cycle. The design question — when to sweep (after each settlement? in the cycle? on a manual admin call?) — is left open. The governor's NEAR account must have enough gas to pay for MPC `sign` calls (~250 TGas each).

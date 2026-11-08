@@ -258,6 +258,9 @@ export function createInboundQuoter(cfg: {
   oneClick?: OneClickInboundOptions;
   /** the route that can actually be paid; absent means price-only quotes */
   chainSig?: ChainSigConfig;
+  /** false to suppress the 1Click quote-only routes (e.g. CROSS_CHAIN_PAYABLE
+   *  without CROSS_CHAIN_INBOUND). Default true for backwards compatibility. */
+  enableOneClickRoutes?: boolean;
   now?: () => number;
 }): InboundQuoter {
   const opts = cfg.oneClick ?? {};
@@ -266,6 +269,7 @@ export function createInboundQuoter(cfg: {
   const jwt = opts.jwt ?? (process.env.ONECLICK_JWT || process.env.ONECLICK_API_KEY || undefined);
   const now = cfg.now ?? opts.now ?? Date.now;
   const cs = cfg.chainSig;
+  const showOneClick = cfg.enableOneClickRoutes !== false;
 
   /** The route that can be paid, if one is configured. */
   const payableRoute: InboundRoute | null = cs
@@ -322,7 +326,7 @@ export function createInboundQuoter(cfg: {
   }
 
   return {
-    routes: () => [...Object.values(INBOUND_ROUTES), ...(payableRoute ? [payableRoute] : [])],
+    routes: () => [...(showOneClick ? Object.values(INBOUND_ROUTES) : []), ...(payableRoute ? [payableRoute] : [])],
 
     ...(cs && cfg.load && cfg.markUsed ? {
       /**
