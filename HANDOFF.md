@@ -2,6 +2,18 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-07 — the one failing test was Windows line endings, not the code
+
+`npm test` on the Windows machine: 292 pass, 1 fail — "header and automatic cycles use the compact reference layout" (`src/dashboard/dashboard.test.ts`), with `actual: ''`. The same commit passes 293/293 on Linux.
+
+**Cause, reproduced rather than guessed.** That test pulls `drawSchedule`'s body out of the served page with a regex ending `\n}\n\nasync function saveScheduleNow`. With `core.autocrlf=true` — Git for Windows' default — `web/dashboard.html` is checked out CRLF, so the text after `}` is `\r\n\r\nasync`, nothing in the pattern can absorb those `\r`s, the match fails, `?.[1] || ""` yields `''`, and the assertion compares against an empty string. Confirmed by converting `web/dashboard.html` to CRLF in a clean Linux clone: the same test fails identically, and passes again when converted back.
+
+- **Not caused by any recent patch.** The test arrived on 2026-11-03 in `7bf30ea` ("Match compact schedule and header reference"), written and run on Linux. It has been failing on Windows ever since and nobody had run the suite there.
+- **Fixed in the test, not around it:** the page is normalised to LF before matching. What that test is checking is the page's structure, not which line ending a clone happens to have, and a test that only passes on one OS is worse than no test.
+- **Fixed at the root too:** the repository had no `.gitattributes`, which is why line endings varied by platform at all. Added `* text=auto eol=lf` plus explicit `binary` for woff2/wasm/images, so every working tree on every OS gets LF and this whole class of failure stops recurring. The committed content is unchanged — Git already normalises on commit — so this only affects what lands in a working tree.
+- The sibling regex on line 127 (`cycleSummary`) survives CRLF by accident: its lazy `[\s\S]*?` absorbs the stray `\r`. Left alone, now moot under `.gitattributes`.
+- **Verified both ways:** 293/293 with LF, and 293/293 with `web/dashboard.html` deliberately converted to CRLF.
+
 ## 2026-11-07 — a cross-chain payment that is actually payable, via NEAR Chain Signatures
 
 **The multi-chain plan assumed a bridge. There isn't one that works on testnet, so this route doesn't use one.** Both options were checked before writing any code, not assumed:

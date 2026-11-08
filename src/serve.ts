@@ -168,6 +168,20 @@ const { server, memory } = createMnemosyneServer({
   rail,
   mockSettlement: !realFacilitatorUrl,
   adminToken: process.env.ADMIN_TOKEN || undefined,
+  // Paying for a check from another chain. Off by default: it either reaches
+  // a mainnet pricing API (CROSS_CHAIN_INBOUND) or derives Chain Signature
+  // addresses on NEAR testnet (CROSS_CHAIN_PAYABLE). Either flag, or both,
+  // turns it on; see docs/CROSS_CHAIN.md.
+  inboundQuotes: (process.env.CROSS_CHAIN_INBOUND === "1" || PAYABLE) ? {
+    refundTo: GOVERNOR,
+    // Show the 1Click quote-only routes (base:USDC) only when CROSS_CHAIN_INBOUND
+    // is on. CROSS_CHAIN_PAYABLE alone should not drag in a mainnet pricing API.
+    enableOneClickRoutes: process.env.CROSS_CHAIN_INBOUND === "1",
+    // The route that can actually be paid. Nothing bridges to NEAR testnet,
+    // so the payer pays on Base Sepolia and the governor receives there, at
+    // an address only GOVERNOR can spend from via Chain Signatures. Nothing
+    ...(PAYABLE ? { chainSig } : {}),
+  } : undefined,
   readChainHead: async () => {
     const { getLatestMemoryRecord } = await import("./memory.js");
     const rec = await getLatestMemoryRecord(GOVERNOR);

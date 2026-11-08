@@ -208,6 +208,80 @@ describe("when the pricing provider misbehaves", () => {
   });
 });
 
+describe("a server with CROSS_CHAIN_PAYABLE only (no 1Click routes)", () => {
+  let base = "", close = () => {}, dir = "";
+
+  before(async () => {
+    dir = mkdtempSync(join(tmpdir(), "mnemo-payable-only-"));
+    const { evmRpc } = await import("./evm.js");
+    const { MPC_CONTRACT_TESTNET } = await import("./chainsig.js");
+    // Mock NEAR RPC: returns a fixed secp256k1 key for derived_public_key,
+    // since the sandbox can't reach the real NEAR testnet.
+    const mockNearRpc = async (_m: string, p: any) => {
+      if (p?.method_name === "derived_public_key") {
+        const key = "secp256k1:41jPZuRYWASBLjRKFYxzEbLRBp35gdw1qz6tPSBrGkK291GSpJP6YWts3JoXK77tfFq8b8Fjz7t9Nm7TNwFZ8Vp4";
+        return { result: [...Buffer.from(JSON.stringify(key), "utf8")] };
+      }
+      return null;
+    };
+    const s = createMnemosyneServer({
+      dataDir: dir, seedPath: join(ROOT, "data/seed-memory.json"),
+      payTo: PAY_TO, network: "near:testnet", asset: "NEAR", priceAmount: PRICE, maxTimeoutSeconds: 300,
+      facilitator: new MockFacilitator(dir), mockSettlement: true,
+      inboundQuotes: {
+        refundTo: PAY_TO,
+        enableOneClickRoutes: false,
+        chainSig: {
+          predecessor: PAY_TO,
+          mpcContract: MPC_CONTRACT_TESTNET,
+          nearRpc: mockNearRpc,
+          evmRpc: evmRpc("https://sepolia.base.org"),
+          priceWei: "10000000000000",  // 0.00001 ETH
+        },
+      },
+      dashboardData: async () => ({ cycles: [] }),
+      readChainHead: async () => ({ latest_hash: "sha256:head", prev_hash: null }),
+    });
+    await new Promise<void>((r) => s.server.listen(0, "127.0.0.1", () => r()));
+    base = `http://127.0.0.1:${(s.server.address() as AddressInfo).port}`;
+    close = () => s.server.close();
+  });
+  after(() => { close(); rmSync(dir, { recursive: true, force: true }); });
+
+  const quote = (body: unknown) =>
+    fetch(`${base}/memory/quote`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+  it("lists only the payable route, not the 1Click routes", async () => {
+    const r = await quote({ query: QUERY });
+    assert.equal(r.status, 200);
+    const j: any = await r.json();
+    assert.equal(j.chain, "near");
+    assert.deepEqual(j.other_chains, ["base-sepolia:ETH"], "only the payable route; base:USDC must not appear");
+  });
+
+  it("rejects a request for the 1Click route with a 400, not a network error", async () => {
+    const r = await quote({ query: QUERY, chain: "base:USDC" });
+    assert.equal(r.status, 400);
+    const j: any = await r.json();
+    assert.match(j.error, /unknown chain/, "should say it does not know that chain");
+    assert.match(j.error, /base-sepolia:ETH/, "should tell them what is available");
+  });
+
+  it("quotes the payable route and returns a deposit address", async () => {
+    const r = await quote({ query: QUERY, chain: "base-sepolia:ETH" });
+    assert.equal(r.status, 200);
+    const j: any = await r.json();
+    assert.equal(j.source_chain, "base-sepolia");
+    assert.equal(j.source_asset, "ETH");
+    assert.equal(j.quote_only, false, "a payable route can actually be paid");
+    assert.ok(j.deposit_address, "must have a deposit address");
+    assert.match(j.deposit_address, /^0x[0-9a-fA-F]{40}$/, "must be a valid EVM address");
+    assert.equal(j.controlled_by, PAY_TO, "only the governor can spend from it");
+    assert.ok(j.deposit_path, "must name the derivation path");
+    assert.match(j.quote_id, /^Q-[0-9a-f]{20}$/);
+  });
+});
+
 describe("a server with no inbound route configured", () => {
   it("quotes NEAR and says plainly that other chains are not set up", async () => {
     const d = mkdtempSync(join(tmpdir(), "mnemo-inbound-off-"));

@@ -152,7 +152,11 @@ test("dashboard keeps the reference logo and theme icons and exposes operator un
 });
 
 test("header and automatic cycles use the compact reference layout", async () => {
-  const html = await (await fetch(`${base}/dashboard`)).text();
+  // Normalised to LF before matching: a Windows checkout serves this file with
+  // CRLF, and an assertion below pins an exact newline run. What is being
+  // tested is the page's structure, not which line ending the clone happens
+  // to have, and a test that passes only on Linux is worse than no test.
+  const html = (await (await fetch(`${base}/dashboard`)).text()).replace(/\r\n/g, "\n");
   const header = html.match(/<header class="top">([\s\S]*?)<\/header>/)?.[1] || "";
   const overview = html.match(/<section id="view-desk"[\s\S]*?<div class="grid" id="cards">/)?.[0] || "";
   assert.doesNotMatch(header, /id="refresh"|id="btnCycle"/);
