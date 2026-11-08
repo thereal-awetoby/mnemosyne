@@ -17,6 +17,7 @@ import type { AddressInfo } from "node:net";
 import { createMnemosyneServer } from "../x402/server.js";
 import { MockFacilitator } from "../x402/facilitator.js";
 import { INBOUND_ROUTES, fromBaseUnits, inboundQuoteBody, quoteRequestHash } from "./inbound.js";
+import type { SweepableQuote, SweepResult } from "./sweep.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const PRICE = "1000000000000000000000"; // 0.001 wNEAR, the documented default
@@ -305,5 +306,129 @@ describe("a server with no inbound route configured", () => {
       const dash: any = await (await fetch(`${base}/dashboard.json`)).json();
       assert.deepEqual(dash.x402.chains.map((c: any) => c.key), ["near"]);
     } finally { s.server.close(); rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+// ── POST /admin/sweep ──────────────────────────────────────────────────
+
+describe("POST /admin/sweep", () => {
+  const TOKEN = "sweep-test-token";
+
+  /** A fake chain-sig config that returns canned keys (no real MPC calls). */
+  function fakeChainSig() {
+    // Canned public key from the live MPC contract (reused from chainsig.test.ts).
+    const CANNED_KEY = "secp256k1:4HFcTSodRLVCGNVcGc4Mf2fwBBBxv9jxkGdiW2S2LR1b4be1QNprn8r8vVnXPqiMRSwKaFRVbCq9rHnKEpyYMH85";
+    return {
+      predecessor: PAY_TO,
+      mpcContract: "v1.signer-prod.testnet",
+      nearRpc: async (_method: string, _params: unknown) => {
+        // Return the canned key in the shape nearViewCall gives.
+        const text = JSON.stringify(CANNED_KEY);
+        return { result: Array.from(Buffer.from(text)) };
+      },
+      evmRpc: ((_method: string, _params: unknown[]) => {
+        // balanceOf returns 0 by default (nothing to sweep)
+        return Promise.resolve("0x0");
+      }) as any,
+      priceWei: "10000000000000",
+    };
+  }
+
+  async function sweepServer(opts: {
+    sweep?: (quotes: SweepableQuote[]) => Promise<{ swept: SweepResult[]; errors: Array<{ quote_id: string; error: string }> }>;
+    adminToken?: string;
+  }) {
+    const d = mkdtempSync(join(tmpdir(), "mnemo-sweep-"));
+    const s = createMnemosyneServer({
+      dataDir: d, seedPath: join(ROOT, "data/seed-memory.json"),
+      payTo: PAY_TO, network: "near:testnet", asset: "NEAR", priceAmount: PRICE, maxTimeoutSeconds: 300,
+      facilitator: new MockFacilitator(d), mockSettlement: true,
+      adminToken: opts.adminToken ?? TOKEN,
+      inboundQuotes: { refundTo: PAY_TO, chainSig: fakeChainSig() },
+      dashboardData: async () => ({ cycles: [] }),
+      readChainHead: async () => ({ latest_hash: "sha256:head", prev_hash: null }),
+      sweep: opts.sweep,
+    });
+    await new Promise<void>((r) => s.server.listen(0, "127.0.0.1", () => r()));
+    const base = `http://127.0.0.1:${(s.server.address() as AddressInfo).port}`;
+    return {
+      base,
+      close: () => { s.server.close(); rmSync(d, { recursive: true, force: true }); },
+      post: (path: string, body?: unknown) => fetch(`${base}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` },
+        body: body ? JSON.stringify(body) : undefined,
+      }),
+      postNoAuth: (path: string) => fetch(`${base}${path}`, { method: "POST" }),
+    };
+  }
+
+  it("is admin-guarded", async () => {
+    const { close, postNoAuth } = await sweepServer({
+      sweep: async () => ({ swept: [], errors: [] }),
+    });
+    try {
+      const r = await postNoAuth("/admin/sweep");
+      assert.equal(r.status, 401);
+    } finally { close(); }
+  });
+
+  it("returns 503 when sweep is not configured", async () => {
+    const { close, post } = await sweepServer({ sweep: undefined });
+    try {
+      const r = await post("/admin/sweep");
+      assert.equal(r.status, 503);
+      const j: any = await r.json();
+      assert.match(j.error, /sweep not configured/);
+    } finally { close(); }
+  });
+
+  it("returns an empty result when there are no settled payable quotes", async () => {
+    const called: SweepableQuote[][] = [];
+    const { close, post } = await sweepServer({
+      sweep: async (q) => { called.push(q); return { swept: [], errors: [] }; },
+    });
+    try {
+      const r = await post("/admin/sweep");
+      assert.equal(r.status, 200);
+      const j: any = await r.json();
+      assert.deepEqual(j.swept, []);
+      assert.ok(j.note, "should explain why nothing was swept");
+      assert.equal(called.length, 0, "sweep function should not be called when there is nothing to sweep");
+    } finally { close(); }
+  });
+
+  it("does not sweep unsettled or price-only quotes", async () => {
+    const called: SweepableQuote[][] = [];
+    const { base, close, post } = await sweepServer({
+      sweep: async (q) => { called.push(q); return { swept: [], errors: [] }; },
+    });
+    try {
+      // Get a payable quote (unsettled: used_at remains null)
+      const qr = await fetch(`${base}/memory/quote`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query: QUERY, chain: "base-sepolia:ETH" }),
+      });
+      assert.equal(qr.status, 200);
+
+      const r = await post("/admin/sweep");
+      assert.equal(r.status, 200);
+      const j: any = await r.json();
+      assert.deepEqual(j.swept, []);
+      assert.equal(called.length, 0, "unsettled quotes must not be passed to sweep");
+    } finally { close(); }
+  });
+
+  it("is listed in the route index when configured", async () => {
+    const { base, close } = await sweepServer({
+      sweep: async () => ({ swept: [], errors: [] }),
+    });
+    try {
+      const r = await fetch(base);
+      assert.equal(r.status, 200);
+      const j: any = await r.json();
+      assert.ok(j.routes["POST /admin/sweep"], "sweep route should appear in the index");
+    } finally { close(); }
   });
 });

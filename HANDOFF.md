@@ -2,6 +2,20 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-08 — payable independence, sweep module, and sweep admin endpoint
+
+Three things:
+
+1. **`CROSS_CHAIN_PAYABLE` is independent of `CROSS_CHAIN_INBOUND`.** Either flag, or both, turns on inbound quotes; `CROSS_CHAIN_PAYABLE=1` alone gives only the `base-sepolia:ETH` payable route and never reaches the 1Click mainnet pricing API. Previously, the payable route required `CROSS_CHAIN_INBOUND=1` as well, dragging in a mainnet dependency that the testnet-only payable route doesn't need. Three new tests cover the PAYABLE-only case (route listing, 1Click route rejection, payable quote shape).
+
+2. **`src/payments/sweep.ts` — sweep settled deposits to a collection address.** Minimal, dependency-free EIP-1559 transaction builder (inline RLP, `@noble/hashes` for keccak256, `near-api-js` for MPC). Each settled deposit address gets a single EIP-1559 transfer to the collection address (derived at `mnemosyne-treasury` path). Gas paid from the deposit's own balance. 15 unit tests cover RLP, tx hashing, signed tx assembly, and MPC signature conversion.
+
+3. **`POST /admin/sweep` wired and admin-guarded.** The endpoint finds all payable quotes with `used_at` set (settled), collects their deposit addresses, and calls `sweepAll()`. Requires `CROSS_CHAIN_PAYABLE=1` and `GOVERNOR_PRIVATE_KEY`. Returns 503 with a clear message if not configured. 5 HTTP tests cover auth, 503, empty-result, unsettled-not-swept, and route-index listing.
+
+**Tested:** 336 total (331 + 5). All pass.
+
+**Not verified live:** The sweep has not actually signed and broadcast a transaction on Base Sepolia. Same constraint as the payment path: no Base Sepolia node reachable from this sandbox. Needs faucet ETH and a live Base Sepolia RPC.
+
 ## 2026-11-07 — the one failing test was Windows line endings, not the code
 
 `npm test` on the Windows machine: 292 pass, 1 fail — "header and automatic cycles use the compact reference layout" (`src/dashboard/dashboard.test.ts`), with `actual: ''`. The same commit passes 293/293 on Linux.

@@ -273,4 +273,6 @@ The sweep is deliberately simple:
 - **No ERC-20, no token contracts.** Native ETH only, so settlement is a balance check and the transfer is 21000 gas.
 - **RLP and transaction building are inline** — no ethers.js or viem, just the project's own `@noble/hashes` for keccak256 and `near-api-js` for the MPC call.
 
-**Not yet wired to any trigger.** `sweepOne()` and `sweepAll()` are exported but not called by the server or the cycle. The design question — when to sweep (after each settlement? in the cycle? on a manual admin call?) — is left open. The governor's NEAR account must have enough gas to pay for MPC `sign` calls (~250 TGas each).
+**Wired to `POST /admin/sweep`.** The endpoint is admin-guarded and only sweeps quotes that have already been settled (`used_at` is set). It finds every payable quote with a deposit address, checks its balance on Base Sepolia, and sweeps any that hold funds to the collection address. The collection address itself is derived lazily on first call using the fixed path `mnemosyne-treasury`.
+
+The endpoint requires `CROSS_CHAIN_PAYABLE=1` and `GOVERNOR_PRIVATE_KEY`. The governor's NEAR account must have enough gas to pay for MPC `sign` calls (~250 TGas each).

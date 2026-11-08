@@ -39,6 +39,7 @@ import type { Facilitator } from "./facilitator.js";
 import { createMockRail, type PaymentRail, type WireRequirements } from "./rails.js";
 import { nearRpc, readPayerStatus } from "./wrap.js";
 import { createInboundQuoter, type InboundQuoter, type OneClickInboundOptions, type StoredQuote, type ChainSigConfig, type SettlementProof, SettlementError } from "../payments/inbound.js";
+import type { SweepableQuote, SweepResult } from "../payments/sweep.js";
 import { RateLimiter } from "../auth/rateLimit.js";
 import {
   MOCK_TRANSFER_METHOD,
@@ -108,6 +109,9 @@ export interface ServerConfig {
     get: () => unknown;
     set: (changes: unknown, by: string) => { ok: true; view: unknown } | { ok: false; errors: string[] };
   };
+  /** Sweep settled cross-chain deposits to the collection address (src/payments/sweep.ts).
+   *  Present only when CROSS_CHAIN_PAYABLE=1 and a governor key is available. */
+  sweep?: (quotes: SweepableQuote[]) => Promise<{ swept: SweepResult[]; errors: Array<{ quote_id: string; error: string }> }>;
 }
 
 export interface Receipt {
@@ -548,6 +552,7 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
           ...(cfg.adminToken ? { "GET /admin/check": "admin token -- says whether the token is right, changes nothing" } : {}),
           ...(cfg.limits ? { "GET /limits": "free", "PUT /limits": "admin", "POST /limits/reset": "admin" } : {}),
           ...(cfg.schedule ? { "GET /schedule": "free", "PUT /schedule": "admin" } : {}),
+          ...(cfg.sweep ? { "POST /admin/sweep": "admin -- sweep settled cross-chain deposits to the collection address" } : {}),
           ...(auth ? { "GET /login": "sign in / sign up with a NEAR wallet", "GET /me": "session", "PUT /me/guardrails": "session", "GET /me/receipts": "session" } : {}),
         },
       });
@@ -651,6 +656,29 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
       if (!cfg.runCycle) throw new HttpError(503, "cycle runner not configured");
       const result = await cfg.runCycle();
       return send(res, 200, { ran: true, result });
+    }
+
+    if (method === "POST" && path === "/admin/sweep") {
+      admin();
+      if (!cfg.sweep) throw new HttpError(503, "sweep not configured (CROSS_CHAIN_PAYABLE=1 and a governor key are needed)");
+      // Find all payable quotes that have been settled (used_at is set) and
+      // have a deposit address. Only settled quotes are swept: we never touch
+      // funds at an address whose quote has not been redeemed yet.
+      const all = quotes.get().quotes;
+      const sweepable: SweepableQuote[] = [];
+      for (const [id, q] of Object.entries(all)) {
+        if (q.kind === "payable" && q.used_at && q.deposit_address && q.deposit_path) {
+          sweepable.push({
+            quote_id: id,
+            deposit_address: q.deposit_address,
+            deposit_path: q.deposit_path,
+            source_amount: q.source_amount,
+          });
+        }
+      }
+      if (sweepable.length === 0) return send(res, 200, { swept: [], errors: [], note: "no settled payable quotes to sweep" });
+      const result = await cfg.sweep(sweepable);
+      return send(res, 200, result);
     }
 
     throw new HttpError(404, "not found");
