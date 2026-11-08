@@ -2,6 +2,16 @@
 
 Running record of what was actually built, patch by patch. Newest entry on top.
 
+## 2026-11-08 — dashboard sweep panel + README update
+
+Two things:
+
+1. **Dashboard sweep panel (Settings → Fund collection).** Operator-only. Shows settled payable quotes with deposit addresses and amounts, and a "Sweep N deposits to collection" button that calls `POST /admin/sweep`. Results show per-deposit success (with Basescan tx link) or failure. The panel is hidden when sweep is not configured. `dashboard.json` now includes a `sweep` field with the sweepable quote list.
+
+2. **README updated** with the sweep/fund-collection feature: a paragraph in the status section and a row in the "Where to look" table.
+
+**Tested:** 336 total (unchanged). All pass.
+
 ## 2026-11-08 — payable independence, sweep module, and sweep admin endpoint
 
 Three things:

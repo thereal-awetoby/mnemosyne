@@ -516,6 +516,17 @@ export function createMnemosyneServer(cfg: ServerConfig): { server: Server; memo
         operator: { enabled: !!cfg.adminToken },
         limits: cfg.limits ? cfg.limits.get() : null,
         schedule: cfg.schedule ? cfg.schedule.get() : null,
+        sweep: (() => {
+          if (!cfg.sweep) return { enabled: false };
+          const allQ = quotes.get().quotes;
+          const sweepable: Array<{ quote_id: string; deposit_address: string; source_amount: string; used_at: string }> = [];
+          for (const [id, q] of Object.entries(allQ)) {
+            if (q.kind === "payable" && q.used_at && q.deposit_address && q.deposit_path) {
+              sweepable.push({ quote_id: id, deposit_address: q.deposit_address, source_amount: q.source_amount, used_at: q.used_at });
+            }
+          }
+          return { enabled: true, sweepable_count: sweepable.length, sweepable };
+        })(),
         x402: {
           payment_rail: rail.mode,
           mock_settlement: isMock,
