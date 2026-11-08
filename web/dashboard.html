@@ -541,6 +541,14 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
         <p class="hint-text" hidden>When this is on, the governor runs itself on this interval instead of waiting for someone to press Run cycle. A run that doesn't commit counts against it, and after three in a row it turns itself off rather than keep failing quietly.</p>
         <div class="panel-b" id="scheduleBox"></div>
       </div>
+      <div class="panel" id="sweepPanel" hidden>
+        <div class="panel-h">
+          <div class="lhs"><h3>Fund collection</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
+          <span class="tag" id="sweepNote"></span>
+        </div>
+        <p class="hint-text" hidden>Cross-chain payments land at per-quote deposit addresses on Base Sepolia. Only <code>mnemosyne-gov.testnet</code> can spend what lands there (NEAR Chain Signatures). Sweep moves settled deposits to a single collection address via MPC signing.</p>
+        <div class="panel-b" id="sweepBox"></div>
+      </div>
     </section>
 
     <!-- AUDIT -->
@@ -1856,6 +1864,86 @@ async function saveScheduleNow() {
   }
 }
 
+/* ---------- sweep (operator only) ---------- */
+let sweepBusy = false;
+function renderSweep(d) {
+  const S = d.sweep;
+  const panel = $("sweepPanel");
+  if (!S || !S.enabled) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const n = S.sweepable_count || 0;
+  $("sweepNote").textContent = n ? `${n} settled` : "Nothing to sweep";
+
+  const box = $("sweepBox");
+  if (sweepBusy) return; // don't overwrite a running sweep's output
+
+  if (!n) {
+    return fill(box, emptyBox("No settled cross-chain deposits to collect. When a payer sends ETH to a per-quote address on Base Sepolia and the quote is redeemed, it appears here."));
+  }
+
+  const tbl = h("div", { class: "tbl" }, h("div", { class: "thead" },
+    h("div", {}, "Quote"), h("div", {}, "Deposit address"), h("div", {}, "Amount"), h("div", {}, "Settled")),
+    ...S.sweepable.map((q) => h("div", { class: "trow" },
+      h("div", { class: "mono" }, short(q.quote_id, 8, 4)),
+      h("div", { class: "mono" }, h("a", { href: `https://sepolia.basescan.org/address/${q.deposit_address}`, target: "_blank", rel: "noopener" }, short(q.deposit_address, 10, 6))),
+      h("div", {}, fromWeiDisplay(q.source_amount) + " ETH"),
+      h("div", {}, when(q.used_at)))));
+
+  const sweepBtn = h("button", { class: "btn primary", type: "button" }, `Sweep ${n} deposit${n === 1 ? "" : "s"} to collection`);
+  sweepBtn.addEventListener("click", () => { if (!requireOperator()) return; doSweep(); });
+
+  fill(box, tbl, h("div", { class: "limits-actions", style: "margin-top:12px" }, sweepBtn));
+}
+
+async function doSweep() {
+  if (sweepBusy) return;
+  const token = ADMIN;
+  if (!token) { flash("err", "Unlock operator to sweep."); return; }
+  sweepBusy = true;
+  const box = $("sweepBox");
+  const btn = box.querySelector(".btn.primary");
+  if (btn) { btn.disabled = true; btn.textContent = "Sweeping…"; }
+  try {
+    const res = await api("POST", "/admin/sweep", null, token);
+    if (res.status === 200) {
+      const swept = res.body.swept || [];
+      const errs = res.body.errors || [];
+      const note = res.body.note;
+      if (note) { flash("", note); }
+      else if (swept.length && !errs.length) {
+        flash("good", `Swept ${swept.length} deposit${swept.length === 1 ? "" : "s"} to collection.`);
+        addFeed("Swept deposits", `${swept.length} collected`);
+      } else if (errs.length) {
+        flash("err", `${swept.length} swept, ${errs.length} failed.`);
+      }
+      // show results
+      const lines = [];
+      for (const s of swept) lines.push(h("div", { class: "ln ok" }, `✓ ${short(s.quote_id, 8, 4)}: `, s.tx_hash ? h("a", { href: `https://sepolia.basescan.org/tx/${s.tx_hash}`, target: "_blank", rel: "noopener" }, short(s.tx_hash, 12, 6)) : "sent"));
+      for (const e of errs) lines.push(h("div", { class: "ln bad" }, `✗ ${short(e.quote_id, 8, 4)}: ${human(e.error)}`));
+      if (lines.length) {
+        const result = h("div", { class: "log-body", style: "margin-top:12px" }, ...lines);
+        box.append(result);
+      }
+      await load();
+    } else {
+      flash("err", `Sweep failed: ${explainAdminError(res).join(" ")}`);
+    }
+  } catch (err) {
+    flash("err", `Sweep failed: ${err.message}`);
+  } finally {
+    sweepBusy = false;
+  }
+}
+
+// tiny helper: wei string -> "0.00123" display (no bigint needed, just string math for small ETH values)
+function fromWeiDisplay(wei) {
+  if (!wei) return "?";
+  const s = wei.padStart(19, "0");
+  const whole = s.slice(0, s.length - 18) || "0";
+  const frac = s.slice(s.length - 18).replace(/0+$/, "");
+  return frac ? `${whole}.${frac}` : whole;
+}
+
 /* ---------- run a cycle (operator only) ---------- */
 let cycleBusy = false;
 function togglePop(open) {
@@ -1919,7 +2007,7 @@ async function load() {
     }
     applyOperator();
     fill($("governorBadge"), accLink(d.contract));
-    renderTop(d); renderDesk(d); renderLastCommit(d); renderChain(d); renderDecision(d); renderSwarm(d); renderX402(d); renderLimits(d); renderSchedule(d); renderLog(d); renderFeed(d);
+    renderTop(d); renderDesk(d); renderLastCommit(d); renderChain(d); renderDecision(d); renderSwarm(d); renderX402(d); renderLimits(d); renderSchedule(d); renderSweep(d); renderLog(d); renderFeed(d);
     // never wipe a box someone is typing in
     const typingRail = railDirty || $("railGuard").contains(document.activeElement);
     const typingAcct = $("acctPanel").contains(document.activeElement);
