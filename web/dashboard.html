@@ -320,7 +320,7 @@ body[data-view="desk"] .main { grid-column:1; }
 .main > section > .row:first-child { margin-bottom:32px; align-items:end; }
 .main > section > .row:first-child h2 { font-size:36px; font-weight:400; letter-spacing:-.03em; line-height:1.1; }
 .main > section > .row:first-child h2::before { display:block; margin-bottom:8px; color:var(--accent); font:400 11px var(--mono); letter-spacing:.12em; }
-#view-desk > .row h2::before { content:'00 / OVERVIEW'; } #view-memory > .row h2::before { content:'01 / MEMORY'; } #view-subs > .row h2::before { content:'02 / SUB-AGENTS'; } #view-x402 > .row h2::before { content:'03 / PAID CHECKS'; } #view-guardrails > .row h2::before { content:'04 / SETTINGS'; } #view-audit > .row h2::before { content:'05 / ACTIVITY LOG'; }
+#view-desk > .row h2::before { content:'00 / OVERVIEW'; } #view-memory > .row h2::before { content:'01 / MEMORY'; } #view-subs > .row h2::before { content:'02 / SUB-AGENTS'; } #view-x402 > .row h2::before { content:'03 / PAID CHECKS'; } #view-guardrails > .row h2::before { content:'04 / SETTINGS'; } #view-audit > .row h2::before { content:'05 / ACTIVITY LOG'; } #view-help > .row h2::before { content:'06 / HOW IT WORKS'; }
 .grid { gap:1px; background:var(--line); border:1px solid var(--line); } .grid.four { margin-bottom:24px; }
 .card { border:0; border-radius:0; padding:18px; } .card .label { color:var(--muted); font-size:12px; font-weight:500; }
 .card .value { font-size:21px; } .card .foot { font:400 11px var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -373,12 +373,35 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
 @media(max-width:720px) { #chainBox table { min-width:0; } #chainBox table.endlink td:last-child { text-align:right; padding-left:0; } }
 @media(prefers-reduced-motion:reduce) { .ticker-track { animation:none; } }
 
+/* plain-language pass: intro lines, example questions, confirm step, copy buttons, help page */
+.lede { color:var(--muted); font-size:14px; line-height:1.6; max-width:760px; margin:-6px 0 18px; }
+.examples { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:-4px 0 16px; }
+.examples .lab { font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--dim); margin-right:4px; }
+.chip { font:inherit; font-size:12px; color:var(--muted); background:transparent; border:1px solid var(--line); border-radius:999px; padding:5px 11px; cursor:pointer; }
+.chip:hover { color:var(--text); border-color:var(--muted); }
+.linkbtn { font:inherit; font-size:13px; color:var(--muted); background:none; border:0; padding:0 4px; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+.linkbtn:hover { color:var(--text); }
+.confirm { border:1px solid var(--accent); border-radius:var(--r-sm); padding:14px 16px; display:flex; flex-direction:column; gap:10px; color:var(--text); }
+.confirm .q { font-style:italic; color:var(--muted); overflow-wrap:anywhere; }
+.copy::after { content:"⧉"; margin-left:5px; font-size:.85em; opacity:.55; }
+.copy:hover::after { opacity:1; }
+.banner a { color:inherit; text-decoration:underline; text-underline-offset:3px; margin-left:6px; }
+.jobsub { display:block; font-size:11px; color:var(--dim); margin-top:2px; }
+.limits-grid { background:transparent !important; border:0 !important; gap:12px !important; }
+.limits-grid .limit { border:1px solid var(--line) !important; }
+.help-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); gap:12px; }
+.help-card { border:1px solid var(--line); background:var(--panel); padding:18px 20px; border-radius:var(--r-sm); }
+.help-card h3 { font-size:15px; font-weight:500; margin:0 0 8px; }
+.help-card p, .help-card li { font-size:13px; color:var(--muted); line-height:1.65; }
+.help-card ul, .help-card ol { margin:6px 0 0 18px; padding:0; }
+.help-card dl { margin:0; } .help-card dt { font-size:13px; color:var(--text); margin-top:10px; } .help-card dd { margin:2px 0 0; font-size:13px; color:var(--muted); line-height:1.6; }
+
 </style>
 </head>
 <body>
 
 <header class="top">
-  <div class="brand"><span class="mark" aria-hidden="true"><i></i><i class="b"></i><i></i><i class="b"></i><i></i><i class="b"></i><i></i><i class="b"></i><i></i></span><h1>MNEMOSYNE</h1><span class="brand-tag">HCKTHN · NEAR</span></div>
+  <div class="brand"><span class="mark" aria-hidden="true"><i></i><i class="b"></i><i></i><i class="b"></i><i></i><i class="b"></i><i></i><i class="b"></i><i></i></span><h1>MNEMOSYNE</h1><span class="brand-tag">Built on NEAR</span></div>
   <div class="top-right">
     <span class="pill" id="pillTee">Checking…</span>
     <span class="pill" id="pillGate">Memory gate</span>
@@ -388,7 +411,7 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
     </button>
   </div>
 </header>
-<div class="ticker" aria-hidden="true"><div class="ticker-track"><span>PRIVATE DECISIONS <b>✦</b></span><span>MEMORY GATE <b>✦</b></span><span>WRITTEN TO NEAR <b>✦</b></span><span>REPORT-ONLY KEYS <b>✦</b></span><span>PRIVATE DECISIONS <b>✦</b></span><span>MEMORY GATE <b>✦</b></span><span>WRITTEN TO NEAR <b>✦</b></span><span>REPORT-ONLY KEYS <b>✦</b></span></div></div>
+<div class="ticker" aria-hidden="true"><div class="ticker-track"><span>DECIDES IN PRIVATE <b>✦</b></span><span>PROVES IT ON NEAR FIRST <b>✦</b></span><span>NO PROOF, NOTHING MOVES <b>✦</b></span><span>HELPERS CAN'T SPEND <b>✦</b></span><span>DECIDES IN PRIVATE <b>✦</b></span><span>PROVES IT ON NEAR FIRST <b>✦</b></span><span>NO PROOF, NOTHING MOVES <b>✦</b></span><span>HELPERS CAN'T SPEND <b>✦</b></span></div></div>
 
 <section class="pop" id="cyclePop" hidden aria-label="Run a cycle">
   <div class="pop-in">
@@ -413,6 +436,7 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
       <a href="#x402">Paid checks</a>
       <a href="#guardrails">Settings</a>
       <a href="#audit">Activity log</a>
+      <a href="#help">How it works</a>
     </nav>
     <div class="side-foot">
       <div class="side-note">Governor <span id="governorBadge">…</span><br><span id="updated">Connecting…</span></div>
@@ -437,21 +461,21 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
           <div class="lhs"><h3>How the last cycle ran</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
           <span id="spineTag"></span>
         </div>
-        <p class="hint-text" hidden>Every cycle must write its decision to NEAR before any capital moves. If that write fails, the cycle stops and nothing moves.</p>
+        <p class="hint-text" hidden>Every cycle must write proof of its decision to NEAR before anything moves. If that write fails, the cycle stops and nothing moves. A sub-agent refusing an order is the safety system working, not a failure.</p>
         <div class="panel-b" id="spine"></div>
       </div>
 
       <div class="panel" id="lastCommit" hidden>
-        <div class="panel-h"><div class="lhs"><h3>Last commit</h3></div></div>
+        <div class="panel-h"><div class="lhs"><h3>Latest proof on NEAR</h3></div></div>
         <div class="panel-b" id="lastCommitBox"></div>
       </div>
 
       <div class="panel">
         <div class="panel-h">
           <div class="lhs"><h3>Sub-agents</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
-          <span class="tag">Report only</span>
+          <span class="tag">Can't spend</span>
         </div>
-        <p class="hint-text" hidden>Sub-agents can only report what they did. Their keys cannot move funds.</p>
+        <p class="hint-text" hidden>Four helper agents carry out the governor's orders. Each one checks the order against its own safety limits and writes "act" or "refuse" to NEAR. Their keys can only write that report; NEAR itself blocks them from moving funds.</p>
         <div class="panel-b" id="subsTable"></div>
       </div>
     </section>
@@ -459,6 +483,7 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
     <!-- MEMORY -->
     <section id="view-memory" aria-label="Memory" hidden>
       <div class="row"><h2>Memory</h2><span class="mono" id="chainNote"></span></div>
+      <p class="lede">Every decision the governor makes is written to NEAR as a short fingerprint, and each one is linked to the one before it, like numbered pages in a notebook. Nobody, including us, can remove or change a page afterwards.</p>
       <div class="panel">
         <div class="panel-h">
           <div class="lhs"><h3>Decision records</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
@@ -479,12 +504,14 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
     <!-- SUB-AGENTS -->
     <section id="view-subs" aria-label="Sub-agents" hidden>
       <div class="row"><h2>Sub-agents</h2><span class="tag" id="swarmTag"></span></div>
+      <p class="lede">Four helper agents, each with one job and its own safety limits. Their keys can only write a report to NEAR, never move money. When an order breaks a helper's own limit, it refuses, and the refusal is recorded on NEAR too.</p>
       <div class="subs" id="swarmGrid"></div>
     </section>
 
     <!-- X402 -->
     <section id="view-x402" aria-label="Paid checks" hidden>
       <div class="row"><h2>Paid checks</h2><span class="tag" id="railTag"></span></div>
+      <p class="lede">Anyone, person or AI agent, can pay a tiny fee to ask: "has Mnemosyne seen this kind of mistake before?" No account or sign-up. You get a yes or no, one line of advice and a receipt. The private details of past decisions never leave the server.</p>
       <div class="panel">
         <div class="panel-h">
           <div class="lhs"><h3>Ask the memory</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
@@ -494,16 +521,17 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
         <div class="panel-b">
           <ol class="flow" id="x402Flow"></ol>
           <div class="guard" style="margin-bottom:14px">
-            <label for="q">Your question</label>
-            <input type="text" id="q" value="delete the full access key" maxlength="500" autocomplete="off">
+            <label for="q">What is your agent about to do?</label>
+            <input type="text" id="q" value="delete the full access key" maxlength="500" autocomplete="off" placeholder="e.g. delete the old key on our account">
           </div>
+          <div class="examples" id="x402Examples"></div>
           <div class="guard" id="chainRow" style="margin-bottom:14px" hidden>
             <label for="chain">Pay from</label>
             <select id="chain"></select>
           </div>
-          <div class="btnrow" style="margin-bottom:14px">
-            <button class="btn" type="button" id="btnCheck">Show the price</button>
-            <button class="btn primary" type="button" id="btnPay">Pay &amp; get answer</button>
+          <div class="btnrow" style="margin-bottom:14px;align-items:center">
+            <button class="btn primary" type="button" id="btnPay">Ask &amp; pay</button>
+            <button class="linkbtn" type="button" id="btnCheck">or just show me the price</button>
           </div>
           <div class="out" id="x402Out" role="status" aria-live="polite"></div>
         </div>
@@ -527,7 +555,7 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
       </div>
       <div class="panel">
         <div class="panel-h">
-          <div class="lhs"><h3>Governor limits</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
+          <div class="lhs"><h3>The owner's safety limits</h3><button class="hint" type="button" aria-expanded="false" aria-label="What is this?">?</button></div>
           <span class="tag" id="limitsNote"></span>
         </div>
         <p class="hint-text" hidden>The rails the governor works inside. Every cycle writes the limits it used to NEAR, so you can see which rules applied to which decision. Changing them needs the admin token.</p>
@@ -554,12 +582,76 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
     <!-- AUDIT -->
     <section id="view-audit" aria-label="Activity log" hidden>
       <div class="row"><h2>Activity log</h2><a class="btn ghost" href="/dashboard.json" target="_blank" rel="noopener">Raw data ↗</a></div>
+      <p class="lede">Everything one cycle did, step by step. Pick a cycle on the right; the newest is shown first. Click any ID to copy it.</p>
       <div class="panel">
         <div class="panel-h">
           <div class="lhs"><h3>Step by step</h3></div>
           <div class="select-row"><label class="lab" for="cycSel">Cycle</label><select id="cycSel"></select></div>
         </div>
         <div class="panel-b" id="logBox"></div>
+      </div>
+    </section>
+
+    <!-- HELP -->
+    <section id="view-help" aria-label="How it works" hidden>
+      <div class="row"><h2>How it works</h2></div>
+      <p class="lede">Mnemosyne is an AI governor that decides in private, posts proof of every decision on NEAR before anything moves, and gives its helper agents keys that can report but never spend.</p>
+      <div class="help-grid">
+        <div class="help-card">
+          <h3>The governor: the boss that never trades</h3>
+          <p>The governor decides how much each helper agent should look after. It does its reasoning inside a sealed chip (a TEE on NEAR AI Cloud), so nobody can see how it decided, not even whoever runs the server. Before using an answer, Mnemosyne checks the chip's signature and that the chip is genuine.</p>
+        </div>
+        <div class="help-card">
+          <h3>Proof on NEAR before anything moves</h3>
+          <p>Every decision is written to the NEAR blockchain as a short fingerprint (a hash), linked to the decision before it. Anyone can check it, and it can never be changed. If that write fails, the cycle stops and nothing moves. That's the memory gate: no proof, no action.</p>
+        </div>
+        <div class="help-card">
+          <h3>Four helpers that can't spend</h3>
+          <p>Each sub-agent has one job and its own safety limits. Its key can only write a report (act, pause or refuse) to NEAR; NEAR itself rejects anything else. When an order breaks a helper's own limit, it refuses, and that refusal is public too. A refusal means the safety system worked.</p>
+        </div>
+        <div class="help-card">
+          <h3>Paid checks: ask the memory</h3>
+          <p>Anyone, person or AI agent, can pay a tiny fee (0.001 NEAR) to ask whether a planned action matches a mistake Mnemosyne has already learned from. No account or API key: the payment is the permission (the x402 standard). You get a yes or no, one line of advice and a receipt, never the private details.</p>
+        </div>
+        <div class="help-card">
+          <h3>One cycle, step by step</h3>
+          <ol>
+            <li><b>Read the state:</b> how much each helper holds.</li>
+            <li><b>Decide privately</b> inside the sealed chip.</li>
+            <li><b>Write proof to NEAR.</b> If this fails, stop.</li>
+            <li><b>Move money</b>, only after step 3 (off in practice runs).</li>
+            <li><b>Helpers report</b> act, pause or refuse on NEAR.</li>
+            <li><b>Publish</b> the public record; the reasoning stays private.</li>
+          </ol>
+        </div>
+        <div class="help-card">
+          <h3>Words on this page</h3>
+          <dl>
+            <dt>NEAR</dt><dd>A public blockchain: a shared record nobody can quietly change.</dd>
+            <dt>Testnet</dt><dd>NEAR's practice network. Tokens there have no real value.</dd>
+            <dt>TEE / sealed chip</dt><dd>Secure hardware that runs code so even the server owner can't read it.</dd>
+            <dt>Hash / fingerprint / ID</dt><dd>A short code that identifies data exactly, without revealing it.</dd>
+            <dt>Units</dt><dd>Simulated money the helpers manage. Mnemosyne never trades, so losses are a labelled simulation.</dd>
+          </dl>
+        </div>
+        <div class="help-card">
+          <h3>What's real and what isn't</h3>
+          <ul>
+            <li>Real, on NEAR testnet: the proofs, the helpers' reports and refusals, the locked-down keys, and paid checks in wNEAR.</li>
+            <li>Simulated, and labelled: the helpers' money and losses. Mnemosyne doesn't trade.</li>
+            <li>Paying from another chain is a price quote only by default.</li>
+          </ul>
+        </div>
+        <div class="help-card">
+          <h3>Try it in two minutes</h3>
+          <ol>
+            <li>Overview: see how the last cycle ran, step by step.</li>
+            <li>Open a "View on NEAR" link to see the proof on the public explorer.</li>
+            <li>Sub-agents: find the one that refused, and why.</li>
+            <li>Paid checks: pick an example question, then Ask &amp; pay.</li>
+            <li>Activity log: every step of every cycle in detail.</li>
+          </ol>
+        </div>
       </div>
     </section>
   </main>
@@ -628,7 +720,7 @@ function ago(iso) {
 }
 const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); };
 const isTee = (r) => r.decision_path === "near-ai-tee";
-const decidedLabel = (r) => (isTee(r) ? "Sealed in a TEE" : r.decision_path === "local-policy" ? "Built-in rule" : "Early version");
+const decidedLabel = (r) => (isTee(r) ? "Decided in private" : r.decision_path === "local-policy" ? "Built-in rule" : "Early version");
 const td = (label, ...kids) => h("td", { "data-label": label }, ...kids);
 const th = (...t) => h("thead", {}, h("tr", {}, t.map((x) => h("th", { scope: "col" }, x))));
 const emptyBox = (...kids) => h("div", { class: "empty" }, ...kids);
@@ -646,6 +738,46 @@ function pretty(v) {
   return t;
 }
 const human = (v) => capFirst(String(v ?? "").replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (m) => splitWords(m)).trim());
+
+/* Errors a newcomer can act on. The raw text stays available ("technical detail")
+   for whoever has to fix it, but the first thing on screen is what it means. */
+function plainErr(raw) {
+  const t = String(raw ?? "");
+  if (!t) return "the write failed";
+  if (/missing governor|governor_private_key|unknown letter|base58|bad secret key|invalid (secret|private) key|ed25519:\.\.\.|keypair/i.test(t)) return "the governor's NEAR key isn't set up on this computer";
+  if (/accesskeynotfound|access key .*not found|does not have access key/i.test(t)) return "the governor's key isn't registered on its NEAR account";
+  if (/notenoughbalance|not enough balance|insufficient|lacksbalance/i.test(t)) return "the governor's account doesn't have enough testnet NEAR to pay for the write";
+  if (/prev_hash does not match|chain broken/i.test(t)) return "another decision was written first, so this one stopped to keep the chain in order";
+  if (/fetch failed|econnrefused|enotfound|etimedout|network|socket|timed? ?out/i.test(t)) return "couldn't reach NEAR (network problem)";
+  return human(t);
+}
+const isPlainSame = (raw) => plainErr(raw).toLowerCase() === human(raw).toLowerCase();
+
+/* the sub-agents' jobs, in words; the original mandate name stays underneath */
+const JOBS = {
+  mean_reversion_only: "Bets that prices drift back to normal",
+  inventory_liquidity_only: "Keeps funds on hand for others to trade with",
+  defensive_reduce_only: "Can only shrink risk, never add to it",
+  volatility_capped: "Its limits scale with its own size",
+};
+const jobWords = (m) => JOBS[m] || pretty(m);
+const units = (n) => `${nfmt(n)} units`;
+
+/* what a sub-agent's answer means, in one sentence */
+function plainVerdict(sub, v) {
+  const r = String(v?.reason ?? "");
+  if (v?.action === "ACT") return `Sub ${sub} agreed: the order is within its own limits.`;
+  let m = r.match(/max_position (\d+) exceeds mandate ceiling (\d+)/i);
+  if (m) return `Sub ${sub} refused: it was told it could put up to ${m[1]} units into one position, but its own safety limit is ${m[2]}.`;
+  m = r.match(/max_loss_cycle (\d+) exceeds mandate ceiling (\d+)/i);
+  if (m) return `Sub ${sub} refused: it was told it could lose up to ${m[1]} units this cycle, but its own safety limit is ${m[2]}.`;
+  m = r.match(/max_position (\d+) exceeds ([\d.]+)% of target_capital \(([\d.]+)\)/i);
+  if (m) return `Sub ${sub} refused: ${m[1]} units in one position is more than ${m[2]}% of its own target (${m[3]}).`;
+  m = r.match(/max_loss_cycle (\d+) exceeds ([\d.]+)% of target_capital \(([\d.]+)\)/i);
+  if (m) return `Sub ${sub} refused: losing up to ${m[1]} units is more than ${m[2]}% of its own target (${m[3]}).`;
+  if (/reduce-only/i.test(r)) return `Sub ${sub} refused: its job only allows shrinking risk.`;
+  return `Sub ${sub} ${v?.action === "REFUSE" ? "refused" : String(v?.action ?? "").toLowerCase()}: ${human(r)}.`;
+}
 const nfmt = (n) => (typeof n === "number" && isFinite(n) ? n.toLocaleString() : String(n ?? ""));
 const initials = (name) => String(name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
 
@@ -770,11 +902,18 @@ function renderOperatorSlot() {
 }
 
 /* ---------- messages ---------- */
-function flash(kind, text) {
+function flash(kind, ...kids) {
   const el = $("flash");
-  el.hidden = !text;
+  const parts = kids.filter((k) => k != null && k !== false && k !== "");
+  el.hidden = !parts.length;
   el.className = "banner" + (kind ? " " + kind : "");
-  el.textContent = text || "";
+  fill(el, parts);
+}
+/* a link that opens the activity log on one particular cycle */
+function logLink(cycleId, text) {
+  const a = h("a", { href: "#audit" }, text);
+  a.addEventListener("click", () => { if (cycleId) { auditPick = cycleId; auditSeen = cycleId; } if (DATA) renderLog(DATA); });
+  return a;
 }
 function msgBox(el, kind, ...kids) {
   el.querySelector(".msg")?.remove();
@@ -792,9 +931,10 @@ async function api(method, path, body, token) {
 const errLines = (res) => (Array.isArray(res.body?.errors) && res.body.errors.length ? res.body.errors : [res.body?.error || `The server answered ${res.status}.`]);
 
 /* ---------- router ---------- */
-const VIEWS = ["desk", "memory", "subs", "x402", "guardrails", "audit"];
+const VIEWS = ["desk", "memory", "subs", "x402", "guardrails", "audit", "help"];
 function route() {
   const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "desk";
+  if (OP_FORM && !OPERATOR) { OP_FORM = false; renderOperatorSlot(); }   // an unlock box left open shouldn't follow you across tabs
   for (const id of VIEWS) $("view-" + id).hidden = id !== v;
   document.body.dataset.view = v;
   document.querySelector(".rail").hidden = v !== "desk";
@@ -820,12 +960,12 @@ function renderTop(d) {
   else if (isTee(c.record) && c.record.tee) {
     const ok = teeVerified(c.record);
     t.className = "pill " + (ok ? "on" : "bad");
-    t.textContent = ok ? "Sealed in a TEE" : "TEE check failed";
-    t.title = ok ? "The last decision was made inside a sealed enclave and every check passed." : "A check on the last sealed decision failed. Open Memory for the detail.";
-  } else { t.className = "pill warn"; t.textContent = "Decided locally"; t.title = "The last decision came from the built-in rule, not a sealed enclave."; }
+    t.textContent = ok ? "Decided in private" : "Private-chip check failed";
+    t.title = ok ? "The last decision was made inside a sealed chip (a TEE) and every check on it passed." : "A check on the last sealed decision failed. Open Memory for the detail.";
+  } else { t.className = "pill warn"; t.textContent = "Decided by built-in rule"; t.title = "The last decision came from the built-in rule, not the sealed AI chip (no NEAR AI key is set on this server)."; }
   g.className = "pill " + (d.chain.ok ? "on" : "bad");
-  g.textContent = d.chain.ok ? "Memory gate on" : "NEAR unreachable";
-  g.title = d.chain.ok ? "Nothing moves until the decision is written to NEAR." : "Couldn't reach NEAR. Showing what's saved here.";
+  g.textContent = d.chain.ok ? "Proof before action" : "NEAR unreachable";
+  g.title = d.chain.ok ? "The memory gate is on: nothing moves until the decision's proof is written to NEAR." : "Couldn't reach NEAR. Showing what's saved on this computer.";
 }
 
 let menuOpen = false;
@@ -884,37 +1024,39 @@ function decisionCounts(c) {
 
 function renderDesk(d) {
   const c = d.cycles[0];
-  $("cycleId").textContent = c ? ago(cycleIso(c.record.cycle_id)) : "";
+  $("cycleId").textContent = c ? `Last cycle ${ago(cycleIso(c.record.cycle_id))}` : "";
   if (!c) {
+    const none = OPERATOR ? "Press Run cycle to start" : "No cycle has run yet";
     fill($("cards"),
-      h("div", { class: "card" }, h("div", { class: "label" }, "Last decision"), h("div", { class: "value" }, "–"), h("div", { class: "sub" }, "Nothing yet")),
-      h("div", { class: "card" }, h("div", { class: "label" }, "Written to NEAR"), h("div", { class: "value m" }, "–"), h("div", { class: "sub" }, "Nothing yet")),
-      h("div", { class: "card" }, h("div", { class: "label" }, "Sub-agents"), h("div", { class: "value" }, "–"), h("div", { class: "sub" }, "Nothing yet")));
+      h("div", { class: "card" }, h("div", { class: "label" }, "Last decision"), h("div", { class: "value" }, "–"), h("div", { class: "sub" }, none)),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Proof on NEAR"), h("div", { class: "value m" }, "–"), h("div", { class: "sub" }, "Nothing written yet")),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Sub-agents"), h("div", { class: "value" }, d.subs.length ? `${d.subs.length} sub-agents` : "–"), h("div", { class: "sub" }, "Waiting for the first cycle")));
   } else {
     const r = c.record, run = c.run, committed = run ? run.committed : null;
     const k = r.tee?.checks || {};
     const { act, refuse, pause } = decisionCounts(c);
-    const count = [act ? `${act} acting` : null, refuse ? `${refuse} refused` : null, pause ? `${pause} paused` : null].filter(Boolean).join(" · ");
+    const waiting = Math.max(0, d.subs.length - act - refuse - pause);
+    const count = [act ? `${act} acting` : null, pause ? `${pause} paused` : null, refuse ? `${refuse} refused` : null].filter(Boolean).join(" · ");
     fill($("cards"),
       h("div", { class: "card" }, h("div", { class: "label" }, "Last decision"),
-        h("div", { class: "value" }, decidedLabel(r)),
-        h("div", { class: "sub", title: k.tdx === "not_checked" ? "Intel TDX quote not checked on this run" : undefined }, isTee(r) ? short(r.tee?.model, 16, 6) : "No enclave was used")),
-      h("div", { class: "card" }, h("div", { class: "label" }, "Written to NEAR"),
-        h("div", { class: "value m", title: r.decision_hash }, head(bare(r.decision_hash), 8)),
-        h("div", { class: "foot" }, committed === false ? h("span", { class: "bad" }, "Not written — nothing moved") : run ? txLink(run.commit_tx, "View on NEAR \u2197") : h("span", { class: "faint" }, "No link saved here"))),
+        h("div", { class: "value" }, isTee(r) ? "Decided in private" : decidedLabel(r)),
+        h("div", { class: "sub", title: isTee(r) ? `Model: ${r.tee?.model}${k.tdx === "not_checked" ? " (Intel chip not checked on this run)" : ""}` : undefined }, isTee(r) ? "By an AI model in a sealed chip (TEE)" : "No sealed chip was used")),
+      h("div", { class: "card" }, h("div", { class: "label" }, "Proof on NEAR"),
+        h("div", { class: "value m" }, hashEl(r.decision_hash, 0, 0, head(bare(r.decision_hash), 8))),
+        h("div", { class: "foot" }, committed === false ? h("span", { class: "bad" }, "Not written, so nothing moved") : run ? txLink(run.commit_tx, "View on NEAR \u2197") : h("span", { class: "faint" }, "Older record, no link saved"))),
       h("div", { class: "card" }, h("div", { class: "label" }, "Sub-agents"),
-        h("div", { class: "value" }, `${act + refuse + pause} active`),
-        h("div", { class: "sub" }, count || "–")));
+        h("div", { class: "value" }, `${d.subs.length} sub-agents`),
+        h("div", { class: "sub", title: waiting && committed !== false ? `${waiting} not part of this cycle; ${waiting === 1 ? "it joins" : "they join"} the next one` : undefined }, committed === false ? "Not asked: the cycle stopped early" : count || "–")));
   }
 
   const keys = d.subs.map((s) => s.keys?.agent_key?.kind);
   const known = keys.filter(Boolean).length, scoped = keys.filter((x) => x === "function_call").length;
-  const stat = (label, value) => h("div", { class: "card small" }, h("div", { class: "label" }, label), h("div", { class: "value" }, value));
+  const stat = (label, value, title) => h("div", { class: "card small", title }, h("div", { class: "label" }, label), h("div", { class: "value" }, value));
   fill($("stats"),
-    stat("Decisions on NEAR", d.chain.ok ? nfmt(d.chain.commit_count) : "–"),
-    stat("Sealed in a TEE", nfmt(d.cycles.filter((x) => isTee(x.record) && x.run?.committed !== false).length)),
-    stat("Keys that can't spend", known ? `${scoped} of ${d.subs.length}` : "–"),
-    stat("Paid checks", d.x402 ? nfmt(d.x402.paid_checks_total) : "–"));
+    stat("Decisions on NEAR", d.chain.ok ? nfmt(d.chain.commit_count) : "–", d.chain.ok ? "How many decisions the governor's contract on NEAR holds" : "Couldn't reach NEAR to count them"),
+    stat("Decided in private", nfmt(d.cycles.filter((x) => isTee(x.record) && x.run?.committed !== false).length), "Decisions made inside the sealed chip (TEE)"),
+    stat("Keys that can't spend", known ? `${scoped} of ${d.subs.length}` : h("span", { class: "faint", style: "font-size:15px" }, "Not checked here"), known ? "Sub-agent keys that NEAR only lets call report()" : "This computer doesn't hold the sub-agents' keys, so it can't check them. Run npm run sub:check on the operator's machine."),
+    stat("Paid checks", d.x402 ? nfmt(d.x402.paid_checks_total) : "–", "Questions other people or agents have paid to ask"));
 
   renderSpine(d);
   renderSubsTable(d);
@@ -946,21 +1088,24 @@ function renderSpine(d) {
   const { refuse } = decisionCounts(c);
   const st = ["done", "done", committed === false ? "stop" : committed ? "done" : "", committed ? "done" : "", committed ? "done" : "", committed ? "done" : ""];
   const steps = [
-    ["Read the state", run?.swarm_source === "onchain" ? "Real balances on NEAR testnet" : "Simulated balances", "done", ""],
-    ["Decide, privately", isTee(r) ? "Inside a sealed enclave, reasoning stays private" : r.decision_path === "local-policy" ? "Built-in rule, labelled as such on NEAR" : "Early version", isTee(r) ? "sealed" : "done", isTee(r) ? "ok" : ""],
-    ["Write to NEAR", committed === false ? `Stopped here — ${human(run.error) || "the write failed"}` : "Saved, and linked to the decision before it", "written", committed ? "ok" : ""],
-    ["Allocate", `${real ? `${moved} transfer${moved === 1 ? "" : "s"}, tiny amounts` : "Nothing moved, this run is print-only"}${quoted ? " · cross-chain price quote" : ""}`, moved ? "done" : "skipped", moved ? "ok" : ""],
-    ["Sub-agents report", `${reported} reported back on NEAR${refuse ? ` · ${refuse} refused` : ""}`, refuse ? "refused" : reported ? "reported" : "skipped", refuse ? "bad" : ""],
-    ["Publish", "Public record saved, private reasoning stays here", "done", ""],
+    ["Read the state", run?.swarm_source === "onchain" ? "Real balances on NEAR testnet" : "How much each helper holds (simulated money)", "done", ""],
+    ["Decide, privately", isTee(r) ? "Inside a sealed chip (TEE); the reasoning stays private" : r.decision_path === "local-policy" ? "Built-in rule (no sealed chip), and the record on NEAR says so" : "Early version", isTee(r) ? "sealed" : "done", isTee(r) ? "ok" : ""],
+    ["Write proof to NEAR", committed === false ? `Stopped here: ${plainErr(run.error)}` : "Saved, and linked to the decision before it", "written", committed ? "ok" : ""],
+    ["Move money", `${real ? `${moved} transfer${moved === 1 ? "" : "s"}, tiny amounts` : "Practice run: nothing moved"}${quoted ? " · price checked on another chain" : ""}`, moved ? "done" : "skipped", moved ? "ok" : ""],
+    ["Sub-agents report", `${reported} reported back on NEAR${refuse ? ` · ${refuse} refused an order above its own limit` : ""}`, refuse ? "refused" : reported ? "reported" : "skipped", refuse ? "warn" : ""],
+    ["Publish", "Public record saved; the private reasoning never leaves this server", "done", ""],
   ];
   const summary = cycleSummary(c);
-  fill($("spineTag"), tag(summary, summary === "Failed" || summary === "Refused" ? "bad" : ""));
+  // a refusal is the safety system working, so it reads as a completed cycle, not a red failure
+  const SUMMARY_WORDS = { Failed: ["Stopped", "bad"], Refused: [`Completed · ${refuse} refusal${refuse === 1 ? "" : "s"}`, "warn"], "All clear": ["All clear", "ok"], Waiting: ["Waiting", ""] };
+  const [sw, sk] = SUMMARY_WORDS[summary] || [summary, ""];
+  fill($("spineTag"), tag(sw, sk, summary === "Refused" ? "A sub-agent refused an order that broke its own safety limit, and recorded that on NEAR. That is the safety system working." : undefined));
   fill(box, steps.map(([name, small, word, kind], i) => {
     const s = st[i];
     return h("div", { class: "step" },
       h("div", { class: "n" }, String(i + 1).padStart(2, "0")),
-      h("div", { class: "t" }, name, h("small", {}, s ? small : "Did not run")),
-      s === "stop" || (i === 2 && committed === false) ? tag("Failed", "bad") : s ? tag(word, kind) : tag("Waiting"));
+      h("div", { class: "t" }, name, h("small", {}, s ? small : committed === false ? "Skipped: with no proof on NEAR, nothing after step 3 runs" : "Did not run")),
+      s === "stop" || (i === 2 && committed === false) ? tag("Failed", "bad") : s ? tag(word, kind) : tag(committed === false ? "Skipped" : "Waiting"));
   }));
 }
 
@@ -969,15 +1114,15 @@ function renderSpine(d) {
 function renderLastCommit(d) {
   const c = d.cycles[0], panel = $("lastCommit");
   if (!panel) return;
-  if (!c || !c.run || c.run.committed !== true) { panel.hidden = false; return fill($("lastCommitBox"), emptyBox("No confirmed commit yet.")); }
+  if (!c || !c.run || c.run.committed !== true) { panel.hidden = false; return fill($("lastCommitBox"), emptyBox(c?.run?.committed === false ? "The latest cycle stopped before writing, so it has no proof on NEAR. Earlier proofs are under Memory." : "No proof written yet. It appears here after the first cycle that reaches NEAR.")); }
   const r = c.record, run = c.run;
   panel.hidden = false;
   const row = (k, v) => h("div", { class: "r" }, h("dt", {}, k), h("dd", {}, v));
   fill($("lastCommitBox"), h("dl", { class: "kv" },
-    row("Commit", hashEl(r.decision_hash, 14, 8, short(bare(r.decision_hash), 14, 8))),
-    row("Run finished", run.finished_at ? `${when(run.finished_at)} · ${ago(run.finished_at)}` : "—"),
-    row("Proof", txLink(run.commit_tx, "View on NEAR ↗")),
-    row("Cross-chain quote", run.cross_chain?.status ? pretty(run.cross_chain.status) : h("span", { class: "faint" }, "Not requested this cycle"))));
+    row("Decision ID", hashEl(r.decision_hash, 14, 8, short(bare(r.decision_hash), 14, 8))),
+    row("Finished", run.finished_at ? `${when(run.finished_at)} · ${ago(run.finished_at)}` : "—"),
+    row("Public proof", txLink(run.commit_tx, "View on NEAR ↗")),
+    row("Price check on another chain", run.cross_chain?.status ? pretty(run.cross_chain.status) : h("span", { class: "faint" }, "Not used this cycle"))));
 }
 
 /* one place that works out what a sub did in the latest cycle */
@@ -988,11 +1133,12 @@ function subOutcome(d, s) {
   const rep = latest?.run?.reports?.find((x) => x.sub === s.id);
   // color is reserved for refuse/paused -- acting and waiting stay neutral
   let pill = ["Waiting", ""], reason;
-  if (!dec) reason = h("span", {}, "No cycles yet.");
-  else if (dec.action === "PAUSE") { pill = ["Paused", "warn"]; reason = h("span", {}, h("b", {}, "Paused"), ` — ${pretty(dec.reason_code || "paused by the governor")}`); }
+  if (!dec) reason = h("span", {}, latest ? "Not part of the latest cycle; it joins the next one." : "No cycles yet.");
+  else if (latest?.run?.committed === false) { pill = ["Not asked", ""]; reason = h("span", {}, "The latest cycle stopped before its proof reached NEAR, so no sub-agent was asked to act."); }
+  else if (dec.action === "PAUSE") { pill = ["Paused", "warn"]; reason = h("span", {}, h("b", {}, "Paused by the governor"), dec.reason_code && dec.reason_code !== "governor_pause" ? ` (${pretty(dec.reason_code).toLowerCase()})` : " this cycle, so it has nothing to do."); }
   else if (!ver) reason = h("span", {}, h("b", {}, pretty(dec.action)), " — no answer recorded, run a fresh cycle");
-  else if (ver.action === "ACT") { pill = ["Acting", ""]; reason = h("span", {}, h("b", {}, "Acting"), ` — ${human(ver.reason)}`); }
-  else { pill = ["Refused", "bad"]; reason = h("span", { class: "bad" }, h("b", {}, "Refused"), ` — ${human(ver.reason)}`); }
+  else if (ver.action === "ACT") { pill = ["Acting", ""]; reason = h("span", {}, plainVerdict(s.id, ver)); }
+  else { pill = ["Refused", "bad"]; reason = h("span", { class: "bad" }, plainVerdict(s.id, ver)); }
   return { dec, ver, rep, pill, reason };
 }
 
@@ -1003,14 +1149,14 @@ const bySubOutcome = (d) => (a, b) => (OUTCOME_ORDER[subOutcome(d, a).pill[0]] ?
 function renderSubsTable(d) {
   if (!d.subs.length) return fill($("subsTable"), emptyBox("No sub-agents are set up."));
   fill($("subsTable"), h("table", { class: "stack endlink" },
-    th("Sub-agent", "Job", "Told to", "Result"),
+    th("Sub-agent", "Its job", "Told to", "Result"),
     h("tbody", {}, d.subs.map((s) => {
       const o = subOutcome(d, s), active = o.dec && o.dec.action !== "PAUSE";
       return h("tr", {},
         td("Sub-agent", `Sub ${s.id}`),
-        td("Job", pretty(s.mandate)),
-        td("Told to", o.dec ? `${pretty(o.dec.action)}${active ? " " + nfmt(o.dec.target_capital) : ""}` : "–"),
-        td("Result", tag(o.pill[0], o.pill[1])));
+        td("Its job", h("span", {}, jobWords(s.mandate), h("span", { class: "jobsub" }, pretty(s.mandate)))),
+        td("Told to", o.dec ? `${pretty(o.dec.action)}${active ? " " + units(o.dec.target_capital) : ""}` : h("span", { class: "faint", title: "Not part of the latest cycle; it joins the next one" }, "Not in this cycle")),
+        td("Result", tag(o.pill[0], o.pill[1], o.ver ? plainVerdict(s.id, o.ver) : o.dec ? undefined : "Not part of the latest cycle; it joins the next one")));
     }))));
 }
 
@@ -1038,19 +1184,20 @@ function renderChain(d) {
     if (!failed && !c.run) seen.noTx = true;
     return h("tr", { class: isHead ? "head" : "" },
       td("When", h("span", { title: cycleIso(r.cycle_id) }, ago(cycleIso(r.cycle_id)))),
-      td("Record", hashEl(r.decision_hash, 0, 0, short(bare(r.decision_hash), 8, 6)), isHead ? h("span", { class: "head-tag", title: "The record NEAR is holding right now" }, "Now") : null),
-      td("Follows", linked ? h("span", {}, h("span", { class: "ok", title: "Matches the record below it" }, "✓ "), hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))) : hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))),
-      td("Sealed in a TEE", isTee(r) ? "Yes" : "—"),
-      td("Proof", failed ? h("span", { class: "bad" }, "Not written") : c.run ? txLink(c.run.commit_tx, "View \u2197") : h("span", { class: "faint" }, "—")));
+      td("Decision ID", hashEl(r.decision_hash, 0, 0, short(bare(r.decision_hash), 8, 6)), isHead ? h("span", { class: "head-tag", title: "The record NEAR is holding right now" }, "Now") : null),
+      td("Linked to previous", linked ? h("span", {}, h("span", { class: "ok", title: "Matches the record below it" }, "✓ "), hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))) : hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 8, 6))),
+      td("Decided in private", isTee(r) ? "Yes" : r.decision_path === "local-policy" ? "No, built-in rule" : "—"),
+      td("Proof", failed ? h("span", { class: "bad", title: plainErr(c.run.error) }, "Not written") : c.run ? txLink(c.run.commit_tx, "View \u2197") : h("span", { class: "faint" }, "—")));
   });
-  const heads = ["When", "Record", "Follows", "Sealed in a TEE", "Proof"];
+  const heads = ["When", "Decision ID", "Linked to previous", "Decided in private", "Proof"];
   fill(box, h("table", { class: "stack endlink" }, th(...heads), h("tbody", {}, rows)));
 
   const key = (sym, text) => h("li", {}, sym, h("span", {}, text));
   fill($("chainLegend"),
     seen.head ? key(h("span", { class: "head-tag" }, "Now"), "Newest, and the one NEAR holds") : null,
-    seen.linked ? key(h("span", { class: "sym ok" }, "✓"), "Linked to the record below it") : null,
-    seen.noTx ? key(h("span", { class: "sym faint" }, "—"), "No link saved here") : null);
+    seen.linked ? key(h("span", { class: "sym ok" }, "✓"), "Correctly linked to the decision before it") : null,
+    seen.noTx ? key(h("span", { class: "sym faint" }, "—"), "Older record, saved before proof links were kept") : null,
+    key(h("span", { class: "sym faint" }, "⧉"), "Click any ID to copy it"));
 }
 
 function checkList(r) {
@@ -1061,39 +1208,39 @@ function checkList(r) {
   if (isTee(r) && r.tee) {
     const c = r.tee.checks || {}, s = (b) => (b ? "ok" : "bad");
     item(s(c.hashes_match), "Answer untouched", "Question and answer match what the enclave signed");
-    item(s(c.signature_valid && c.provider_tee && c.model_matches), "Signed inside the enclave", `${r.tee.model}, key ${short(r.tee.signing_address, 6, 4)}`);
-    item(s(c.binds_address && c.binds_nonce), "Enclave proven live", "It answered a fresh random challenge from us");
+    item(s(c.signature_valid && c.provider_tee && c.model_matches), "Signed inside the sealed chip", `AI model ${r.tee.model}, chip key ${short(r.tee.signing_address, 6, 4)}`);
+    item(s(c.binds_address && c.binds_nonce), "Chip proven live", "It answered a fresh random challenge from us, so this isn't a replay");
     if (c.tdx === "not_checked") item("skip", "Intel chip not checked", "Turned off for this run");
-    else item(s(c.tdx && c.tdx.verified), "Intel chip verified", `Status: ${pretty(c.tdx ? c.tdx.status : "unknown")}`);
+    else item(s(c.tdx && c.tdx.verified), "Intel secure chip verified", `Intel's own check says: ${pretty(c.tdx ? c.tdx.status : "unknown")}`);
     if (c.gpu === "not_checked") item("skip", "NVIDIA chip not checked", "Turned off for this run");
     else item(s(c.gpu && c.gpu.verdict && c.gpu.token_signature_valid), "NVIDIA chip verified", "Checked against NVIDIA's own keys");
-  } else if (r.decision_path === "local-policy") item("skip", "No enclave was used", "The built-in rule decided, and says so on NEAR");
+  } else if (r.decision_path === "local-policy") item("skip", "No sealed chip was used", "The built-in rule decided (no NEAR AI key on this server), and the record on NEAR says so");
   else item("skip", "Recorded before sealed decisions", "An older record");
   return ul;
 }
 
 function renderDecision(d) {
   const box = $("decisionBox"), c = d.cycles[0];
-  if (!c) { $("decisionNote").textContent = ""; return fill(box, emptyBox("No decision yet.")); }
+  if (!c) { $("decisionNote").textContent = ""; return fill(box, emptyBox("No decision yet. The first cycle's decision shows up here.")); }
   const r = c.record, run = c.run, committed = run ? run.committed : null;
   $("decisionNote").textContent = when(cycleIso(r.cycle_id));
   const row = (k, v) => h("div", { class: "r" }, h("dt", {}, k), h("dd", {}, v));
   fill(box, h("div", { class: "two" },
     h("div", {}, h("h4", { class: "sub-title" }, "The record"),
       h("dl", { class: "kv" },
-        row("Decided by", isTee(r) ? "A sealed enclave" : r.decision_path === "local-policy" ? "The built-in rule" : "An early version"),
-        row("Record", hashEl(r.decision_hash, 14, 8, short(bare(r.decision_hash), 14, 8))),
-        row("Follows", r.prev_memory_hash ? hashEl(r.prev_memory_hash, 14, 8, short(bare(r.prev_memory_hash), 14, 8)) : h("span", { class: "faint" }, "nothing — this was the first")),
-        row("Sealed reasoning", r.private_commitment ? hashEl(r.private_commitment, 14, 8, short(bare(r.private_commitment), 14, 8)) : h("span", { class: "faint" }, "none")),
-        row("Written to NEAR", committed === false ? h("span", { class: "bad" }, `No — ${human(run.error) || "the write failed"}`) : run ? txLink(run.commit_tx, "View on NEAR \u2197") : h("span", { class: "faint" }, "—")),
-        row("Limits in force", `Total ${nfmt(r.swarm_risk?.max_total_exposure ?? "?")} · daily loss ${nfmt(r.swarm_risk?.max_daily_loss ?? "?")}`))),
+        row("Decided by", isTee(r) ? "An AI model in a sealed chip (TEE)" : r.decision_path === "local-policy" ? "The built-in rule" : "An early version"),
+        row("Decision ID", hashEl(r.decision_hash, 14, 8, short(bare(r.decision_hash), 14, 8))),
+        row("Linked to", r.prev_memory_hash ? hashEl(r.prev_memory_hash, 14, 8, short(bare(r.prev_memory_hash), 14, 8)) : h("span", { class: "faint" }, "nothing — this was the first")),
+        row("Private reasoning", r.private_commitment ? h("span", {}, hashEl(r.private_commitment, 14, 8, short(bare(r.private_commitment), 14, 8)), h("span", { class: "jobsub" }, "A fingerprint only; the reasoning itself never leaves this server")) : h("span", { class: "faint" }, "none")),
+        row("Written to NEAR", committed === false ? h("span", { class: "bad" }, `No: ${plainErr(run.error)}`) : run ? txLink(run.commit_tx, "View on NEAR \u2197") : h("span", { class: "faint" }, "—")),
+        row("Limits in force", `All helpers together: ${units(r.swarm_risk?.max_total_exposure ?? "?")} · most lost in a day: ${units(r.swarm_risk?.max_daily_loss ?? "?")}`))),
     h("div", {}, h("h4", { class: "sub-title" }, "Checked before it was written"), checkList(r))));
 }
 
 /* ---------- sub-agent cards ---------- */
 function renderSwarm(d) {
   const real = d.swarm?.source === "onchain";
-  $("swarmTag").textContent = real ? "Real balances" : "Simulated balances";
+  $("swarmTag").textContent = real ? "Real balances" : "Simulated money";
   $("swarmTag").title = real
     ? "Balances are real on NEAR testnet. Mnemosyne does not trade, so losses are simulated. Keys and reports are real."
     : "Capital and losses are simulated. Keys and reports are real.";
@@ -1102,8 +1249,8 @@ function renderSwarm(d) {
     const o = subOutcome(d, s), dec = o.dec, active = dec && dec.action !== "PAUSE";
     const k = s.keys, a = k?.agent_key;
     let badge;
-    if (!k || k.error) badge = tag("Keys unreadable");
-    else if (!a) badge = tag("No key on this machine");
+    if (!k || k.error) badge = tag("Key not checked here", "", "Couldn't read this sub-agent's keys from NEAR right now.");
+    else if (!a) badge = tag("Key not checked here", "", "This computer doesn't hold this sub-agent's key. The operator's machine does.");
     else if (a.kind === "function_call") badge = tag("Can't spend", "ok", `This key may only call ${(a.methods || []).join(", ")} on ${a.receiver}`);
     else if (a.kind === "full_access") badge = tag("Key not locked down", "bad");
     else badge = tag("Key missing on the account", "bad");
@@ -1112,12 +1259,12 @@ function renderSwarm(d) {
     const reported = o.rep?.status === "reported";
     return h("article", { class: "sub-card" },
       h("div", { class: "sub-head" }, h("span", { class: "sub-id" }, `Sub ${s.id}`), tag(o.pill[0], o.pill[1])),
-      h("div", { class: "sub-mandate" }, pretty(s.mandate)),
+      h("div", { class: "sub-mandate" }, jobWords(s.mandate), h("span", { class: "jobsub" }, pretty(s.mandate))),
       h("div", { class: "sub-stats" },
-        stat("Told to", dec ? pretty(dec.action) : "–"),
-        stat("Target", active ? nfmt(dec.target_capital) : "–"),
-        stat("Biggest position", active ? nfmt(dec.max_position) : "–"),
-        stat("Most it may lose", active ? nfmt(dec.max_loss_cycle) : "–")),
+        stat("Told to", dec ? pretty(dec.action) : "Not in this cycle"),
+        stat("Look after", active ? units(dec.target_capital) : "–"),
+        stat("Most in one position", active ? units(dec.max_position) : "–"),
+        stat("Most it may lose", active ? units(dec.max_loss_cycle) : "–")),
       bal ? h("div", { class: "sub-balance", title: `${bal.account} on ${d.swarm.asset}` }, h("span", { class: "k" }, "Balance on NEAR"), h("span", { class: "v" }, `${nfmt(bal.units)} units · ${bal.wnear} wNEAR`)) : null,
       h("div", { class: "sub-reason" }, o.reason),
       o.rep && !reported ? h("div", { class: "sub-reason bad" }, `Its report ${pretty(o.rep.status).toLowerCase()}${o.rep.error ? ": " + human(o.rep.error) : ""}`) : null,
@@ -1136,9 +1283,9 @@ function renderX402(d) {
     ? "Every payment is fully checked, then recorded here instead of on NEAR."
     : `Paid in wNEAR on NEAR testnet, to ${x.pay_to}.`;
   $("priceTag").textContent = `${money(x.price, x.asset || (x.mock_settlement ? "NEAR" : "wrap.testnet"))}${ME?.signed_up ? ` · ${Math.max(0, ME.profile.guardrails.max_queries_per_day - ME.usage.queries)} left` : ""}`;
-  fill($("x402Flow"), ["Ask", "Get a price", "Pay", "Get the answer"].map((t) => h("li", {}, t)));
+  fill($("x402Flow"), ["Describe it", "See the price", "Confirm & pay", "Get the answer + receipt"].map((t) => h("li", {}, t)));
   renderChainPicker(x);
-  if (!x.recent.length) return fill($("x402Table"), emptyBox("Nobody has paid for a check on this server yet."));
+  if (!x.recent.length) return fill($("x402Table"), emptyBox("Nobody has paid for a check on this server yet. Try one above: pick an example, then Ask & pay."));
   fill($("x402Table"), h("table", { class: "stack endlink" },
     th("When", "Who asked", "Paid", "Answer", "Receipt", "Proof"),
     h("tbody", {}, x.recent.map((r) => h("tr", {},
@@ -1244,7 +1391,7 @@ async function claimPaidCheck(quoteId, quote) {
     let j = null; try { j = await res.json(); } catch {}
     if (res.status === 200) {
       const lines = [
-        ["Answer", j.match ? "Matched" : "No match", j.match ? "ok" : "hd"],
+        ["Your answer", j.match ? "Yes, this matches a mistake Mnemosyne has learned from" : "No match: nothing like this in the memory", j.match ? "ok" : "hd"],
         ["Paid via", `${j.source_chain} · ${money(j.amount, j.asset)}`],
         ["From", h("span", { class: "mono", title: j.source_address }, short(j.source_address, 14, 8))],
         ["Controlled by", j.source_controlled_by],
@@ -1289,7 +1436,50 @@ function outLines(lines) {
     return h("div", {}, h("span", { class: "k" }, k + " · "), h("span", { class: cls || "" }, v));
   }));
 }
-const IDLE = ["Ask without paying and you get a price back. Pay and you get the answer, with a receipt."];
+const IDLE = ["Describe what an agent is about to do, or pick an example. You'll see the price and confirm before anything is paid; then you get the answer and a receipt."];
+
+/* example questions: three that match a lesson the memory holds, one that doesn't */
+const EXAMPLES = [
+  ["Delete an old full-access key", "delete the full access key on the account"],
+  ["Trust a transaction just because it ran", "the transaction executed, so assume success without checking the status"],
+  ["Give an agent a bigger order than its limit", "directive max position exceeds the mandate ceiling"],
+  ["Plan the team lunch (no match)", "planning the team lunch menu"],
+];
+function renderExamples() {
+  fill($("x402Examples"), h("span", { class: "lab" }, "Try"), EXAMPLES.map(([label, q]) => {
+    const b = h("button", { class: "chip", type: "button", title: q }, label);
+    b.addEventListener("click", () => { $("q").value = q; LAST_QUOTE = null; outLines(IDLE); $("btnPay").focus(); });
+    return b;
+  }));
+}
+
+/* the confirm step: nothing is paid until this is pressed */
+function askToPay() {
+  if (!DATA?.x402) return outLines([["Problem", "Paid checks are not set up on this server.", "bad"]]);
+  const q = $("q").value.trim();
+  if (!q) return outLines([["Problem", "Type what your agent is about to do first, or pick an example.", "bad"]]);
+  const chain = chosenChain();
+  if (chain !== "near") return quoteOtherChain(chain);
+  const x = DATA.x402;
+  const price = money(x.price, x.asset || (x.mock_settlement ? "NEAR" : "wrap.testnet"));
+  const yes = h("button", { class: "btn primary", type: "button", id: "x402Confirm" }, `Confirm & pay ${price}`);
+  const no = h("button", { class: "btn", type: "button" }, "Cancel");
+  yes.addEventListener("click", () => payAndRetry(true));
+  no.addEventListener("click", () => outLines(["Cancelled. Nothing was paid."]));
+  fill($("x402Out"), h("div", { class: "confirm", role: "group", "aria-label": "Confirm payment" },
+    h("div", {}, h("b", {}, `You're about to pay ${price}`), x.mock_settlement ? " (a test payment: nothing real is charged)" : " from your own NEAR wallet", " to ask:"),
+    h("div", { class: "q" }, `"${q}"`),
+    h("div", { class: "btnrow" }, yes, no)));
+  yes.focus();
+}
+const answerLines = (j, paidBy) => [
+  ["Your answer", j.match ? "Yes, this matches a mistake Mnemosyne has learned from" : "No match: nothing like this in the memory", j.match ? "ok" : "hd"],
+  j.match && j.citation_id ? ["Lesson", `${j.citation_id} · ${pretty(j.category)}`] : null,
+  j.advice ? ["Advice", j.advice] : null,
+  j.receipt_id ? ["Receipt", hashEl(j.receipt_id, 0, 0, j.receipt_id)] : null,
+  paidBy ? ["Paid by", paidBy] : null,
+  ["Kept private", "the full story behind the lesson never leaves the server"],
+].filter(Boolean);
 const outBusy = (on) => { $("btnCheck").disabled = on; $("btnPay").disabled = on; };
 
 async function requestCheck() {
@@ -1303,11 +1493,11 @@ async function requestCheck() {
     if (r.status === 402 && r.body?.accepts?.[0]) {
       const req = r.body.accepts[0];
       LAST_QUOTE = { quote: r.body, query: q };
-      outLines([["Answer", "Payment needed first", "hd"], ["Price", money(req.amount, req.asset)], ["Paid to", req.payTo],
-        ["Settles on", req.extra?.mock ? "this server (test payments)" : "NEAR testnet"], "No answer until it is paid."]);
+      outLines([["Price", money(req.amount, req.asset), "hd"], ["Paid to", req.payTo],
+        ["Settles on", req.extra?.mock ? "this server (test payments, nothing real is charged)" : "NEAR testnet"], "No answer until it's paid. Press Ask & pay when you're ready."]);
       addFeed("Quoted price", `${money(req.amount, req.asset)} to ${req.payTo}`);
     } else if (r.status === 403 || r.status === 429) {
-      outLines([["Stopped", "by your own limit", "bad"], ["Reason", human(r.body?.error) || "You have reached your limit.", "bad"], "You can change it under Settings."]);
+      outLines([["Stopped", "by your own limit, before any price was quoted", "bad"], ["Reason", human(r.body?.error) || "You have reached your limit.", "bad"], "You can change your limits under Settings."]);
     } else {
       outLines([["Problem", human(r.body?.error) || "The server gave an unexpected answer.", "bad"]]);
     }
@@ -1352,16 +1542,13 @@ addEventListener("message", (e) => {
   if (e.origin !== location.origin || e.data?.source !== "mnemosyne-pay") return;
   const j = e.data.result;
   if (!j || typeof j !== "object") return;
-  outLines([["Answer", j.match ? "Matched" : "No match", j.match ? "ok" : "hd"],
-    j.match && j.citation_id ? ["Lesson", `${j.citation_id} · ${pretty(j.category)}`] : null,
-    j.advice ? ["Advice", j.advice] : null,
-    j.receipt_id ? ["Receipt", j.receipt_id] : null,
-    ["Paid by", "your own connected wallet"]].filter(Boolean));
+  outLines(answerLines(j, "your own connected wallet"));
   addFeed("Answered paid check", `${j.match && j.citation_id ? "Matched " + j.citation_id : "No match"}${j.receipt_id ? " · " + short(j.receipt_id, 8, 4) : ""}`);
   load();
 });
 
-async function payAndRetry() {
+async function payAndRetry(confirmed) {
+  if (confirmed !== true) return askToPay();     // never pay without the confirm step
   if (!DATA?.x402) return outLines([["Problem", "Paid checks are not set up on this server.", "bad"]]);
   const chain = chosenChain();
   if (chain !== "near") return quoteOtherChain(chain);
@@ -1403,14 +1590,11 @@ async function payAndRetry() {
     let j = null; try { j = await res.json(); } catch {}
     LAST_QUOTE = null;                       // a payment is single-use
     if (res.status === 200) {
-      outLines([["Answer", j.match ? "Matched" : "No match", j.match ? "ok" : "hd"],
-        j.match ? ["Lesson", `${j.citation_id} · ${pretty(j.category)}`] : null, j.advice ? ["Advice", j.advice] : null,
-        ["Receipt", j.receipt_id], ["Paid by", `a throwaway key made in this tab (${short(payer.account, 8, 6)})`],
-        ["Kept private", "the full lesson is never sent"]].filter(Boolean));
+      outLines(answerLines(j, `a test key made in this browser tab (${short(payer.account, 8, 6)})`));
       addFeed("Answered paid check", `${j.match ? "Matched " + j.citation_id : "No match"} · ${short(j.receipt_id, 8, 4)}`);
       load();
     } else if (res.status === 402) {
-      outLines([["Payment refused", human(j?.error) || "The payment was not accepted.", "bad"], "Nothing was charged."]);
+      outLines([["Payment refused", human(j?.error) || "The payment was not accepted.", "bad"], "Nothing was charged and no answer was released."]);
     } else {
       outLines([["Problem", human(j?.error) || "The server gave an unexpected answer.", "bad"]]);
     }
@@ -1537,24 +1721,25 @@ function renderFeed(d) {
   const c = d.cycles[0];
   if (c) {
     const t = cycleIso(c.record.cycle_id), run = c.run;
-    if (run?.committed === false) items.push({ at: t, what: "Couldn't write to NEAR", detail: human(run.error) || "The cycle stopped and nothing moved" });
-    else if (run) items.push({ at: t, what: "Wrote decision to NEAR", detail: head(bare(c.record.decision_hash), 12) });
+    if (run?.committed === false) items.push({ at: t, what: "Couldn't write proof to NEAR", detail: run.error ? `${capFirst(plainErr(run.error))}. Nothing moved.` : "The cycle stopped and nothing moved" });
+    else if (run) items.push({ at: t, what: "Wrote decision's proof to NEAR", detail: head(bare(c.record.decision_hash), 12) });
     else items.push({ at: t, what: "Recorded decision", detail: head(bare(c.record.decision_hash), 12) });
     if (run && run.committed !== false) {
       for (const x of c.record.decisions || []) {
         const rep = run.reports?.find((y) => y.sub === x.sub), v = run.verdicts?.find((y) => y.sub === x.sub);
         const word = x.action === "PAUSE" ? "pause" : (v?.action || x.action).toLowerCase();
         const verb = PAST_TENSE[word] || capFirst(word);
-        const acc = d.subs.find((s) => s.id === x.sub)?.keys?.account;
-        items.push({ at: t, what: `${verb} · Sub ${x.sub}`, detail: x.action === "PAUSE" ? pretty(x.reason_code || "") : rep?.status === "reported" ? (rep.accountId || acc || "Reported on NEAR") : (rep ? `Report ${pretty(rep.status).toLowerCase()}` : human(v?.reason) || "") });
+        const said = x.action === "PAUSE" ? `Paused by the governor${x.reason_code && x.reason_code !== "governor_pause" ? ` (${pretty(x.reason_code).toLowerCase()})` : ""}`
+          : v?.action === "REFUSE" ? plainVerdict(x.sub, v).replace(/^Sub \w+ refused: /, "") : v?.action === "ACT" ? `Keeping ${units(x.target_capital)}, within its own limits` : "";
+        items.push({ at: t, what: `${verb} · Sub ${x.sub}`, detail: capFirst(said) + (rep?.status === "reported" ? ". Reported on NEAR" : rep ? `. Its report ${pretty(rep.status).toLowerCase()}` : "") });
       }
-      if (run.cross_chain?.status === "quoted") items.push({ at: t, what: "Allowed price quote", detail: "Unlocked by the memory record" });
+      if (run.cross_chain?.status === "quoted") items.push({ at: t, what: "Checked a price on another chain", detail: "Allowed only because the proof was on NEAR first" });
     }
   }
-  for (const r of d.x402?.recent || []) items.push({ at: r.at, what: r.match ? `Matched · ${r.citation_id || "lesson"}` : "Checked · no match", detail: short(r.receipt_id, 8, 4) });
+  for (const r of d.x402?.recent || []) items.push({ at: r.at, what: r.match ? `Paid check · matched ${r.citation_id || "a lesson"}` : "Paid check · no match", detail: `Receipt ${short(r.receipt_id, 8, 4)}` });
   items.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const list = items.slice(0, 10);
-  if (!list.length) return fill($("feed"), h("li", {}, h("div", { class: "detail" }, "Nothing yet.")));
+  if (!list.length) return fill($("feed"), h("li", {}, h("div", { class: "detail" }, "Nothing yet. Cycles and paid checks show up here as they happen.")));
   fill($("feed"), list.map((i) => h("li", {}, h("div", { class: "when", title: i.at }, when(i.at)), h("div", {}, i.what), i.detail ? h("div", { class: "detail" }, i.detail) : null)));
 }
 
@@ -1566,55 +1751,60 @@ function logSteps(c) {
   const add = (s, cls, ...parts) => s.lines.push({ cls, parts });
   const stopped = !run || run.committed === false;   // nothing after the commit ran, or we can't tell
 
-  const read = step("Read the state", run?.swarm_source === "onchain" ? "real balances on NEAR, simulated losses" : "simulated balances");
-  add(read, "faint", `follows: ${r.prev_memory_hash ?? "nothing — this was the first cycle"}`);
+  const read = step("Read the state", run?.swarm_source === "onchain" ? "real balances on NEAR, simulated losses" : "how much each helper holds (simulated money)");
+  add(read, "faint", "linked to the previous decision: ", r.prev_memory_hash ? hashEl(r.prev_memory_hash, 0, 0, short(bare(r.prev_memory_hash), 12, 6)) : "nothing — this was the first cycle");
 
   let decide;
   if (isTee(r) && r.tee) {
     const k = r.tee.checks || {};
     const okAll = teeVerified(r);
-    decide = step("Decide, privately", `inside a sealed enclave (${r.tee.model})`, okAll ? "done" : "failed");
+    decide = step("Decide, privately", `by an AI model inside a sealed chip (${r.tee.model})`, okAll ? "done" : "failed");
     const tdx = k.tdx === "not_checked" ? "not checked" : `${k.tdx?.verified ? "passed" : "FAILED"} (${pretty(k.tdx?.status)})`;
     const gpu = k.gpu === "not_checked" ? "not checked" : k.gpu?.verdict && k.gpu?.token_signature_valid ? "passed" : "FAILED";
-    add(decide, okAll ? "ok" : "refuse", `enclave key ${r.tee.signing_address}: signature ${k.signature_valid ? "passed" : "FAILED"}, challenge ${k.binds_nonce ? "answered" : "NOT answered"}, Intel chip ${tdx}, NVIDIA chip ${gpu}`);
-  } else if (r.decision_path === "local-policy") decide = step("Decide", "the built-in rule, because no enclave key is set");
+    add(decide, okAll ? "ok" : "refuse", `checks before using the answer: chip signature ${k.signature_valid ? "passed" : "FAILED"}, fresh challenge ${k.binds_nonce ? "answered" : "NOT answered"}, Intel chip ${tdx}, NVIDIA chip ${gpu}`);
+    add(decide, "faint", "chip key: ", hashEl(r.tee.signing_address, 10, 6));
+  } else if (r.decision_path === "local-policy") decide = step("Decide", "the built-in rule, because no NEAR AI key is set on this server");
   else decide = step("Decide", "an early version, recorded before sealed decisions");
-  if (r.private_commitment) add(decide, "faint", `sealed reasoning: ${r.private_commitment} (the reasoning itself stays here)`);
-  add(decide, "faint", `record: ${r.decision_hash}`);
+  if (r.private_commitment) add(decide, "faint", "fingerprint of the private reasoning: ", hashEl(r.private_commitment, 0, 0, short(bare(r.private_commitment), 12, 6)), " (the reasoning itself never leaves this server)");
+  add(decide, "faint", "decision ID: ", hashEl(r.decision_hash, 0, 0, short(bare(r.decision_hash), 12, 6)));
 
-  const commit = step("Write to NEAR", `saving the record to ${r.governor}`, !run ? "unknown" : run.committed === false ? "failed" : "done");
-  if (!run) add(commit, "faint", "the outcome wasn't saved here — run a fresh cycle");
-  else if (run.committed === false) add(commit, "refuse", `the write failed (${human(run.error)}). The cycle ends here and nothing moves.`);
-  else {
-    add(commit, "ok", "written.");
-    if (txUrl(run.commit_tx)) add(commit, "faint", "proof: ", ext(txUrl(run.commit_tx), txUrl(run.commit_tx)));
+  const commit = step("Write proof to NEAR", `saving the decision's fingerprint to ${r.governor}`, !run ? "unknown" : run.committed === false ? "failed" : "done");
+  if (!run) add(commit, "faint", "the outcome wasn't saved on this computer — run a fresh cycle");
+  else if (run.committed === false) {
+    add(commit, "refuse", `the write failed: ${plainErr(run.error)}. The cycle ends here and nothing moves. That's the safety rule: no proof, no action.`);
+    if (run.error && !isPlainSame(run.error)) add(commit, "faint", `technical detail: ${run.error}`);
+  } else {
+    add(commit, "ok", "written, and linked to the decision before it.");
+    if (txUrl(run.commit_tx)) add(commit, "faint", "public proof: ", ext(txUrl(run.commit_tx), "View on NEAR \u2197"));
   }
 
-  const alloc = step("Allocate", run?.allocate_mode === "wnear" ? "real top-ups on testnet, tiny amounts" : "applying the decisions, nothing actually moves", stopped ? "skip" : "done");
-  const window = step("Sub-agents report", "each one checks its own job, then reports on NEAR", stopped ? "skip" : "done");
-  const publish = step("Publish", "cycle complete", stopped ? "skip" : "done");
+  const alloc = step("Move money", stopped ? "skipped, because there's no proof on NEAR" : run?.allocate_mode === "wnear" ? "real top-ups on testnet, tiny amounts" : "practice run: the orders are worked out, but nothing actually moves", stopped ? "skip" : "done");
+  const window = step("Sub-agents report", stopped ? "skipped: no sub-agent is asked without a proof on NEAR" : "each one checks the order against its own limits, then reports on NEAR", stopped ? "skip" : "done");
+  const publish = step("Publish", stopped ? "skipped, because the cycle stopped" : "cycle complete; the public record is saved", stopped ? "skip" : "done");
+  const orderLine = (x) => x.action === "PAUSE"
+    ? `Sub ${x.sub}: paused by the governor${x.reason_code && x.reason_code !== "governor_pause" ? ` (${pretty(x.reason_code).toLowerCase()})` : ""}`
+    : `Sub ${x.sub}: ${pretty(x.action).toLowerCase()} ${units(x.target_capital)} · at most ${nfmt(x.max_position)} in one position · may lose at most ${nfmt(x.max_loss_cycle)} this cycle`;
   if (!stopped) {
     if (run.allocations && run.allocations.length) {
       for (const e of run.allocations) {
-        add(alloc, e.kind === "transfer" || e.kind === "quote" ? "ok" : e.kind === "none" ? "" : "refuse", `sub ${e.sub}: ${human(e.note)}`);
+        const x = (r.decisions || []).find((y) => y.sub === e.sub);
+        const plain = (e.kind === "transfer" || e.kind === "quote" || e.kind === "failed" || !x) ? `Sub ${e.sub}: ${human(e.note)}` : `${orderLine(x)}. Nothing moved (practice run).`;
+        add(alloc, e.kind === "transfer" || e.kind === "quote" ? "ok" : e.kind === "failed" ? "refuse" : "", plain);
         if (e.tx && txUrl(e.tx)) add(alloc, "faint", "  proof: ", ext(txUrl(e.tx), txUrl(e.tx)));
         if (e.kind === "failed") alloc.state = "failed";
       }
       const cc = run.cross_chain;
-      if (cc && cc.status === "quoted" && txUrl(cc.memory_tx)) add(alloc, "faint", "  unlocked by the memory record: ", ext(txUrl(cc.memory_tx), txUrl(cc.memory_tx)));
-    } else for (const x of r.decisions || []) {
-      add(alloc, "", x.action === "PAUSE" ? `sub ${x.sub}: paused (${pretty(x.reason_code)})` : `sub ${x.sub}: ${pretty(x.action)} — target ${nfmt(x.target_capital)}, biggest position ${nfmt(x.max_position)}, most it may lose ${nfmt(x.max_loss_cycle)}, job ${pretty(x.mandate)}`);
-    }
+      if (cc && cc.status === "quoted" && txUrl(cc.memory_tx)) add(alloc, "faint", "  allowed only because this proof was on NEAR first: ", ext(txUrl(cc.memory_tx), "View on NEAR \u2197"));
+    } else for (const x of r.decisions || []) add(alloc, "", `${orderLine(x)}. Nothing moved (practice run).`);
     for (const x of r.decisions || []) {
-      if (x.action === "PAUSE") { add(window, "faint", `sub ${x.sub}: paused, so it has nothing to report`); continue; }
+      if (x.action === "PAUSE") { add(window, "faint", `Sub ${x.sub}: paused, so it has nothing to report`); continue; }
       const v = (run.verdicts || []).find((y) => y.sub === x.sub);
-      if (v) add(window, v.action === "ACT" ? "ok" : "refuse", `sub ${x.sub}: ${pretty(v.action)} (${human(v.reason)})`);
+      if (v) add(window, v.action === "ACT" ? "ok" : "refuse", plainVerdict(x.sub, v));
     }
     for (const x of run.reports || []) {
       if (x.status === "reported") {
-        add(window, "", `sub ${x.sub} reported ${pretty(x.action)} on NEAR as ${x.accountId}`);
-        if (txUrl(x.txHash)) add(window, "faint", "  proof: ", ext(txUrl(x.txHash), txUrl(x.txHash)));
-      } else { window.state = "failed"; add(window, "refuse", `sub ${x.sub}: its report ${pretty(x.status).toLowerCase()}${x.error ? ": " + human(x.error) : ""}`); }
+        add(window, "", `Sub ${x.sub} wrote its answer (${pretty(x.action).toLowerCase()}) to NEAR from its own account, ${x.accountId}, using a key that can't spend: `, txUrl(x.txHash) ? ext(txUrl(x.txHash), "View on NEAR \u2197") : "");
+      } else { window.state = "failed"; add(window, "refuse", `Sub ${x.sub}: its report ${pretty(x.status).toLowerCase()}${x.error ? ": " + plainErr(x.error) : ""}`); }
     }
   }
   return S;
@@ -1622,11 +1812,14 @@ function logSteps(c) {
 
 const STEP_STATE = { done: ["Done", ""], failed: ["Failed", "bad"], skip: ["Skipped", ""], unknown: ["Waiting", ""] };
 let auditPick = "";   // cycle_id chosen in the Audit select; empty = newest
+let auditSeen = "";   // the newest cycle the log has already shown; a newer one takes over the view
 
 function renderLog(d) {
   const sel = $("cycSel"), box = $("logBox");
-  if (!d.cycles.length) { fill(sel); return fill(box, emptyBox("No cycles yet.")); }
-  if (!d.cycles.some((c) => c.record.cycle_id === auditPick)) auditPick = d.cycles[0].record.cycle_id;
+  if (!d.cycles.length) { fill(sel); return fill(box, emptyBox(OPERATOR ? "No cycles yet. Go to Overview and press Run cycle to start one." : "No cycles yet. Once the operator runs one, every step shows up here.")); }
+  const newest = d.cycles[0].record.cycle_id;
+  if (newest !== auditSeen) { auditSeen = newest; auditPick = newest; }   // a new cycle just appeared: show it, not the one picked earlier
+  if (!d.cycles.some((c) => c.record.cycle_id === auditPick)) auditPick = newest;
   fill(sel, d.cycles.map((c) => h("option", { value: c.record.cycle_id, selected: c.record.cycle_id === auditPick }, `${when(cycleIso(c.record.cycle_id))}${c.run?.committed === false ? " · not written" : ""}`)));
   const c = d.cycles.find((x) => x.record.cycle_id === auditPick);
   const steps = logSteps(c);
@@ -1635,7 +1828,7 @@ function renderLog(d) {
       h("span", { class: "n" }, `${i + 1}/${steps.length}`),
       h("span", { class: "t" }, s.name),
       h("span", { class: "d" }, s.text),
-      tag(s.state === "done" && i === 1 && isTee(c.record) ? "Sealed" : s.state === "done" && i === 2 ? "Written" : s.state === "done" && i === 3 && c.run?.allocate_mode !== "wnear" ? "Skipped" : s.state === "done" && i === 4 ? ((c.run?.verdicts || []).some((v) => v.action === "REFUSE") ? "Refused" : (c.run?.reports || []).some((r) => r.status === "reported") ? "Reported" : "Skipped") : STEP_STATE[s.state][0], s.state === "done" && i === 4 && (c.run?.verdicts || []).some((v) => v.action === "REFUSE") ? "bad" : STEP_STATE[s.state][1])),
+      tag(s.state === "done" && i === 1 && isTee(c.record) ? "Sealed" : s.state === "done" && i === 2 ? "Written" : s.state === "done" && i === 3 && c.run?.allocate_mode !== "wnear" ? "Skipped" : s.state === "done" && i === 4 ? ((c.run?.verdicts || []).some((v) => v.action === "REFUSE") ? "Refused" : (c.run?.reports || []).some((r) => r.status === "reported") ? "Reported" : "Skipped") : STEP_STATE[s.state][0], s.state === "done" && i === 4 && (c.run?.verdicts || []).some((v) => v.action === "REFUSE") ? "warn" : STEP_STATE[s.state][1])),
     s.lines.length ? h("div", { class: "log-body" }, s.lines.map((l) => {
       // leading spaces become a real indent, so wrapped text on a phone lines up under its own line
       const first = typeof l.parts[0] === "string" ? l.parts[0] : "";
@@ -1655,6 +1848,7 @@ function renderLog(d) {
     })) : null)));
 }
 $("cycSel").addEventListener("change", (e) => { auditPick = e.target.value; if (DATA) renderLog(DATA); });
+document.querySelectorAll('.side nav a[href="#audit"]').forEach((a) => a.addEventListener("click", () => { if (DATA?.cycles?.length) { auditPick = DATA.cycles[0].record.cycle_id; renderLog(DATA); } }));
 
 /* ---------- governor limits (the owner's rails; needs the admin token) ---------- */
 // The per-cycle numbers (target, max position, max loss) are the governor's decision and are
@@ -1681,19 +1875,29 @@ function limitMsg(box, kind, ...kids) {
   box.append(h("div", { class: "msg " + kind, role: kind === "err" ? "alert" : "status", style: "margin-top:12px" }, ...kids));
 }
 
+/* the owner's limits, in words; the server's own label is kept as the tooltip */
+const LIMIT_WORDS = {
+  max_total_exposure: ["Most for all helpers together", "The most simulated money all the sub-agents may look after at once."],
+  per_sub_max_capital: ["Most for any one helper", "The most simulated money any single sub-agent may look after."],
+  max_daily_loss: ["Most lost in a day", "If all the helpers together lose more than this in a day, the governor holds back."],
+  pause_loss_threshold: ["Pause a helper after losing", "A sub-agent that lost more than this last cycle is paused."],
+  max_growth: ["Most growth per cycle", "How much a helper's amount may grow in one cycle (1.25 means up to +25%)."],
+  max_position_pct: ["Most in one position", "The share of a helper's amount it may put into any one position."],
+  max_loss_pct: ["Most lost per cycle", "The share of a helper's amount it may lose in one cycle."],
+};
 function drawLimits(L, msg) {
   const box = $("limitsBox");
   const editing = limitsEditing;
-  const label = Object.fromEntries(L.specs.map((s) => [s.key, s.label]));
+  const label = Object.fromEntries(L.specs.map((s) => [s.key, LIMIT_WORDS[s.key]?.[0] || s.label]));
   const grid = h("div", { class: "limits-grid" }, L.specs.map((s) => {
     const v = L.limits[s.key], def = L.defaults[s.key], changed = v !== def;
     const unit = h("small", {}, unitWord(s));
     const val = editing
       ? h("span", { class: "val" }, h("input", { id: "lim-" + s.key, type: "number", inputmode: "decimal", min: showLimit(s, s.min), max: showLimit(s, s.max), step: s.kind === "int" ? "1" : s.unit === "%" ? "0.5" : "0.05", value: showLimit(s, v), "aria-label": s.label }), unit)
       : h("span", { class: "val" }, showLimit(s, v), unit);
-    return h("div", { class: "limit" + (changed && !editing ? " changed" : "") },
-      h("span", { class: "name" }, s.label), val,
-      h("span", { class: "help" }, s.help, h("span", { class: "range" }, rangeWord(s)), changed && !editing ? h("span", { class: "range" }, `default ${showLimit(s, def)}`) : null));
+    return h("div", { class: "limit" + (changed && !editing ? " changed" : ""), title: s.label },
+      h("span", { class: "name" }, label[s.key]), val,
+      h("span", { class: "help" }, LIMIT_WORDS[s.key]?.[1] || s.help, h("span", { class: "range" }, `allowed: ${rangeWord(s)}${s.unit === "units" ? " units" : ""}`), changed && !editing ? h("span", { class: "range" }, `default ${showLimit(s, def)}`) : null));
   }));
 
   const actions = h("div", { class: "limits-actions" });
@@ -1817,7 +2021,7 @@ function drawSchedule(S, msg) {
     ? `A new cycle runs every ${S.interval_minutes} minutes${S.next_run_at ? ` · next run ${inWords(S.next_run_at)}` : ""}.`
     : "When on, a new cycle runs on a schedule without you starting it.")];
   if (S.last_result && S.last_result !== "committed" && S.last_error) {
-    rows.push(h("p", { class: "schedule-error", role: "status" }, `Last cycle did not commit: ${human(S.last_error)}`));
+    rows.push(h("p", { class: "schedule-error", role: "status" }, /did not commit/i.test(S.last_error || "") ? "The last cycle didn't reach NEAR, so nothing moved." : `The last cycle didn't reach NEAR: ${plainErr(S.last_error)}.`));
   }
 
   const actions = h("div", { class: "limits-actions" });
@@ -1965,12 +2169,13 @@ async function runCycleNow() {
     if (res.status === 200 && res.body?.result) {
       ADMIN = token; togglePop(false);
       const r = res.body.result;
-      flash(r.committed ? "good" : "err", r.committed
-        ? `Done. The decision is on NEAR (${head(bare(r.decision_hash), 12)}).`
-        : "The decision could not be written to NEAR, so nothing moved. Open the activity log for the detail.");
-      addFeed(r.committed ? "Finished cycle" : "Stopped cycle before writing", head(bare(r.decision_hash), 12));
+      auditPick = r.cycle_id || ""; auditSeen = auditPick;   // the log opens on this run, not the one viewed before
       endBusy();                // the cycle is over; re-reading the chain below can take a few seconds
       await load();
+      const run = DATA?.cycles?.find((c) => c.record.cycle_id === r.cycle_id)?.run;
+      if (r.committed) flash("good", `Done. The decision's proof is on NEAR (${head(bare(r.decision_hash), 12)}).`, logLink(r.cycle_id, "See every step"));
+      else flash("err", `The decision couldn't be written to NEAR, so nothing moved${run?.error ? `: ${plainErr(run.error)}` : ""}. This is the safety rule working.`, logLink(r.cycle_id, "See what happened"));
+      addFeed(r.committed ? "Finished cycle" : "Stopped cycle before writing", r.committed ? head(bare(r.decision_hash), 12) : (run?.error ? capFirst(plainErr(run.error)) : "Nothing moved"));
     } else {
       flash("err", `The cycle did not run. ${explainAdminError(res).join(" ")}`);
       if (res.status === 401) { setOperator(false); OP_FORM = true; renderOperatorSlot(); }
@@ -2049,27 +2254,25 @@ $("scheduleToggle").addEventListener("click", () => {
 });
 $("refresh").addEventListener("click", load);
 $("btnCheck").addEventListener("click", requestCheck);
-$("btnPay").addEventListener("click", payAndRetry);
+$("btnPay").addEventListener("click", () => askToPay());
 $("btnCycle").addEventListener("click", () => togglePop($("cyclePop").hidden));
 $("cycCancel").addEventListener("click", () => togglePop(false));
 $("cycGo").addEventListener("click", runCycleNow);
 $("cycTok").addEventListener("keydown", (e) => { if (e.key === "Enter") runCycleNow(); if (e.key === "Escape") togglePop(false); });
 $("q").addEventListener("input", () => { LAST_QUOTE = null; });
-$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") payAndRetry(); });
+$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") askToPay(); });
 
 outLines(IDLE);
+renderExamples();
 // The wallet page returns only the already-public answer and receipt, never the query or a key.
 try {
   const stored = sessionStorage.getItem("mn_paid_result");
   if (stored) {
     sessionStorage.removeItem("mn_paid_result");
     const j = JSON.parse(stored);
-    if (typeof j.match === "boolean" && typeof j.receipt_id === "string") outLines([
-      ["Answer", j.match ? "Matched" : "No match"],
-      ...(j.match ? [["Citation", String(j.citation_id || "—")]] : []),
-      ...(j.advice ? [["Advice", String(j.advice)]] : []),
-      ["Receipt", j.receipt_id]
-    ]);
+    if (typeof j.match === "boolean" && typeof j.receipt_id === "string") outLines(answerLines({
+      match: j.match, citation_id: j.citation_id ? String(j.citation_id) : "", category: j.category ? String(j.category) : "",
+      advice: j.advice ? String(j.advice) : "", receipt_id: j.receipt_id }, "your own connected wallet"));
   }
 } catch { /* session storage may be blocked */ }
 route();

@@ -16,6 +16,11 @@ the transaction that settles it. It is generated from the cycle records by
 `npm run prove`, so it cannot claim more than the records hold. Run
 `npm run prove -- --live` and it re-checks itself against NEAR.
 
+### Try it in five minutes
+
+`npm install`, copy `.env.example` to `.env`, `npm run server`, then open http://localhost:8402/dashboard. No keys needed.
+[`docs/DEMO_CHECKLIST.md`](docs/DEMO_CHECKLIST.md) lists the exact clicks to see one full cycle (with its proof on NEAR testnet and a sub-agent refusing on-chain) and one paid check, each as "do X, see Y". The dashboard's **How it works** tab explains the whole system in plain English.
+
 ### Where to look
 
 | What we claim | Open this | Or run |
