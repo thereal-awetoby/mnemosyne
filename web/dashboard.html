@@ -52,10 +52,12 @@ code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, .copy:focus-visible, button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
-/* operator pop-over + banners */
-.pop { border-bottom: 1px solid var(--line); background: var(--panel); padding: 16px 32px; }
-.pop-in { max-width: 560px; margin-left: auto; display: flex; flex-direction: column; gap: 10px; }
-.pop p { font-size: 12px; color: var(--muted); }
+/* operator confirm dialog: a centered modal over a dim backdrop, not a strip
+ * pinned to the top of the page -- it appears only while the operator is
+ * deciding whether to run a cycle, and closes as soon as they do. */
+.pop { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.6); }
+.pop-in { max-width: 420px; width: 100%; margin: 0; display: flex; flex-direction: column; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 20px; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+.pop p { font-size: 13px; color: var(--muted); margin: 0; }
 .pop-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .pop-row input { flex: 1 1 220px; }
 .banner { padding: 12px 32px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--panel); }
@@ -134,6 +136,16 @@ code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
 .panel-b { padding: 16px; }
 .panel-b > p, .intro { font-size: 13px; color: var(--muted); margin-bottom: 10px; max-width: 70ch; }
 .empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
+
+/* placeholder bars shown only before the first load() ever resolves, so the
+ * desk doesn't look broken or empty during that first wait -- real content
+ * or a real emptyBox() replaces this the moment data arrives. */
+.skeleton { display: flex; flex-direction: column; gap: 8px; padding: 2px 0; }
+.skeleton .bar { height: 14px; border-radius: var(--r-sm); background: linear-gradient(90deg, var(--panel-2) 25%, var(--line-soft) 37%, var(--panel-2) 63%); background-size: 400% 100%; animation: skel 1.4s ease infinite; }
+.skeleton .bar:nth-child(2) { width: 70%; }
+.skeleton .bar:nth-child(3) { width: 45%; }
+@keyframes skel { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@media (prefers-reduced-motion: reduce) { .skeleton .bar { animation: none; } }
 
 /* a one-line explanation, hidden until asked for */
 .hint { width: 17px; height: 17px; flex: none; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--dim); font-size: 10px; font-family: var(--sans); line-height: 1; cursor: pointer; padding: 0; transition: color .15s, border-color .15s; }
@@ -383,6 +395,15 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
 .linkbtn:hover { color:var(--text); }
 .confirm { border:1px solid var(--accent); border-radius:var(--r-sm); padding:14px 16px; display:flex; flex-direction:column; gap:10px; color:var(--text); }
 .confirm .q { font-style:italic; color:var(--muted); overflow-wrap:anywhere; }
+.receipt { margin-top:14px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel); overflow:hidden; }
+.receipt-top { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line); }
+.receipt-top .brandline { display:flex; align-items:center; gap:7px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.receipt-top .brandline .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none; }
+.receipt-grid { display:grid; grid-template-columns:auto 1fr; gap:7px 14px; padding:14px 16px; font-size:13px; }
+.receipt-grid dt { color:var(--muted); white-space:nowrap; }
+.receipt-grid dd { margin:0; color:var(--text); overflow-wrap:anywhere; }
+.receipt-tagline { padding:0 16px 14px; font-size:11px; color:var(--dim); font-style:italic; }
+.receipt-actions { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--line); flex-wrap:wrap; }
 .copy::after { content:"⧉"; margin-left:5px; font-size:.85em; opacity:.55; }
 .copy:hover::after { opacity:1; }
 .banner a { color:inherit; text-decoration:underline; text-underline-offset:3px; margin-left:6px; }
@@ -413,7 +434,7 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
 </header>
 <div class="ticker" aria-hidden="true"><div class="ticker-track"><span>DECIDES IN PRIVATE <b>✦</b></span><span>PROVES IT ON NEAR FIRST <b>✦</b></span><span>NO PROOF, NOTHING MOVES <b>✦</b></span><span>HELPERS CAN'T SPEND <b>✦</b></span><span>DECIDES IN PRIVATE <b>✦</b></span><span>PROVES IT ON NEAR FIRST <b>✦</b></span><span>NO PROOF, NOTHING MOVES <b>✦</b></span><span>HELPERS CAN'T SPEND <b>✦</b></span></div></div>
 
-<section class="pop" id="cyclePop" hidden aria-label="Run a cycle">
+<section class="pop" id="cyclePop" hidden role="dialog" aria-modal="true" aria-label="Run a cycle">
   <div class="pop-in">
     <p>One full cycle on testnet. Takes a minute or two. Operator only.</p>
     <div class="pop-row">
@@ -534,6 +555,7 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
             <button class="linkbtn" type="button" id="btnCheck">or just show me the price</button>
           </div>
           <div class="out" id="x402Out" role="status" aria-live="polite"></div>
+          <div id="x402Receipt"></div>
         </div>
       </div>
       <div class="panel" id="myReceiptsPanel" hidden>
@@ -724,6 +746,16 @@ const decidedLabel = (r) => (isTee(r) ? "Decided in private" : r.decision_path =
 const td = (label, ...kids) => h("td", { "data-label": label }, ...kids);
 const th = (...t) => h("thead", {}, h("tr", {}, t.map((x) => h("th", { scope: "col" }, x))));
 const emptyBox = (...kids) => h("div", { class: "empty" }, ...kids);
+
+/* ---------- skeleton placeholders: only before load() has ever drawn anything ---------- */
+const skeletonRows = (n = 3) => h("div", { class: "skeleton" }, Array.from({ length: n }, () => h("div", { class: "bar" })));
+const skeletonCard = () => h("div", { class: "card" }, h("div", { class: "skeleton" }, h("div", { class: "bar", style: "width:40%;height:10px" }), h("div", { class: "bar", style: "width:65%;height:20px;margin-top:2px" })));
+/* childElementCount === 0 means nothing -- not even an emptyBox() -- has rendered into
+ * this container yet, which only happens in the gap before the first load() resolves. */
+function showSkeletonOnce(id, node) {
+  const el = $(id);
+  if (el && el.childElementCount === 0) fill(el, node);
+}
 const tag = (text, kind, title) => h("span", { class: "tag" + (kind ? " " + kind : ""), title }, text);
 
 /* Machine words never reach the screen as they are: mean_reversion_only reads
@@ -1400,6 +1432,7 @@ async function claimPaidCheck(quoteId, quote) {
       if (j.match) lines.push(["Lesson", `${j.citation_id} · ${pretty(j.category)}`]);
       if (j.advice) lines.push(["Advice", j.advice]);
       outLines(lines);
+      showReceipt(j, j.source_controlled_by);
       addFeed("Answered paid check", `${j.match ? "Matched " + j.citation_id : "No match"} · ${short(j.receipt_id, 8, 4)}`);
       load();
     } else if (res.status === 402) {
@@ -1435,6 +1468,7 @@ function outLines(lines) {
     const [k, v, cls] = l;
     return h("div", {}, h("span", { class: "k" }, k + " · "), h("span", { class: cls || "" }, v));
   }));
+  fill($("x402Receipt")); // a fresh question/state clears any receipt card from a previous answer
 }
 const IDLE = ["Describe what an agent is about to do, or pick an example. You'll see the price and confirm before anything is paid; then you get the answer and a receipt."];
 
@@ -1481,6 +1515,185 @@ const answerLines = (j, paidBy) => [
   ["Kept private", "the full story behind the lesson never leaves the server"],
 ].filter(Boolean);
 const outBusy = (on) => { $("btnCheck").disabled = on; $("btnPay").disabled = on; };
+
+/* ---------- receipt card: a keepable proof of a paid check, PNG + PDF ---------- */
+
+/* The /memory/check response only carries match/advice/receipt_id (never the
+ * amount, payer, or settlement -- those live server-side on the receipt).
+ * This is the same lookup npm run x402:demo already uses to verify its own
+ * receipt, so it's a read this server is built to answer. Best-effort: if it
+ * fails, the plain-text answer above still stands on its own. */
+async function fetchReceiptDetails(id) {
+  if (!id) return null;
+  try {
+    const r = await fetch(`/memory/receipt/${encodeURIComponent(id)}`, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+/* theme-aware: reads the page's own CSS variables so the card matches dark or light mode */
+function themeColors() {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (name, fallback) => (cs.getPropertyValue(name) || fallback).trim();
+  return {
+    bg: v("--panel", "#151515"), panel2: v("--panel-2", "#1b1b1b"), line: v("--line", "#282828"),
+    text: v("--text", "#e8e8e6"), muted: v("--muted", "#8e8e8a"), dim: v("--dim", "#626260"),
+    ok: v("--ok", "#6f9f7a"), bad: v("--bad", "#c45c4a"), accent: v("--accent", "#d4d0c8"),
+  };
+}
+
+function wrapText(ctx, text, maxWidth) {
+  const words = String(text ?? "").split(/\s+/).filter(Boolean);
+  const lines = []; let line = "";
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w; } else { line = test; }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/* Draws the receipt at 2x for a crisp download regardless of screen DPI. */
+function drawReceiptCanvas(data) {
+  const c = themeColors();
+  const SCALE = 2, W = 560, PAD = 28;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const rows = [
+    ["Receipt", data.receipt_id || "—"],
+    ["Result", data.match ? "Match" : "No match"],
+    ...(data.match && data.citation_id ? [["Lesson", `${data.citation_id} · ${pretty(data.category)}`]] : []),
+    ...(data.advice ? [["Advice", data.advice]] : []),
+    ["Paid", data.amount ? money(data.amount, data.asset) : (data.mock ? "test payment (nothing real charged)" : "—")],
+    ["Payer", data.payer || data.source_controlled_by || "—"],
+    ["When", data.created_at ? when(data.created_at) : "—"],
+    ["Proof", data.explorer ? data.explorer : (data.settlement ? data.settlement : (data.mock ? "mock settlement (no on-chain tx)" : "—"))],
+  ];
+  // measure height first (wrapping long values) at logical (unscaled) size
+  ctx.font = "13px " + FONT_SANS;
+  let y = 96;
+  const measured = rows.map(([label, value]) => {
+    const lines = wrapText(ctx, value, W - PAD * 2 - 110);
+    const h = Math.max(20, lines.length * 18);
+    y += h + 6;
+    return { label, lines };
+  });
+  const H = y + 54;
+  canvas.width = W * SCALE; canvas.height = H * SCALE;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  ctx.scale(SCALE, SCALE);
+
+  ctx.fillStyle = c.bg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = c.line; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+  // header
+  ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(PAD + 4, 34, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c.muted; ctx.font = "600 11px " + FONT_SANS; ctx.textBaseline = "middle";
+  ctx.fillText("MNEMOSYNE · RECEIPT", PAD + 14, 34);
+  ctx.strokeStyle = c.line; ctx.beginPath(); ctx.moveTo(0, 58); ctx.lineTo(W, 58); ctx.stroke();
+
+  let yy = 92;
+  for (const { label, lines } of measured) {
+    ctx.fillStyle = c.muted; ctx.font = "12px " + FONT_SANS; ctx.textBaseline = "alphabetic";
+    ctx.fillText(label, PAD, yy);
+    ctx.fillStyle = (label === "Result" && data.match) ? c.ok : (label === "Result" ? c.bad : c.text);
+    ctx.font = "13px " + FONT_SANS;
+    lines.forEach((ln, i) => ctx.fillText(ln, PAD + 110, yy + i * 18));
+    yy += Math.max(20, lines.length * 18) + 6;
+  }
+
+  ctx.strokeStyle = c.line; ctx.beginPath(); ctx.moveTo(0, H - 40); ctx.lineTo(W, H - 40); ctx.stroke();
+  ctx.fillStyle = c.dim; ctx.font = "italic 11px " + FONT_SANS;
+  ctx.fillText("Sealed decisions. Paid answers. Testnet — the reasoning behind this stays private.", PAD, H - 18);
+  return canvas;
+}
+const FONT_SANS = "IBM Plex Sans, system-ui, sans-serif";
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = h("a", { href: url, download: filename });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/* ---- minimal single-page PDF, hand-rolled: no library, no CDN, no build step.
+ * A JPEG can be embedded in a PDF byte-for-byte (filter DCTDecode) with no
+ * re-encoding, so the whole file is five short objects plus an xref table. */
+function pdfFromJpeg(jpegBytes, wPx, hPx) {
+  const enc = new TextEncoder();
+  const parts = []; let offset = 0;
+  const objOffset = [];
+  const put = (x) => { const b = typeof x === "string" ? enc.encode(x) : x; parts.push(b); offset += b.length; };
+  const obj = (n, body) => { objOffset[n] = offset; put(`${n} 0 obj\n`); put(body); put("\nendobj\n"); };
+
+  put("%PDF-1.4\n");
+  // PDF points: treat each image pixel as one point, so the page matches the canvas exactly.
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+  obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${wPx} ${hPx}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >> `);
+  objOffset[4] = offset;
+  put(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${wPx} /Height ${hPx} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`);
+  put(jpegBytes);
+  put("\nendstream\nendobj\n");
+  const content = `q ${wPx} 0 0 ${hPx} 0 0 cm /Im0 Do Q`;
+  obj(5, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+
+  const xrefStart = offset;
+  put("xref\n0 6\n0000000000 65535 f \n");
+  for (let n = 1; n <= 5; n++) put(objOffset[n].toString().padStart(10, "0") + " 00000 n \n");
+  put(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`);
+
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total); let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+
+function canvasToPdfBytes(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(async (blob) => {
+      if (!blob) return reject(new Error("could not encode the receipt image"));
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      resolve(pdfFromJpeg(buf, canvas.width, canvas.height));
+    }, "image/jpeg", 0.92);
+  });
+}
+
+function renderReceiptCard(data) {
+  if (!data?.receipt_id) return fill($("x402Receipt"));
+  const canvas = drawReceiptCanvas(data);
+  const filenameBase = `mnemosyne-receipt-${data.receipt_id}`;
+
+  const pngBtn = h("button", { class: "btn", type: "button" }, "Download PNG");
+  pngBtn.addEventListener("click", () => canvas.toBlob((b) => b && downloadBlob(b, filenameBase + ".png"), "image/png"));
+
+  const pdfBtn = h("button", { class: "btn", type: "button" }, "Download PDF");
+  pdfBtn.addEventListener("click", async () => {
+    pdfBtn.disabled = true; const was = pdfBtn.textContent; pdfBtn.textContent = "Building…";
+    try {
+      const bytes = await canvasToPdfBytes(canvas);
+      downloadBlob(new Blob([bytes], { type: "application/pdf" }), filenameBase + ".pdf");
+    } catch (err) { outLines([["Problem", `Could not build the PDF: ${err.message}`, "bad"]]); }
+    finally { pdfBtn.disabled = false; pdfBtn.textContent = was; }
+  });
+
+  const img = h("img", { src: canvas.toDataURL("image/png"), alt: "Receipt preview", style: "display:block;width:100%;height:auto;" });
+  fill($("x402Receipt"), h("div", { class: "receipt" },
+    h("div", { style: "padding:14px 16px 0" }, img),
+    h("div", { class: "receipt-actions" }, pngBtn, pdfBtn)));
+}
+
+/* Called after any successful paid check. j is the plain-text answer already
+ * shown via outLines/answerLines; this adds the keepable proof card beside it
+ * without touching that existing display. The richer fields (amount, payer,
+ * settlement proof) live only on the server-side receipt, so fetch it -- if
+ * that lookup fails, fall back to whatever j already carries rather than
+ * showing nothing. */
+function showReceipt(j, fallbackPayer) {
+  if (!j?.receipt_id) return;
+  fetchReceiptDetails(j.receipt_id).then((r) => renderReceiptCard({ ...j, ...(r || {}), payer: r?.payer || j.source_address || fallbackPayer }));
+}
 
 async function requestCheck() {
   const chain = chosenChain();
@@ -1543,6 +1756,7 @@ addEventListener("message", (e) => {
   const j = e.data.result;
   if (!j || typeof j !== "object") return;
   outLines(answerLines(j, "your own connected wallet"));
+  showReceipt(j, "your own connected wallet");
   addFeed("Answered paid check", `${j.match && j.citation_id ? "Matched " + j.citation_id : "No match"}${j.receipt_id ? " · " + short(j.receipt_id, 8, 4) : ""}`);
   load();
 });
@@ -1591,6 +1805,7 @@ async function payAndRetry(confirmed) {
     LAST_QUOTE = null;                       // a payment is single-use
     if (res.status === 200) {
       outLines(answerLines(j, `a test key made in this browser tab (${short(payer.account, 8, 6)})`));
+      showReceipt(j, short(payer.account, 8, 6));
       addFeed("Answered paid check", `${j.match ? "Matched " + j.citation_id : "No match"} · ${short(j.receipt_id, 8, 4)}`);
       load();
     } else if (res.status === 402) {
@@ -2020,6 +2235,9 @@ function drawSchedule(S, msg) {
   const rows = [h("p", { class: "schedule-help" }, S.enabled
     ? `A new cycle runs every ${S.interval_minutes} minutes${S.next_run_at ? ` · next run ${inWords(S.next_run_at)}` : ""}.`
     : "When on, a new cycle runs on a schedule without you starting it.")];
+  if (S.last_run_at) {
+    rows.push(h("p", { class: "schedule-help" }, `Last run ${when(S.last_run_at)}${S.last_result ? ` · ${S.last_result === "committed" ? "committed" : "did not commit"}` : ""}.`));
+  }
   if (S.last_result && S.last_result !== "committed" && S.last_error) {
     rows.push(h("p", { class: "schedule-error", role: "status" }, /did not commit/i.test(S.last_error || "") ? "The last cycle didn't reach NEAR, so nothing moved." : `The last cycle didn't reach NEAR: ${plainErr(S.last_error)}.`));
   }
@@ -2258,6 +2476,8 @@ $("btnPay").addEventListener("click", () => askToPay());
 $("btnCycle").addEventListener("click", () => togglePop($("cyclePop").hidden));
 $("cycCancel").addEventListener("click", () => togglePop(false));
 $("cycGo").addEventListener("click", runCycleNow);
+$("cyclePop").addEventListener("click", (e) => { if (e.target === $("cyclePop") && !cycleBusy) togglePop(false); }); // click the dim backdrop to back out
+addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("cyclePop").hidden && !cycleBusy) togglePop(false); });
 $("cycTok").addEventListener("keydown", (e) => { if (e.key === "Enter") runCycleNow(); if (e.key === "Escape") togglePop(false); });
 $("q").addEventListener("input", () => { LAST_QUOTE = null; });
 $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") askToPay(); });
@@ -2275,6 +2495,13 @@ try {
       advice: j.advice ? String(j.advice) : "", receipt_id: j.receipt_id }, "your own connected wallet"));
   }
 } catch { /* session storage may be blocked */ }
+// Before the first load() ever resolves these panels would otherwise sit
+// completely blank; a skeleton says "this is loading", not "this is broken".
+showSkeletonOnce("cards", [skeletonCard(), skeletonCard(), skeletonCard()]);
+showSkeletonOnce("stats", [skeletonCard(), skeletonCard(), skeletonCard(), skeletonCard()]);
+showSkeletonOnce("spine", skeletonRows(4));
+showSkeletonOnce("subsTable", skeletonRows(3));
+showSkeletonOnce("x402Table", skeletonRows(3));
 route();
 load();
 setInterval(() => { if (!document.hidden && !cycleBusy) load(); }, 30000);
