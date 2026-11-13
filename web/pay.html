@@ -100,7 +100,7 @@ input[type=text]:focus { outline: none; border-color: #4a4a4a; }
       <div class="msg" id="status" role="status" hidden></div>
 
       <p class="small" id="modeNote" hidden>This server is running test payments, not real ones. Use the desk&rsquo;s own pay button instead &mdash; it needs no wNEAR.</p>
-      <p class="small" id="walletNote" hidden>The wallet you signed in with can&rsquo;t sign this kind of payment. Pressing Pay will ask you to connect one that can &mdash; Meteor Wallet or Intear Wallet, not MyNearWallet.</p>
+      <p class="small" id="walletNote" hidden>This wallet can&rsquo;t sign payments &mdash; only Meteor Wallet and Intear Wallet currently can (Nightly, MyNearWallet, OKX, Hana and WalletConnect can sign you in, but not pay). Pressing Pay will ask you to connect one that can.</p>
     </div>
   </div>
 </main>
@@ -209,7 +209,7 @@ async function ensureWallet() {
   if (resumed) { wallet = await notePayer(resumed); return wallet; }
   const picked = await connector.connect();
   if (!picked) throw new Error("No wallet was chosen.");
-  if (!canSignDelegate(picked)) throw new Error("That wallet can't sign this kind of payment here either. Try Meteor Wallet or Intear Wallet.");
+  if (!canSignDelegate(picked)) throw new Error("This wallet can't sign payments. Use Meteor Wallet or Intear Wallet.");
   wallet = await notePayer(picked);
   return wallet;
 }
