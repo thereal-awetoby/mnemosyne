@@ -39,7 +39,7 @@ Repo: <GITHUB URL>
 | leadName | Makinde Ahmed (confirm) |
 | email | your email (must be unique) |
 | size | your team size, in the form's format |
-| tracks | `["swarms","privacy","security","agents"]`, add `"business"` because humans set the limits (README and UI) |
+| tracks | `["privacy","agents"]` -- privacy is the primary claim (decisions sealed in a TEE, only a hash goes public); agents is the one natural second (other agents actually pay wNEAR per query over x402). Stop there: security/swarms/business are all real side-effects of the build, not the thesis, and spreading across four tracks reads as unfocused next to a judge skimming fast. |
 | nearAddress | a wallet you control that can receive the prize |
 | projectUrl | the public GitHub URL |
 | demoUrl | the URL of your X post |
