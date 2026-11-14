@@ -13,7 +13,7 @@ commit; strategy stays private; subs only report under limited keys; other
 agents pay to read the memory.
 
 Built for **NEAR Hackathon — Build Beyond Boundaries** (1–14 Nov 2026) by
-[Makinde Ahmed](https://github.com/thereal-awetoby). Submitted under
+[Toby](https://github.com/thereal-awetoby). Submitted under
 **Privacy** (primary track) and **Agents** (secondary track).
 
 ## Try it live, right now
