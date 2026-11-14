@@ -1,11 +1,10 @@
 # mnemosyne
 
-Non-trading governor agent on NEAR: private decisions, on-chain memory
-commitments, capability-limited sub-agents, and x402-paid memory queries.
+**Mnemosyne is an AI agent that decides in private, proves every decision on NEAR, and lets other agents pay to avoid mistakes it's already learned from.**
 
-> Mnemosyne is the memory and mandate layer for agent swarms on NEAR:
-> decisions stay private, commitments go on-chain before any move, sub-agents
-> act only under limited keys, and other agents pay to query that memory.
+> It is the memory and mandate layer for agent swarms on NEAR: decisions stay
+> private, commitments go on-chain before any move, sub-agents act only under
+> limited keys, and other agents pay to query that memory.
 
 **One sentence to hold us to:** no capital path without an on-chain memory
 commit; strategy stays private; subs only report under limited keys; other
