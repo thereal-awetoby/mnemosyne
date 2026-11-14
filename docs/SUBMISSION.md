@@ -39,7 +39,7 @@ Repo: <GITHUB URL>
 | leadName | Makinde Ahmed (confirm) |
 | email | your email (must be unique) |
 | size | your team size, in the form's format |
-| tracks | `["privacy","agents","security"]` -- privacy is the primary claim (decisions sealed in a TEE, only a hash goes public); agents is natural (other agents actually pay wNEAR per query over x402); security earns its place too, not as padding: sub-agent keys are report-only and NEAR itself rejects a transfer or a commit from them, the owner's risk limits are rewritten into every on-chain record, and signed-in users get real per-account guardrails (pause, daily query/spend caps). Three is a deliberate stop, not a start down a list: swarms and business were dropped because nothing in the build actually does bidding, pooling, or running a business -- adding either would be the kind of track-padding that reads as unfocused to a judge skimming fast. |
+| tracks | `["privacy","agents"]` -- privacy is the primary claim (decisions sealed in a TEE, only a hash goes public); agents is secondary and just as real (other agents actually pay wNEAR per query over x402, no account or API key needed). Deliberately two, not three or four: security, swarms and business were all considered and dropped -- the build touches pieces of each (report-only sub-keys NEAR itself enforces, owner-set limits written into every record, per-account guardrails) but doesn't make any of them the pitch, and padding the track list past the two it's actually about reads as unfocused to a judge skimming fast. |
 | nearAddress | a wallet you control that can receive the prize |
 | projectUrl | the public GitHub URL |
 | demoUrl | the URL of your X post |
