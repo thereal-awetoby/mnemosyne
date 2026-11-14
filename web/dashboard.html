@@ -403,11 +403,11 @@ th { font:500 11px var(--sans); text-transform:none; color:var(--muted); letter-
 .linkbtn:hover { color:var(--text); }
 .confirm { border:1px solid var(--accent); border-radius:var(--r-sm); padding:14px 16px; display:flex; flex-direction:column; gap:10px; color:var(--text); }
 .confirm .q { font-style:italic; color:var(--muted); overflow-wrap:anywhere; }
-.receipt { margin-top:14px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel); overflow:hidden; }
+.receipt { margin-top:14px; max-width:560px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel); overflow:hidden; }
 .receipt-top { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line); }
 .receipt-top .brandline { display:flex; align-items:center; gap:7px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
 .receipt-top .brandline .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none; }
-.receipt-grid { display:grid; grid-template-columns:auto 1fr; gap:7px 14px; padding:14px 16px; font-size:13px; }
+.receipt-grid { display:grid; grid-template-columns:auto 1fr; gap:7px 14px; padding:14px 16px; margin:0; font-size:13px; }
 .receipt-grid dt { color:var(--muted); white-space:nowrap; }
 .receipt-grid dd { margin:0; color:var(--text); overflow-wrap:anywhere; }
 .receipt-tagline { padding:0 16px 14px; font-size:11px; color:var(--dim); font-style:italic; }
@@ -1702,6 +1702,14 @@ function canvasToPdfBytes(canvas) {
 
 function renderReceiptCard(data) {
   if (!data?.receipt_id) return fill($("x402Receipt"));
+  /* Still built for the two downloads below -- a PNG/PDF has to be a flat
+   * image -- but it no longer doubles as the on-page preview. A canvas has
+   * a fixed pixel width, so stretching it to the panel's full width (the
+   * old `img ... width:100%`) is what was blowing the whole card up; and a
+   * bare URL, having no spaces to wrap on, was simply drawn past that fixed
+   * edge and lost. Real markup below fixes both: it sizes the same as every
+   * other card on this page, and a long value wraps (.receipt-grid dd is
+   * overflow-wrap:anywhere) instead of running off anywhere. */
   const canvas = drawReceiptCanvas(data);
   const filenameBase = `mnemosyne-receipt-${data.receipt_id}`;
 
@@ -1718,9 +1726,24 @@ function renderReceiptCard(data) {
     finally { pdfBtn.disabled = false; pdfBtn.textContent = was; }
   });
 
-  const img = h("img", { src: canvas.toDataURL("image/png"), alt: "Receipt preview", style: "display:block;width:100%;height:auto;" });
+  // A real link, not a picture of one, and only when the server actually gave us a URL.
+  const proofValue = data.explorer ? ext(data.explorer, data.explorer)
+    : (data.settlement || (data.mock ? "mock settlement (no on-chain tx)" : "—"));
+  const rows = [
+    ["Receipt", data.receipt_id],
+    ["Result", data.match ? "Match" : "No match"],
+    ...(data.match && data.citation_id ? [["Lesson", `${data.citation_id} · ${pretty(data.category)}`]] : []),
+    ...(data.advice ? [["Advice", data.advice]] : []),
+    ["Paid", data.amount ? money(data.amount, data.asset) : (data.mock ? "test payment (nothing real charged)" : "—")],
+    ["Payer", data.payer || data.source_controlled_by || "—"],
+    ["When", data.created_at ? when(data.created_at) : "—"],
+    ["Proof", proofValue],
+  ];
+
   fill($("x402Receipt"), h("div", { class: "receipt" },
-    h("div", { style: "padding:14px 16px 0" }, img),
+    h("div", { class: "receipt-top" }, h("span", { class: "brandline" }, h("span", { class: "dot" }), "Mnemosyne · Receipt")),
+    h("dl", { class: "receipt-grid" }, rows.flatMap(([label, value]) => [h("dt", {}, label), h("dd", {}, value)])),
+    h("div", { class: "receipt-tagline" }, "Sealed decisions. Paid answers. Testnet — the reasoning behind this stays private."),
     h("div", { class: "receipt-actions" }, pngBtn, pdfBtn)));
 }
 

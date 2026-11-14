@@ -652,6 +652,25 @@ describe("the real pages on disk", () => {
     assert.match(html, /window\.open\(/, "sign-in opens in a popup over the desk, same as /pay");
     assert.match(html, /mnemosyne-login/, "the sign-in popup has its own window name and message source");
   });
+
+  it("the x402 receipt card on the page is real markup, not a stretched image, and Proof is a clickable link", () => {
+    const html = readFileSync(join(WEB, "dashboard.html"), "utf8");
+    const fn = html.match(/function renderReceiptCard\([\s\S]*?\n\}/)?.[0];
+    assert.ok(fn, "renderReceiptCard() found in the page");
+
+    // The canvas is still built (Download PNG/PDF need it), but it must no
+    // longer also be stretched into the on-page preview: that's what blew a
+    // fixed 560px-wide drawing up to the panel's full width.
+    assert.doesNotMatch(fn, /alt:\s*["'`]Receipt preview["'`]/, "no more canvas screenshot standing in for the card");
+    assert.doesNotMatch(fn, /width:100%;height:auto/, "nothing in the card is stretched to the panel's full width");
+
+    // The real card: a sized grid of fields, not a picture of one.
+    assert.match(fn, /class:\s*["'`]receipt-grid["'`]/, "renders the page's own receipt-grid layout");
+    assert.match(fn, /h\(\s*["'`]dl["'`]/, "fields are real dt/dd markup, which can wrap, not canvas pixels, which can't");
+
+    // Proof: a real <a>, built from the server's own explorer URL, when there is one.
+    assert.match(fn, /data\.explorer\s*\?\s*ext\(data\.explorer/, "Proof becomes a real, clickable link when the server gives us a URL");
+  });
 });
 
 /**
