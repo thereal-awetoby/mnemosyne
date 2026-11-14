@@ -21,10 +21,14 @@ Say plainly at the end: it does not trade (losses are a labelled simulation), cr
 
 ## 2. Post on X (a human must post it)
 
-Must say it was built at NEAR HACKATHON and show the video or screenshots. Draft (273 characters with the link counted as 23):
+Must say it was built at NEAR HACKATHON and show the video or screenshots. Draft (224 characters with the link counted as 23, leaving room to add tags and a live-demo link):
 
 ```
-Built at NEAR HACKATHON: Mnemosyne, a governor agent that never trades. It decides privately in a NEAR AI Cloud TEE, commits a hash on NEAR first, and only then do report-only sub-agents act. No memory, no money. Agents pay per check via x402. Repo: <GITHUB URL>
+Mnemosyne: an AI agent that decides in private, proves it on NEAR, and lets other agents pay to avoid mistakes it already learned from.
+
+Built at NEAR HACKATHON. No trading, no hidden strategy.
+
+Repo: <GITHUB URL>
 ```
 
 ## 3. The form at https://nearhackathon.com/#apply
