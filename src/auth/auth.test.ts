@@ -551,6 +551,13 @@ describe("the real pages on disk", () => {
     assert.doesNotMatch(html, /ADMIN|GOVERNOR_PRIVATE_KEY|\/cycle\/run|\/limits/, "the login page knows nothing of operator routes");
   });
 
+  it("web/login.html also uses the popup pattern: reports back to an opener and closes, instead of only navigating on", () => {
+    const html = readFileSync(join(WEB, "login.html"), "utf8");
+    assert.match(html, /window\.opener/, "detects being opened as a popup from the desk");
+    assert.match(html, /postMessage\(\{\s*source:\s*["'`]mnemosyne-login["'`]/, "reports success back under its own message source");
+    assert.match(html, /window\.close\(\)/, "can close itself once it has reported back");
+  });
+
   it("web/dashboard.html: no wallet code and no outside scripts; the operator routes are only ever called with a Bearer token", () => {
     const html = readFileSync(join(WEB, "dashboard.html"), "utf8");
     assert.doesNotMatch(html, /<script[^>]*\ssrc=/, "the dashboard loads no script files");
@@ -632,6 +639,18 @@ describe("the real pages on disk", () => {
     assert.match(html, /window\.open\(/, "the wallet opens in a popup over the desk");
     assert.doesNotMatch(html, /<iframe|\.src\s*=\s*["'`]\/pay/, "never framed: /pay refuses to be framed");
     assert.match(html, /e\.origin !== location\.origin/, "the popup's result is accepted only from this same origin");
+  });
+
+  it("web/dashboard.html sends /login the same way: a popup over the desk, never a page to navigate away to", () => {
+    const html = readFileSync(join(WEB, "dashboard.html"), "utf8");
+    assert.match(html, /href:\s*["'`]\/login["'`]/, "the dashboard still renders plain /login links as the underlying markup");
+    assert.doesNotMatch(html, /near-connect|NearConnector|signMessage\(/, "wallet-connector code lives only on /login and /pay, never the dashboard");
+
+    // Same pattern as /pay (tested above), applied to every /login link too:
+    // a click is caught before it navigates and opens a popup instead.
+    assert.match(html, /a\[href\^=['"`]\/login['"`]\]/, "clicks on /login links are caught at the document level");
+    assert.match(html, /window\.open\(/, "sign-in opens in a popup over the desk, same as /pay");
+    assert.match(html, /mnemosyne-login/, "the sign-in popup has its own window name and message source");
   });
 });
 

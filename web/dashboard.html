@@ -1042,6 +1042,38 @@ document.addEventListener("click", (e) => {
   b.setAttribute("aria-expanded", String(!text.hidden));
 });
 
+/* Sign-in/sign-up needs wallet-connect code this page deliberately never
+ * loads (see openPayPopup further down). Same popup pattern: the desk stays
+ * in place and the popup reports back on success, instead of every /login
+ * link leaving via a full-page navigation. */
+let LOGIN_WIN = null;
+function openLoginPopup(url) {
+  const w = 420, ht = 640;
+  const left = Math.max(0, Math.round(screenX + (outerWidth - w) / 2));
+  const top = Math.max(0, Math.round(screenY + (outerHeight - ht) / 3));
+  const popupUrl = url + (url.includes("?") ? "&" : "?") + "popup=1";
+  try { LOGIN_WIN = window.open(popupUrl, "mnemosyne-login", `width=${w},height=${ht},left=${left},top=${top},resizable=yes,scrollbars=yes`); } catch { LOGIN_WIN = null; }
+  if (!LOGIN_WIN) {
+    return flash("err", "Your browser blocked the sign-in window. ",
+      h("a", { href: url, onclick: (e) => e.stopPropagation() }, "Open /login directly"), " instead.");
+  }
+  try { LOGIN_WIN.focus(); } catch {}
+}
+document.addEventListener("click", (e) => {
+  const a = e.target.closest?.("a[href^='/login']");
+  if (!a) return;
+  e.preventDefault();
+  openLoginPopup(a.getAttribute("href"));
+});
+/* The popup posts back when sign-in or sign-up finishes. Same-origin only. */
+addEventListener("message", (e) => {
+  if (e.origin !== location.origin || e.data?.source !== "mnemosyne-login") return;
+  LOGIN_WIN = null;
+  flash("good", "Signed in.");
+  setTimeout(() => { if ($("flash").textContent === "Signed in.") flash("", ""); }, 3000);
+  load();
+});
+
 async function signOut() {
   await api("POST", "/auth/logout", {});
   ME = null; RECEIPTS = [];

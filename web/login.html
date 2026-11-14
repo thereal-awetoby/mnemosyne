@@ -21,8 +21,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
 .brand h1 { font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-.top a { color: var(--muted); font-size: 12px; text-decoration: none; }
-.top a:hover { color: var(--text); }
+.top a, .top button.link { color: var(--muted); font-size: 12px; text-decoration: none; background: none; border: 0; cursor: pointer; font-family: inherit; }
+.top a:hover, .top button.link:hover { color: var(--text); }
 main { flex: 1; display: flex; justify-content: center; align-items: center; padding: 24px 16px 64px; }
 .card { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 28px 26px; }
 .card-h { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); margin-bottom: 18px; }
@@ -57,7 +57,8 @@ code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
 <body>
 <header class="top">
   <div class="brand"><span class="dot"></span><h1>Mnemosyne</h1></div>
-  <a href="/dashboard">← Back</a>
+  <a id="backLink" href="/dashboard">← Back</a>
+  <button class="link" type="button" id="closeBtn" hidden>Close</button>
 </header>
 
 <main>
@@ -93,6 +94,12 @@ code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
         <p class="small">You start with 50 checks and 0.05 NEAR a day. Change it any time.</p>
         <button class="btn link" id="btnOther" type="button">Use a different wallet</button>
       </section>
+
+      <!-- 3. popup done -->
+      <section id="viewDone" class="card-b" hidden>
+        <h2>Signed in</h2>
+        <p>You can close this window now.</p>
+      </section>
   </div>
 </main>
 
@@ -114,11 +121,23 @@ function bytesFromB64(b64) {
   return out;
 }
 
+const PARAMS = new URLSearchParams(location.search);
+
 /* where to go after signing in -- only a same-site relative path, so this can never redirect off this server */
 const NEXT = (() => {
-  const n = new URLSearchParams(location.search).get("next");
+  const n = PARAMS.get("next");
   return n && n.startsWith("/") && !n.startsWith("//") ? n : "/dashboard";
 })();
+
+/* Opened from the desk as a popup: hand the result back to the opener and
+ * close, instead of leaving someone on a dead page to navigate back from. */
+const POPUP = PARAMS.has("popup") && !!window.opener;
+
+/** Tell the desk sign-in finished, so it can refresh without a page reload. Same-origin only. */
+function tellOpener(result) {
+  if (!POPUP) return;
+  try { window.opener.postMessage({ source: "mnemosyne-login", result }, location.origin); } catch {}
+}
 
 async function call(method, path, body) {
   const r = await fetch(path, {
@@ -139,7 +158,15 @@ const errText = (res) =>
 function show(view) {
   $("viewConnect").hidden = view !== "connect";
   $("viewSignup").hidden = view !== "signup";
-  $("cardTitle").textContent = view === "signup" ? "Step 2 of 2" : "Sign in";
+  $("viewDone").hidden = view !== "done";
+  $("cardTitle").textContent = view === "signup" ? "Step 2 of 2" : view === "done" ? "Signed in" : "Sign in";
+}
+
+/* Popup mode only: wrap up in place instead of navigating this little window. */
+function finishPopup() {
+  show("done");
+  $("closeBtn").hidden = false;
+  setTimeout(() => { try { window.close(); } catch {} }, 1500);
 }
 
 function showSignup(account) {
@@ -183,7 +210,10 @@ async function signIn() {
     if (!v.ok) throw new Error(errText(v));
 
     setStatus("", null);
-    if (v.body.signed_up) return location.assign(NEXT);
+    if (v.body.signed_up) {
+      tellOpener({ signed_in: true, account_id: v.body.account_id });
+      return POPUP ? finishPopup() : location.assign(NEXT);
+    }
     showSignup(v.body.account_id);
   } catch (err) {
     setStatus("err", err.message || String(err));
@@ -201,7 +231,10 @@ async function signUp() {
   say($("signupMsg"), "", "Creating your account…");
   const name = $("displayName").value.trim();
   const res = await call("POST", "/me/signup", { accepted: $("accept").checked, display_name: name || undefined });
-  if (res.ok || res.status === 409) return location.assign(NEXT);   // 409: already has a profile
+  if (res.ok || res.status === 409) {   // 409: already has a profile
+    tellOpener({ signed_in: true, account_id: $("signupAcct").textContent });
+    return POPUP ? finishPopup() : location.assign(NEXT);
+  }
   say($("signupMsg"), "err", errText(res));
   syncSignupButton();
 }
@@ -219,14 +252,21 @@ $("btnConnect").addEventListener("click", signIn);
 $("accept").addEventListener("change", syncSignupButton);
 $("btnSignup").addEventListener("click", signUp);
 $("btnOther").addEventListener("click", useOther);
+$("closeBtn").addEventListener("click", () => { try { window.close(); } catch {} });
 $("displayName").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("btnSignup").disabled) signUp(); });
+
+if (POPUP) { $("backLink").hidden = true; $("closeBtn").hidden = false; }
 
 /* already signed in? skip ahead */
 (async () => {
   try {
     const me = await call("GET", "/me");
     if (!me.ok) return;
-    if (me.body.signed_up) location.replace(NEXT); else showSignup(me.body.account_id);
+    if (me.body.signed_up) {
+      tellOpener({ signed_in: true, account_id: me.body.account_id });
+      return POPUP ? finishPopup() : location.replace(NEXT);
+    }
+    showSignup(me.body.account_id);
   } catch {}
 })();
 </script>
