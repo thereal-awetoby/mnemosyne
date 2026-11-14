@@ -1080,7 +1080,7 @@ function renderDesk(d) {
     fill($("cards"),
       h("div", { class: "card" }, h("div", { class: "label" }, "Last decision"),
         h("div", { class: "value" }, isTee(r) ? "Decided in private" : decidedLabel(r)),
-        h("div", { class: "sub", title: isTee(r) ? `Model: ${r.tee?.model}${k.tdx === "not_checked" ? " (Intel chip not checked on this run)" : ""}` : undefined }, isTee(r) ? "By an AI model in a sealed chip (TEE)" : "No sealed chip was used")),
+        h("div", { class: "sub", title: isTee(r) && k.tdx === "not_checked" ? "Intel chip not checked on this run" : undefined }, isTee(r) ? `By ${r.tee?.model ?? "an AI model"} in a sealed chip (TEE)` : "No sealed chip was used")),
       h("div", { class: "card" }, h("div", { class: "label" }, "Proof on NEAR"),
         h("div", { class: "value m" }, hashEl(r.decision_hash, 0, 0, head(bare(r.decision_hash), 8))),
         h("div", { class: "foot" }, committed === false ? h("span", { class: "bad" }, "Not written, so nothing moved") : run ? txLink(run.commit_tx, "View on NEAR \u2197") : h("span", { class: "faint" }, "Older record, no link saved"))),
